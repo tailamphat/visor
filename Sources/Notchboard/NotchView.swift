@@ -9,13 +9,17 @@ struct NotchLayout {
     static let earWidth: CGFloat = 38
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 162)
+    static let musicSize = CGSize(width: 580, height: 140)
     /// The window is a little larger than the biggest panel, room for the shadow.
     static let windowSize = CGSize(width: 620, height: 240)
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 
     func size(for model: AppModel) -> CGSize {
-        if model.expanded { return model.approvals.isEmpty ? Self.expandedSize : Self.approvalSize }
+        if model.expanded {
+            if !model.approvals.isEmpty { return Self.approvalSize }
+            return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
+        }
         let ears = showsEars(model) ? 2 * Self.earWidth : 0
         return CGSize(width: notch.width + ears + 2 * flare(expanded: false), height: notch.height)
     }
@@ -45,7 +49,16 @@ struct NotchView: View {
             }
         }
         .frame(width: size.width, height: size.height, alignment: .top)
+        .background(alignment: .topLeading) {
+            // Album-art glow behind the music panel.
+            if model.showsMusic, let tint = model.artworkTint {
+                RadialGradient(colors: [Color(nsColor: tint).opacity(0.7), Color(nsColor: tint).opacity(0.18), .clear],
+                               center: UnitPoint(x: 0.12, y: 0.75), startRadius: 0, endRadius: 420)
+                    .transition(.opacity)
+            }
+        }
         .background(Theme.surface)
+        .animation(.easeOut(duration: 0.4), value: model.artworkTint)
         .clipShape(shape)
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
         .animation(Theme.spring, value: model.expanded)

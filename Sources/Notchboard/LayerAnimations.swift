@@ -75,6 +75,7 @@ struct EqualizerBars: NSViewRepresentable {
 
     func updateNSView(_ view: NSView, context: Context) {
         for (i, bar) in (view.layer?.sublayers ?? []).enumerated() {
+            bar.backgroundColor = color.cgColor
             if active, bar.animation(forKey: "bounce") == nil {
                 let bounce = CABasicAnimation(keyPath: "transform.scale.y")
                 bounce.fromValue = 0.25

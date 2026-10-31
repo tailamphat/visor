@@ -92,12 +92,14 @@ final class MusicService {
         guard let pick else {
             artworkKey = nil
             model.artwork = nil
+            model.artworkTint = nil
             return
         }
         let key = "\(pick.sourceName)|\(pick.title)|\(pick.album)"
         if key != artworkKey {
             artworkKey = key
             model.artwork = nil
+            model.artworkTint = nil
             loadArtwork(for: pick, key: key)
         }
     }
@@ -429,13 +431,32 @@ final class MusicService {
         return (error == nil ? result : nil, error)
     }
 
+    /// The artwork's overall colour, lifted so it glows on black: its average,
+    /// with saturation and brightness raised where the art is muted or dark.
+    nonisolated static func tint(of image: NSImage) -> NSColor? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .medium
+        context.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        let average = NSColor(srgbRed: CGFloat(pixel[0]) / 255, green: CGFloat(pixel[1]) / 255,
+                              blue: CGFloat(pixel[2]) / 255, alpha: 1)
+        guard let hsb = average.usingColorSpace(.sRGB) else { return average }
+        return NSColor(hue: hsb.hueComponent, saturation: max(hsb.saturationComponent, 0.45),
+                       brightness: max(hsb.brightnessComponent, 0.7), alpha: 1)
+    }
+
     private func loadArtwork(for item: NowPlaying, key: String) {
         let show: @Sendable (Data?) -> Void = { data in
             let image = data.flatMap(NSImage.init(data:))
+            let tint = image.flatMap(Self.tint(of:))
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard self.artworkKey == key else { return }
                     self.model.artwork = image
+                    self.model.artworkTint = tint
                 }
             }
         }

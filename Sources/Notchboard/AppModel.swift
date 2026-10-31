@@ -76,6 +76,8 @@ final class AppModel {
     // Music
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
+    /// The artwork's colour, for the music panel's glow.
+    var artworkTint: NSColor?
 
     /// Set by the hook server; answers an approval.
     var decide: ((ApprovalRequest, ApprovalRequest.Decision?) -> Void)?
@@ -85,6 +87,8 @@ final class AppModel {
 
     var hasActivity: Bool { board.working + board.waiting > 0 || !approvals.isEmpty }
     var isPlaying: Bool { nowPlaying?.isPlaying == true }
+    /// The music panel is the one showing (an approval card takes over otherwise).
+    var showsMusic: Bool { expanded && tab == .music && approvals.isEmpty }
 }
 
 enum MusicCommand { case playPause, next, previous }

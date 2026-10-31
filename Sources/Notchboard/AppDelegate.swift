@@ -32,7 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         notch.onExpand = { [weak self] tab in if tab == .usage { self?.usage.refreshIfStale() } }
         notch.start()
         usage.start()
-        music.start()
+        // NOTCHBOARD_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
+        if ProcessInfo.processInfo.environment["NOTCHBOARD_NO_MUSIC"] == nil { music.start() }
         setUpStatusItem()
 
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -53,6 +54,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Debug builds: {"event":"_decide","raw":{"decision":"allow|deny"}} answers the first approval.
         if message.event == "_decide", let first = model.approvals.first {
             decide(first, message.payload["decision"] as? String == "deny" ? .deny : .allow)
+            return
+        }
+        // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true}} fakes a song.
+        if message.event == "_music" {
+            let p = message.payload
+            let image = (p["art"] as? String).flatMap { NSImage(contentsOfFile: $0) }
+            model.nowPlaying = NowPlaying(source: .browser(bundleID: "company.thebrowser.dia", tab: "", scriptable: false),
+                                          sourceName: p["source"] as? String ?? "Dia · YouTube",
+                                          title: p["title"] as? String ?? "", artist: p["artist"] as? String ?? "",
+                                          album: "", duration: (p["duration"] as? NSNumber)?.doubleValue ?? 0,
+                                          position: (p["position"] as? NSNumber)?.doubleValue ?? 0, positionAt: Date(),
+                                          isPlaying: p["playing"] as? Bool ?? true)
+            model.artwork = image
+            model.artworkTint = image.flatMap(MusicService.tint(of:))
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.

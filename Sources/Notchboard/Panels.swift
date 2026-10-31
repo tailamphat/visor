@@ -348,42 +348,58 @@ struct DailyBars: View {
 
 // MARK: Music
 
+/// One compact row lit by the artwork's colour: artwork, title and progress,
+/// and the controls with a big play button.
 struct MusicView: View {
     let model: AppModel
 
     var body: some View {
         if let now = model.nowPlaying {
-            HStack(spacing: 16) {
-                Artwork(image: model.artwork, size: 112, corner: 14)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(now.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                    Text(now.artist).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                    Text(now.album).font(.system(size: 11)).foregroundStyle(Theme.textMuted).lineLimit(1)
-                    Spacer(minLength: 4)
-                    if now.duration > 0 { Progress(now: now) }
-                    HStack(spacing: 22) {
-                        control("backward.fill", .previous)
-                        control(now.isPlaying ? "pause.fill" : "play.fill", .playPause, size: 22)
-                        control("forward.fill", .next)
-                        Spacer()
-                        Text(now.sourceName).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+            let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
+            HStack(spacing: 14) {
+                Artwork(image: model.artwork, size: 72, corner: 12)
+                    .shadow(color: Color(nsColor: tint).opacity(0.5), radius: 12, y: 4)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(now.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1).help(now.title)
+                        EqualizerBars(color: tint, active: now.isPlaying)
                     }
-                    if now.usesMediaKeys && !MediaKeys.isAllowed {
-                        Text("Controls use your media keys: allow Notchboard in System Settings \u{203A} Privacy & Security \u{203A} Accessibility.")
-                            .font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Spacer(minLength: 2)
+                    if now.duration > 0 {
+                        Progress(now: now)
+                    } else if now.usesMediaKeys && !MediaKeys.isAllowed {
+                        Text("Allow Notchboard under Privacy & Security \u{203A} Accessibility to use the controls.")
+                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    control("backward.fill", .previous)
+                    Button { model.musicCommand?(.playPause) } label: {
+                        Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 18)).foregroundStyle(.black)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill(Color(nsColor: tint)))
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    control("forward.fill", .next)
+                }
             }
+            .frame(height: 76)
         } else {
             EmptyState(symbol: "music.note", title: "Nothing playing",
                        detail: "Play something in Spotify, Apple Music, or YouTube in your browser.")
         }
     }
 
-    private func control(_ symbol: String, _ command: MusicCommand, size: CGFloat = 15) -> some View {
+    private func control(_ symbol: String, _ command: MusicCommand) -> some View {
         Button { model.musicCommand?(command) } label: {
-            Image(systemName: symbol).font(.system(size: size)).foregroundStyle(Theme.textPrimary)
-                .frame(width: 30, height: 28).contentShape(Rectangle())
+            Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(Theme.textPrimary)
+                .frame(width: 30, height: 30).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -396,23 +412,22 @@ struct Progress: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let position = now.position(at: context.date)
-            VStack(spacing: 3) {
+            HStack(spacing: 8) {
+                Text(Self.time(position))
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.15))
                         Capsule().fill(Theme.textPrimary)
-                            .frame(width: now.duration > 0 ? geo.size.width * position / now.duration : 0)
+                            .frame(width: now.duration > 0 ? geo.size.width * min(1, position / now.duration) : 0)
                     }
+                    .frame(height: 4)
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(height: 4)
-                HStack {
-                    Text(Self.time(position))
-                    Spacer()
-                    Text("-" + Self.time(max(0, now.duration - position)))
-                }
-                .font(.system(size: 10).monospacedDigit())
-                .foregroundStyle(Theme.textMuted)
+                Text(Self.time(now.duration))
             }
+            .frame(height: 14)
+            .font(.system(size: 10).monospacedDigit())
+            .foregroundStyle(Theme.textMuted)
         }
     }
 
