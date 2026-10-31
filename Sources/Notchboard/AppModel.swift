@@ -80,6 +80,8 @@ final class AppModel {
     var artworkTint: NSColor?
     /// Blurred artwork behind the music panel.
     var artworkBackdrop: NSImage?
+    /// Whether the media keys can be pressed (Accessibility permission).
+    var mediaKeysAllowed = MediaKeys.isAllowed
     /// System output volume, 0...1; nil until read.
     var volume: Double?
 

@@ -156,6 +156,11 @@ final class MusicService {
     // MARK: Browsers
 
     private func audioTick() {
+        // Notice the Accessibility permission being granted while its hint shows.
+        if model.nowPlaying?.usesMediaKeys == true || !model.mediaKeysAllowed {
+            let allowed = MediaKeys.isAllowed
+            if allowed != model.mediaKeysAllowed { model.mediaKeysAllowed = allowed }
+        }
         let now = Self.audibleBrowsers()
         let changed = now != audible
         audible = now

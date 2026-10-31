@@ -414,9 +414,9 @@ struct MusicView: View {
                     Spacer(minLength: 4)
                     if now.duration > 0 {
                         Progress(now: now)
-                    } else if now.usesMediaKeys && !MediaKeys.isAllowed {
-                        Text("Allow Notchboard under Privacy & Security \u{203A} Accessibility to use the controls.")
-                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2)
+                    } else if now.usesMediaKeys && !model.mediaKeysAllowed {
+                        AccessibilityHint()
+                            .padding(.bottom, 10)
                     }
                     // Centred in the text column, under the progress bar.
                     HStack(spacing: 18) {
@@ -464,6 +464,35 @@ struct MusicView: View {
                 .frame(width: 30, height: 30).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Shown while the media keys can't be pressed: a soft amber box that opens
+/// the Accessibility page of System Settings. Gone once permission is given.
+struct AccessibilityHint: View {
+    var body: some View {
+        Button {
+            MediaKeys.requestPermission()
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "lock.fill").font(.system(size: 10, weight: .semibold))
+                Text("Allow Accessibility to use the controls").lineLimit(1)
+                Spacer(minLength: 6)
+                Text("Open Settings \u{203A}").fontWeight(.semibold).foregroundStyle(Theme.warning)
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(Color(hex: 0xF3D38B))
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.warning.opacity(0.13)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.warning.opacity(0.22), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Notchboard presses the media keys to control the browser, which needs Accessibility permission.")
     }
 }
 

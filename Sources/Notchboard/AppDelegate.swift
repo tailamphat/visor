@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.artwork = image
             model.artworkTint = image.flatMap(MusicService.tint(of:))
             model.artworkBackdrop = image.flatMap(MusicService.backdrop(of:))
+            if let allowed = p["mediaKeysAllowed"] as? Bool { model.mediaKeysAllowed = allowed }
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.
