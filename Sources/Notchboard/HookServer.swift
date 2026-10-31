@@ -16,7 +16,9 @@ final class HookServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "notchboard.hooks")
     private var listener: DispatchSourceRead?
     /// Open PermissionRequest connections by approval id. Touched on `queue` only.
-    private var pending: [UUID: (fd: Int32, session: String)] = [:]
+    private var pending: [UUID: Held] = [:]
+    private struct Held { var fd: Int32; var session: String; var tool: String; var hookPID: Int32 }
+    private var watchingHooks = false
 
     /// Called on the main thread for every event, and when an approval goes away
     /// on its own (it timed out or Claude Code moved on).
@@ -101,7 +103,8 @@ final class HookServer: @unchecked Sendable {
         guard let message = HookMessage.parse(line) else { return false }
         let approval = ApprovalRequest(message)
         if let approval {
-            pending[approval.id] = (client, approval.sessionID)
+            pending[approval.id] = Held(fd: client, session: approval.sessionID, tool: approval.tool, hookPID: message.hookPID)
+            watchHooks()
             // The hook's nc gives up at 110s; let go just before so the card doesn't linger.
             queue.asyncAfter(deadline: .now() + 108) { [weak self] in self?.release(approval.id) }
         }
@@ -121,11 +124,29 @@ final class HookServer: @unchecked Sendable {
         }
     }
 
-    /// Lets go of every approval a session is holding, e.g. after the user
-    /// interrupted Claude Code and it moved on.
-    func releaseApprovals(session: String) {
+    /// Lets go of approvals a session is holding (optionally only for one tool)
+    /// once it has moved on, e.g. the user answered in the terminal instead.
+    func releaseApprovals(session: String, tool: String? = nil) {
         queue.async {
-            for (id, held) in self.pending where held.session == session { self.release(id) }
+            for (id, held) in self.pending where held.session == session && (tool == nil || held.tool == tool) {
+                self.release(id)
+            }
+        }
+    }
+
+    /// Claude Code stops waiting for the hook when you answer in the terminal.
+    /// nc has already half-closed the socket, so a closed connection can't be
+    /// seen; instead check once a second whether the hook process still exists.
+    private func watchHooks() {
+        guard !watchingHooks else { return }
+        watchingHooks = true
+        queue.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            self.watchingHooks = false
+            for (id, held) in self.pending where held.hookPID > 0 && kill(held.hookPID, 0) != 0 && errno == ESRCH {
+                self.release(id)
+            }
+            if !self.pending.isEmpty { self.watchHooks() }
         }
     }
 

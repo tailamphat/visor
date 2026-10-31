@@ -3,7 +3,7 @@ import Foundation
 /// Installs agent-hook.sh and registers it for Claude Code's hook events in
 /// ~/.claude/settings.json. Other hooks (other apps, the user's own) are kept.
 enum HookInstaller {
-    static let events = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+    static let events = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
                          "PermissionRequest", "Notification", "Stop"]
 
     static var scriptURL: URL { HookServer.directory.appendingPathComponent("agent-hook.sh") }
@@ -21,7 +21,7 @@ enum HookInstaller {
     d=$(cat)
     [ -S "$s" ] || exit 0
     [ -n "$d" ] || d='{}'
-    m=$(printf '{"event":"%s","pid":%s,"raw":%s}' "$e" "$PPID" "$d")
+    m=$(printf '{"event":"%s","pid":%s,"hpid":%s,"raw":%s}' "$e" "$PPID" "$$" "$d")
     if [ "$e" = "PermissionRequest" ]; then
       printf '%s\\n' "$m" | /usr/bin/nc -U -w 110 "$s" 2>/dev/null
     else
@@ -33,10 +33,12 @@ enum HookInstaller {
 
     private static func command(_ event: String) -> String { "\"\(scriptURL.path)\" \(event)" }
 
+    /// Connected at all, even by an older version with fewer events; launch
+    /// then re-installs to bring the script and event list up to date.
     static var isInstalled: Bool {
         guard FileManager.default.isExecutableFile(atPath: scriptURL.path),
               let hooks = readSettings()?["hooks"] as? [String: Any] else { return false }
-        return events.allSatisfy { event in
+        return events.contains { event in
             (hooks[event] as? [[String: Any]] ?? []).contains(where: isOurs)
         }
     }

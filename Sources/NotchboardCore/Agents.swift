@@ -5,6 +5,8 @@ public struct HookMessage: @unchecked Sendable {
     public var event: String
     /// The Claude Code process that ran the hook.
     public var pid: Int32
+    /// The hook script's own process; it exits when Claude Code stops waiting on it.
+    public var hookPID: Int32 = 0
     public var payload: [String: Any]
 
     public init(event: String, pid: Int32, payload: [String: Any]) {
@@ -19,7 +21,9 @@ public struct HookMessage: @unchecked Sendable {
               let event = object["event"] as? String else { return nil }
         let pid = (object["pid"] as? NSNumber)?.int32Value ?? 0
         let raw = object["raw"] as? [String: Any] ?? [:]
-        return HookMessage(event: event, pid: pid, payload: raw)
+        var message = HookMessage(event: event, pid: pid, payload: raw)
+        message.hookPID = (object["hpid"] as? NSNumber)?.int32Value ?? 0
+        return message
     }
 
     public var sessionID: String? { payload["session_id"] as? String }

@@ -171,6 +171,7 @@ do {
     check(decision(.deny)["behavior"] as? String == "deny", "deny")
     check((decision(.allowAlways)["updatedPermissions"] as? [Any])?.count == 1, "always allow echoes the suggestion")
     check(request.reply(.allow).last == 0x0A, "reply is one line")
+    check(HookMessage.parse(Data(#"{"event":"Stop","pid":1,"hpid":77,"raw":{}}"#.utf8))?.hookPID == 77, "hook pid is read")
     check(ApprovalRequest(HookMessage.parse(Data(#"{"event":"PreToolUse","raw":{"session_id":"s"}}"#.utf8))!) == nil,
           "only PermissionRequest makes an approval")
 }

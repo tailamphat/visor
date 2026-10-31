@@ -67,8 +67,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         message.pid = ProcessTree.claudeAncestor(of: message.pid)
         model.board.apply(message)
         // The session moved on (interrupted, new prompt, exit): its approvals are moot.
-        if let session = message.sessionID, ["UserPromptSubmit", "Stop", "SessionEnd"].contains(message.event) {
-            hooks.releaseApprovals(session: session)
+        if let session = message.sessionID {
+            switch message.event {
+            case "UserPromptSubmit", "Stop", "SessionEnd":
+                hooks.releaseApprovals(session: session)
+            case "PostToolUse", "PostToolUseFailure":
+                // The tool ran (or failed): the question was answered, maybe in the terminal.
+                hooks.releaseApprovals(session: session, tool: message.toolName)
+            case "Notification" where message.payload["notification_type"] as? String == "idle_prompt":
+                hooks.releaseApprovals(session: session)
+            default:
+                break
+            }
         }
         if let approval {
             model.approvals.append(approval)
