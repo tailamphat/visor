@@ -165,6 +165,7 @@ do {
     check(request.tool == "Bash" && request.preview == "rm -rf build" && request.project == "app", "approval fields")
     check(request.suggestions.count == 1, "suggestions kept for always-allow")
     check(request.alwaysAllowLabel == "rm", "always-allow names the rule")
+    check(request.action == "run a command", "Bash is running a command")
     func label(_ suggestions: String) -> String? {
         let line = #"{"event":"PermissionRequest","raw":{"session_id":"s","tool_name":"Edit","tool_input":{},"permission_suggestions":"# + suggestions + "}}"
         return ApprovalRequest(HookMessage.parse(Data(line.utf8))!)!.alwaysAllowLabel

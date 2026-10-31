@@ -179,13 +179,13 @@ struct ApprovalView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 9) {
             let session = model.board.sessions.first { $0.id == request.sessionID }
-            // Who is asking: agent, where it runs, which project, and its task.
-            HStack(spacing: 6) {
-                Image(systemName: "hand.raised.fill").foregroundStyle(Theme.warning)
+            // Who is asking: agent, where it runs, which project.
+            HStack(spacing: 7) {
+                AgentIcon(size: 22)
                 Text(session?.agent ?? "Claude Code")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.claude)
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(hex: 0xF0A58A))
                 Text(Self.place(session: session, project: request.project))
                     .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()
@@ -193,22 +193,25 @@ struct ApprovalView: View {
                     Text("+\(model.approvals.count - 1) more").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("wants to use \(request.tool)")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            // What it wants, and the task it's working on.
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text("wants to \(request.action)")
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 if let task = session?.task {
                     Text("· \(task)").font(.system(size: 11)).foregroundStyle(Theme.textMuted).lineLimit(1)
                         .help(task)
                 }
             }
-            Text(request.preview)
-                .font(.system(size: 11.5, design: .monospaced))
+            (Text(request.tool == "Bash" ? "$ " : "").foregroundColor(Theme.textMuted) + Text(request.preview))
+                .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(3)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.raised))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.07)))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             HStack(spacing: 8) {
                 Button { model.decide?(request, .deny) } label: {
                     Label("Deny", systemImage: "xmark")
@@ -231,7 +234,24 @@ struct ApprovalView: View {
                 }
                 .buttonStyle(ConsentButton(kind: .allow))
             }
+            .padding(.top, 2)
         }
+        // On top of the panel's own padding: room on every side, like the music panel.
+        .padding(.horizontal, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+    }
+}
+
+/// The agent's mark: Claude's sparkle on an orange tile.
+struct AgentIcon: View {
+    var size: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
+            .fill(LinearGradient(colors: [Color(hex: 0xE48A6B), Color(hex: 0xB9583B)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: size, height: size)
+            .overlay(Image(systemName: "sparkle").font(.system(size: size * 0.5, weight: .bold)).foregroundStyle(.white))
     }
 }
 

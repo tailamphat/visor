@@ -206,6 +206,20 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         suggestions = message.payload["permission_suggestions"] as? [Any] ?? []
     }
 
+    /// What the agent wants to do, in plain words: "run a command", "edit a file".
+    public var action: String {
+        switch tool {
+        case "Bash": return "run a command"
+        case "Edit", "MultiEdit", "NotebookEdit": return "edit a file"
+        case "Write": return "create a file"
+        case "Read": return "read a file"
+        case "WebFetch": return "fetch a web page"
+        case "WebSearch": return "search the web"
+        case "Task", "Agent": return "start a subagent"
+        default: return "use \(tool)"
+        }
+    }
+
     /// What "Always allow" will allow, from Claude Code's suggested rule:
     /// "git push" for Bash(git push:*), "edits" when it offers to accept edits.
     public var alwaysAllowLabel: String? {

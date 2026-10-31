@@ -8,7 +8,7 @@ struct NotchLayout {
 
     static let earWidth: CGFloat = 38
     static let expandedSize = CGSize(width: 580, height: 200)
-    static let approvalSize = CGSize(width: 580, height: 162)
+    static let approvalSize = CGSize(width: 580, height: 196)
     static let musicSize = CGSize(width: 580, height: 196)
     /// The window is a little larger than the biggest panel, room for the shadow.
     static let windowSize = CGSize(width: 620, height: 240)
@@ -49,6 +49,14 @@ struct NotchView: View {
             }
         }
         .frame(width: size.width, height: size.height, alignment: .top)
+        .background {
+            // Approvals: a soft glow in the agent's colour from the top-left corner.
+            if model.expanded && !model.approvals.isEmpty {
+                RadialGradient(colors: [Theme.claude.opacity(0.28), .clear],
+                               center: .topLeading, startRadius: 0, endRadius: 380)
+                    .transition(.opacity)
+            }
+        }
         .background {
             // Music: blurred artwork behind a dark shade, lit by the artwork colour.
             if model.showsMusic, let backdrop = model.artworkBackdrop {
