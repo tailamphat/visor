@@ -1,0 +1,138 @@
+import Darwin
+import Foundation
+import NotchboardCore
+
+/// A Unix socket that agent-hook.sh writes Claude Code hook events to, one JSON
+/// line per connection. Most connections are closed as soon as the line is read.
+/// A PermissionRequest connection stays open until the user decides; the reply
+/// line is what the hook prints back to Claude Code.
+final class HookServer: @unchecked Sendable {
+    static var directory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Notchboard", isDirectory: true)
+    }
+    static var socketPath: String { directory.appendingPathComponent("hook.sock").path }
+
+    private let queue = DispatchQueue(label: "notchboard.hooks")
+    private var listener: DispatchSourceRead?
+    /// Open PermissionRequest connections by approval id. Touched on `queue` only.
+    private var pending: [UUID: (fd: Int32, session: String)] = [:]
+
+    /// Called on the main thread for every event, and when an approval goes away
+    /// on its own (it timed out or Claude Code moved on).
+    var onMessage: (@MainActor (HookMessage, ApprovalRequest?) -> Void)?
+    var onApprovalGone: (@MainActor (UUID) -> Void)?
+
+    func start() throws {
+        try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        let path = Self.socketPath
+        unlink(path)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8CString)
+        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw POSIXError(.ENAMETOOLONG) }
+        withUnsafeMutableBytes(of: &address.sun_path) { raw in
+            bytes.withUnsafeBytes { raw.copyMemory(from: $0) }
+        }
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, 32) == 0 else {
+            close(fd)
+            throw POSIXError(.init(rawValue: errno) ?? .EIO)
+        }
+        _ = fcntl(fd, F_SETFL, O_NONBLOCK)
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
+        source.setEventHandler { [weak self] in self?.acceptAll(fd) }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        listener = source
+    }
+
+    private func acceptAll(_ fd: Int32) {
+        while true {
+            let client = accept(fd, nil, nil)
+            guard client >= 0 else { return }
+            var on: Int32 = 1
+            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+            _ = fcntl(client, F_SETFL, O_NONBLOCK)
+            read(client)
+        }
+    }
+
+    /// Reads one line, then hands it off.
+    private func read(_ client: Int32) {
+        final class Connection { var buffer = Data(); var handled = false; var held = false }
+        let connection = Connection()
+        let source = DispatchSource.makeReadSource(fileDescriptor: client, queue: queue)
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            var chunk = [UInt8](repeating: 0, count: 16_384)
+            let n = Darwin.read(client, &chunk, chunk.count)
+            if n > 0 {
+                connection.buffer.append(contentsOf: chunk[0..<n])
+                if let newline = connection.buffer.firstIndex(of: 0x0A) {
+                    connection.handled = true
+                    connection.held = self.handle(line: connection.buffer[..<newline], client: client)
+                    source.cancel()
+                } else if connection.buffer.count > 4_000_000 {
+                    source.cancel()
+                }
+            } else if n == 0 || (errno != EAGAIN && errno != EINTR) {
+                // nc half-closes after writing, so EOF can come right after the line.
+                if !connection.handled, !connection.buffer.isEmpty {
+                    connection.held = self.handle(line: connection.buffer[...], client: client)
+                }
+                source.cancel()
+            }
+        }
+        // A held approval keeps its socket; reply() or expire() closes it.
+        source.setCancelHandler { if !connection.held { close(client) } }
+        source.resume()
+    }
+
+    /// Returns true when the connection is kept open for an approval.
+    private func handle(line: Data, client: Int32) -> Bool {
+        guard let message = HookMessage.parse(line) else { return false }
+        let approval = ApprovalRequest(message)
+        if let approval {
+            pending[approval.id] = (client, approval.sessionID)
+            // The hook's nc gives up at 110s; let go just before so the card doesn't linger.
+            queue.asyncAfter(deadline: .now() + 108) { [weak self] in self?.release(approval.id) }
+        }
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.onMessage?(message, approval) } }
+        return approval != nil
+    }
+
+    /// Answers a held approval. nil hands the decision back to the terminal.
+    func reply(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
+        queue.async {
+            guard let held = self.pending.removeValue(forKey: request.id) else { return }
+            if let decision {
+                let data = request.reply(decision)
+                data.withUnsafeBytes { _ = write(held.fd, $0.baseAddress, data.count) }
+            }
+            close(held.fd)
+        }
+    }
+
+    /// Lets go of every approval a session is holding, e.g. after the user
+    /// interrupted Claude Code and it moved on.
+    func releaseApprovals(session: String) {
+        queue.async {
+            for (id, held) in self.pending where held.session == session { self.release(id) }
+        }
+    }
+
+    /// queue only.
+    private func release(_ id: UUID) {
+        guard let held = pending.removeValue(forKey: id) else { return }
+        close(held.fd)
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.onApprovalGone?(id) } }
+    }
+}

@@ -1,0 +1,174 @@
+import AppKit
+import Darwin
+import NotchboardCore
+import ServiceManagement
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private let model = AppModel()
+    private lazy var notch = NotchController(model: model)
+    private lazy var usage = UsageService(model: model)
+    private lazy var music = MusicService(model: model)
+    private let hooks = HookServer()
+    private var statusItem: NSStatusItem?
+    private var pruneTimer: Timer?
+    private var finishedWork: DispatchWorkItem?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        model.hooksInstalled = HookInstaller.isInstalled
+        if model.hooksInstalled {
+            // Keep the script current with this version of the app.
+            try? HookInstaller.install()
+        }
+        model.installHooks = { [weak self] in self?.installHooks() }
+        model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
+        model.musicCommand = { [weak self] in self?.music.perform($0) }
+        model.decide = { [weak self] request, decision in self?.decide(request, decision) }
+
+        hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
+        hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
+        do { try hooks.start() } catch { NSLog("Notchboard: hook socket failed: \(error)") }
+
+        notch.onExpand = { [weak self] tab in if tab == .usage { self?.usage.refreshIfStale() } }
+        notch.start()
+        usage.start()
+        music.start()
+        setUpStatusItem()
+
+        pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                var board = self.model.board
+                board.prune { kill($0, 0) == 0 || errno == EPERM }
+                if board != self.model.board { self.model.board = board }
+            }
+        }
+        pruneTimer?.tolerance = 1
+    }
+
+    // MARK: Agents
+
+    private func received(_ message: HookMessage, _ approval: ApprovalRequest?) {
+        #if DEBUG
+        // Debug builds: {"event":"_decide","raw":{"decision":"allow|deny"}} answers the first approval.
+        if message.event == "_decide", let first = model.approvals.first {
+            decide(first, message.payload["decision"] as? String == "deny" ? .deny : .allow)
+            return
+        }
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.
+        if message.event == "_show" {
+            let tab = message.payload["tab"] as? String
+            model.pinned = tab != nil && tab != "none"
+            if let tab = tab.flatMap(Tab.init(rawValue:)) { model.tab = tab; notch.expand() } else { model.expanded = false }
+            return
+        }
+        #endif
+        var message = message
+        message.pid = ProcessTree.claudeAncestor(of: message.pid)
+        model.board.apply(message)
+        // The session moved on (interrupted, new prompt, exit): its approvals are moot.
+        if let session = message.sessionID, ["UserPromptSubmit", "Stop", "SessionEnd"].contains(message.event) {
+            hooks.releaseApprovals(session: session)
+        }
+        if let approval {
+            model.approvals.append(approval)
+            notch.expand()
+        }
+        if message.event == "Stop" {
+            model.justFinished = true
+            finishedWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.model.justFinished = false } }
+            finishedWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: work)
+        }
+    }
+
+    private func decide(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
+        hooks.reply(request, decision)
+        model.approvals.removeAll { $0.id == request.id }
+        if decision != nil { model.board.resolveApproval(session: request.sessionID) }
+        notch.collapseIfAway()
+    }
+
+    /// The hook gave up (timed out, or Claude Code was interrupted).
+    private func approvalGone(_ id: UUID) {
+        model.approvals.removeAll { $0.id == id }
+        notch.collapseIfAway()
+    }
+
+    private func installHooks() {
+        do {
+            try HookInstaller.install()
+            model.hooksInstalled = true
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't connect Claude Code"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+        }
+    }
+
+    // MARK: Menu bar
+
+    private func setUpStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Notchboard")
+        let menu = NSMenu()
+        menu.delegate = self
+        item.menu = menu
+        statusItem = item
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let installed = HookInstaller.isInstalled
+        model.hooksInstalled = installed
+        menu.addItem(withTitle: installed ? "Claude Code connected" : "Connect Claude Code",
+                     action: installed ? nil : #selector(connect), keyEquivalent: "").target = self
+        if installed {
+            menu.addItem(withTitle: "Disconnect Claude Code", action: #selector(disconnect), keyEquivalent: "").target = self
+        }
+        menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
+        menu.addItem(.separator())
+        let login = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
+        login.target = self
+        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit Notchboard", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+    }
+
+    @objc private func connect() { installHooks() }
+
+    @objc private func disconnect() {
+        try? HookInstaller.uninstall()
+        model.hooksInstalled = false
+    }
+
+    @objc private func refreshUsage() { usage.refreshPlan() }
+
+    @objc private func toggleLogin() {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled { try service.unregister() } else { try service.register() }
+        } catch {
+            NSLog("Notchboard: launch at login failed: \(error)")
+        }
+    }
+}
+
+enum ProcessTree {
+    /// Hooks may run under an intermediate shell; walk up to the claude process
+    /// so its exit can be noticed. Falls back to the pid given.
+    static func claudeAncestor(of pid: Int32) -> Int32 {
+        var current = pid
+        for _ in 0..<4 where current > 1 {
+            var info = proc_bsdinfo()
+            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+            guard proc_pidinfo(current, PROC_PIDTBSDINFO, 0, &info, size) == size else { break }
+            let name = withUnsafeBytes(of: info.pbi_comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+            if name.lowercased().contains("claude") { return current }
+            current = Int32(info.pbi_ppid)
+        }
+        return pid
+    }
+}
