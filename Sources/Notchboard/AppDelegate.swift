@@ -105,18 +105,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let session = message.sessionID, model.board.sessions.first(where: { $0.id == session })?.host == nil {
             model.board.setHost(ProcessTree.hostApp(of: message.pid), session: session)
         }
-        // The session moved on (interrupted, new prompt, exit): its approvals are moot.
-        if let session = message.sessionID {
-            switch message.event {
-            case "UserPromptSubmit", "Stop", "SessionEnd":
-                hooks.releaseApprovals(session: session)
-            case "PostToolUse", "PostToolUseFailure":
-                // The tool ran (or failed): the question was answered, maybe in the terminal.
-                hooks.releaseApprovals(session: session, tool: message.toolName)
-            case "Notification" where message.payload["notification_type"] as? String == "idle_prompt":
-                hooks.releaseApprovals(session: session)
-            default:
-                break
+        // The session moved on (answered in the terminal, interrupted, new prompt): its approvals are moot.
+        if let session = message.sessionID, let release = ApprovalRelease.after(message) {
+            switch release {
+            case .all: hooks.releaseApprovals(session: session)
+            case .tool(let tool): hooks.releaseApprovals(session: session, tool: tool)
             }
         }
         if let approval {

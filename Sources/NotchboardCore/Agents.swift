@@ -311,3 +311,25 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         return data
     }
 }
+
+/// Which held approvals a session's next event makes moot.
+public enum ApprovalRelease: Equatable, Sendable {
+    /// Every approval the session holds (it moved on: new prompt, idle, stop).
+    case all
+    /// Approvals for this tool (it ran or failed, so it was answered elsewhere).
+    case tool(String)
+
+    public static func after(_ message: HookMessage) -> ApprovalRelease? {
+        guard message.sessionID != nil else { return nil }
+        switch message.event {
+        case "UserPromptSubmit", "Stop", "SessionEnd":
+            return .all
+        case "PostToolUse", "PostToolUseFailure":
+            return message.toolName.map(ApprovalRelease.tool) ?? .all
+        case "Notification" where message.payload["notification_type"] as? String == "idle_prompt":
+            return .all
+        default:
+            return nil
+        }
+    }
+}

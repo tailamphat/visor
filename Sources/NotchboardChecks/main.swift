@@ -189,6 +189,22 @@ do {
     check(board.activeAgents.first?.agent == "Copilot CLI" && board.activeAgents.first?.waiting == true, "a waiting agent comes first")
 }
 
+// MARK: Approvals closing by themselves
+
+do {
+    func event(_ name: String, _ extra: String = "") -> HookMessage {
+        HookMessage.parse(Data(#"{"event":"\#(name)","pid":1,"raw":{"session_id":"s1"\#(extra)}}"#.utf8))!
+    }
+    check(ApprovalRelease.after(event("UserPromptSubmit")) == .all, "a new prompt means the question was dropped")
+    check(ApprovalRelease.after(event("Stop")) == .all && ApprovalRelease.after(event("SessionEnd")) == .all, "stopping or ending drops it")
+    check(ApprovalRelease.after(event("PostToolUse", #","tool_name":"Bash""#)) == .tool("Bash"), "the tool ran: answered in the terminal")
+    check(ApprovalRelease.after(event("PostToolUseFailure", #","tool_name":"Edit""#)) == .tool("Edit"), "the tool failed: answered too")
+    check(ApprovalRelease.after(event("Notification", #","notification_type":"idle_prompt""#)) == .all, "going idle drops it")
+    check(ApprovalRelease.after(event("Notification", #","notification_type":"permission_prompt""#)) == nil, "a permission notification keeps it")
+    check(ApprovalRelease.after(event("PreToolUse", #","tool_name":"Bash""#)) == nil, "about to use a tool keeps it")
+    check(ApprovalRelease.after(HookMessage.parse(Data(#"{"event":"Stop","raw":{}}"#.utf8))!) == nil, "no session, nothing to release")
+}
+
 // MARK: Approvals
 
 do {
