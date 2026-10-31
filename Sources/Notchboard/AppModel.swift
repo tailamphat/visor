@@ -36,9 +36,11 @@ struct NowPlaying: Equatable {
     /// Browsers: artwork from the page (Media Session or the YouTube thumbnail).
     var artworkURL: URL? = nil
 
-    var canControl: Bool {
-        if case .browser(_, _, let scriptable) = source { return scriptable }
-        return true
+    /// A browser that can't be scripted is controlled with the media keys,
+    /// which go to whatever macOS considers the Now Playing app.
+    var usesMediaKeys: Bool {
+        if case .browser(_, _, let scriptable) = source { return !scriptable }
+        return false
     }
 
     func position(at date: Date) -> Double {

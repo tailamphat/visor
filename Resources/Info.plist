@@ -23,7 +23,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Notchboard shows what Spotify or Apple Music is playing and lets you play, pause and skip from the notch.</string>
+	<string>Notchboard shows what is playing in your browser (YouTube and other media sites), Spotify or Apple Music, and lets you play, pause and skip from the notch.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Notchboard contributors. MIT License.</string>
 </dict>

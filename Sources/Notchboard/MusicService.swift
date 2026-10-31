@@ -25,14 +25,14 @@ final class MusicService {
     private var browserBusy = false
     private var lastBrowserCheck = Date.distantPast
     private var audible: Set<String> = []
-    /// When the browser last made sound, to let go of a title-only tab.
-    private var browserHeard = Date.distantPast
 
     private nonisolated static let nativeIDs: [NowPlaying.Source: String] = [.spotify: "com.spotify.client", .music: "com.apple.Music"]
 
-    /// Chromium-family browsers share one AppleScript dictionary; Safari has its own.
+    /// Chromium-family browsers share one AppleScript dictionary (tabs with
+    /// URL/title, "execute javascript"); Safari has its own.
     nonisolated static let chromium = ["com.google.Chrome", "com.google.Chrome.beta", "company.thebrowser.Browser",
-                                       "com.brave.Browser", "com.microsoft.edgemac", "com.vivaldi.Vivaldi"]
+                                       "company.thebrowser.dia", "com.brave.Browser", "com.microsoft.edgemac",
+                                       "com.vivaldi.Vivaldi"]
     nonisolated static let safari = "com.apple.Safari"
 
     init(model: AppModel) {
@@ -154,7 +154,6 @@ final class MusicService {
         let now = Self.audibleBrowsers()
         let changed = now != audible
         audible = now
-        if !now.isEmpty { browserHeard = Date() }
         // Ask a browser only when it starts or stops making sound, every few
         // seconds while it plays (new track), and now and then while a paused
         // tab is shown (it may have been closed).
@@ -162,11 +161,6 @@ final class MusicService {
         let showing = browser != nil
         if changed || (!now.isEmpty && since >= 4) || (showing && since >= 15) {
             refreshBrowsers(audible: now)
-        }
-        // Without page scripts a paused tab can't be told from a stopped one.
-        if let browser, !browser.canControl, Date().timeIntervalSince(browserHeard) > 30 {
-            self.browser = nil
-            show()
         }
     }
 
@@ -204,22 +198,34 @@ final class MusicService {
         }
     }
 
-    /// Which browsers are sending sound to an output right now. Chromium plays
-    /// from helper processes (com.google.Chrome.helper); Safari from WebKit's
-    /// GPU process, which is attributed to Safari when Safari is running.
+    /// Which browsers are sending sound to an output right now. Browsers play
+    /// from helper processes whose bundle ids don't name the browser (Arc and
+    /// Dia share "company.thebrowser.browser.helper"), so each helper is traced
+    /// to the app bundle it lives in. Safari plays from WebKit's system GPU
+    /// process, which is attributed to Safari when Safari is running.
     private static func audibleBrowsers() -> Set<String> {
         var found = Set<String>()
-        for id in audioOutputBundleIDs() {
-            if let browser = chromium.first(where: { id.hasPrefix($0) }) {
-                found.insert(browser)
-            } else if id.hasPrefix(safari) || (id.hasPrefix("com.apple.WebKit") && isRunning(safari)) {
+        for process in audioOutputProcesses() {
+            if let app = owningApp(pid: process.pid), chromium.contains(app) || app == safari {
+                found.insert(app)
+            } else if process.bundleID.hasPrefix("com.apple.WebKit") && isRunning(safari) {
                 found.insert(safari)
             }
         }
         return found
     }
 
-    private static func audioOutputBundleIDs() -> [String] {
+    /// The bundle id of the outermost .app containing a process's executable.
+    private static func owningApp(pid: pid_t) -> String? {
+        guard pid > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: 4096)
+        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        let path = String(cString: buffer)
+        guard let range = path.range(of: ".app/") else { return nil }
+        return Bundle(path: String(path[..<range.lowerBound]) + ".app")?.bundleIdentifier
+    }
+
+    private static func audioOutputProcesses() -> [(pid: pid_t, bundleID: String)] {
         let system = AudioObjectID(kAudioObjectSystemObject)
         var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyProcessObjectList,
                                                  mScope: kAudioObjectPropertyScopeGlobal,
@@ -241,8 +247,15 @@ final class MusicService {
             var idAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyBundleID,
                                                        mScope: kAudioObjectPropertyScopeGlobal,
                                                        mElement: kAudioObjectPropertyElementMain)
-            guard AudioObjectGetPropertyData(process, &idAddress, 0, nil, &idSize, &bundleID) == noErr else { return nil }
-            return bundleID?.takeRetainedValue() as String?
+            let id = AudioObjectGetPropertyData(process, &idAddress, 0, nil, &idSize, &bundleID) == noErr
+                ? (bundleID?.takeRetainedValue() as String?) ?? "" : ""
+            var pid: pid_t = 0
+            var pidSize = UInt32(MemoryLayout<pid_t>.size)
+            var pidAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyPID,
+                                                        mScope: kAudioObjectPropertyScopeGlobal,
+                                                        mElement: kAudioObjectPropertyElementMain)
+            _ = AudioObjectGetPropertyData(process, &pidAddress, 0, nil, &pidSize, &pid)
+            return (pid, id)
         }
     }
 
@@ -267,7 +280,7 @@ final class MusicService {
                 set urls to URL of tabs of w
                 repeat with i from 1 to count of urls
                   set u to (item i of urls) as string
-                  if \(sites) then set end of out to ((id of w) as string) & ":" & i & tab & (do JavaScript \(probe) in tab i of w)
+                  if \(sites) then set end of out to ((id of w) as string) & ":" & i & (character id 9) & (do JavaScript \(probe) in tab i of w)
                 end repeat
               end repeat
               return out
@@ -283,7 +296,7 @@ final class MusicService {
                   set u to (item i of urls) as string
                   if \(sites) then
                     set t to tab i of w
-                    set end of out to ((id of t) as string) & tab & (execute t javascript \(probe))
+                    set end of out to ((id of t) as string) & (character id 9) & (execute t javascript \(probe))
                   end if
                 end repeat
               end repeat
@@ -302,8 +315,9 @@ final class MusicService {
             return best.map { nowPlaying($0, browser: id, name: name, scriptable: true) }
         }
         // Scripts are off in this browser: fall back to the tab title, with
-        // "playing" taken from whether the browser is making sound.
-        guard scriptsBlocked(error), audible else { return nil }
+        // "playing" taken from whether the browser is making sound. A paused
+        // tab stays shown (so it can be resumed) until its tab is closed.
+        guard scriptsBlocked(error) else { return nil }
         let titles = """
         tell application id "\(id)"
           set out to {}
@@ -311,7 +325,7 @@ final class MusicService {
             set urls to URL of tabs of w
             repeat with i from 1 to count of urls
               set u to (item i of urls) as string
-              if \(sites) then set end of out to u & tab & ((\(id == safari ? "name" : "title") of tab i of w) as string)
+              if \(sites) then set end of out to u & (character id 9) & ((\(id == safari ? "name" : "title") of tab i of w) as string)
             end repeat
           end repeat
           return out
@@ -320,7 +334,7 @@ final class MusicService {
         guard let found = run(titles).result, found.numberOfItems > 0,
               let line = found.atIndex(1)?.stringValue, let split = line.firstIndex(of: "\t"),
               let media = BrowserMedia.fromTitle(String(line[line.index(after: split)...]), url: String(line[..<split]),
-                                                 tab: "", playing: true) else { return nil }
+                                                 tab: "", playing: audible) else { return nil }
         return nowPlaying(media, browser: id, name: name, scriptable: false)
     }
 
@@ -350,7 +364,12 @@ final class MusicService {
     // MARK: Controls
 
     func perform(_ command: MusicCommand) {
-        guard let now = model.nowPlaying, now.canControl else { return }
+        guard let now = model.nowPlaying else { return }
+        // Media keys need Accessibility; ask first, change nothing until granted.
+        if now.usesMediaKeys, !MediaKeys.isAllowed {
+            MediaKeys.requestPermission()
+            return
+        }
         if command == .playPause {
             // Answer instantly; the player confirms a moment later.
             var next = now
@@ -368,7 +387,13 @@ final class MusicService {
                 _ = Self.run("tell application id \"\(id)\" to \(verb)")
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.refreshNative(now.source) } }
             }
-        case .browser(let id, let tab, _):
+        case .browser(let id, _, false):
+            MediaKeys.send(command)
+            // Sound starts or stops a moment later; read the new state then.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (command == .playPause ? 0.6 : 1.5)) {
+                MainActor.assumeIsolated { self.refreshBrowsers(audible: Self.audibleBrowsers().union(command == .playPause ? [] : [id])) }
+            }
+        case .browser(let id, let tab, true):
             let js = Self.appleScriptString(BrowserMedia.script(for: command == .playPause ? .playPause : command == .next ? .next : .previous))
             let script: String
             if id == Self.safari {
@@ -379,8 +404,8 @@ final class MusicService {
                 script = """
                 tell application id "\(id)"
                   repeat with w in windows
-                    repeat with t in (tabs of w whose id is \(tab))
-                      return execute t javascript \(js)
+                    repeat with t in tabs of w
+                      if ((id of t) as string) is "\(tab)" then return execute t javascript \(js)
                     end repeat
                   end repeat
                 end tell

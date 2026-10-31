@@ -342,17 +342,15 @@ struct MusicView: View {
                     Text(now.album).font(.system(size: 11)).foregroundStyle(Theme.textMuted).lineLimit(1)
                     Spacer(minLength: 4)
                     if now.duration > 0 { Progress(now: now) }
-                    if now.canControl {
-                        HStack(spacing: 22) {
-                            control("backward.fill", .previous)
-                            control(now.isPlaying ? "pause.fill" : "play.fill", .playPause, size: 22)
-                            control("forward.fill", .next)
-                            Spacer()
-                            Text(now.sourceName).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
-                        }
-                    } else {
-                        Text(now.sourceName).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                        Text("For controls, turn on \u{201C}Allow JavaScript from Apple Events\u{201D} in the browser (Chrome: View \u{203A} Developer; Safari: Develop menu).")
+                    HStack(spacing: 22) {
+                        control("backward.fill", .previous)
+                        control(now.isPlaying ? "pause.fill" : "play.fill", .playPause, size: 22)
+                        control("forward.fill", .next)
+                        Spacer()
+                        Text(now.sourceName).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    }
+                    if now.usesMediaKeys && !MediaKeys.isAllowed {
+                        Text("Controls use your media keys: allow Notchboard in System Settings \u{203A} Privacy & Security \u{203A} Accessibility.")
                             .font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
