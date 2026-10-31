@@ -48,6 +48,12 @@ public struct AgentSession: Equatable, Sendable, Identifiable {
     /// When the current state began.
     public var since: Date
     public var lastEvent: Date
+    /// Which agent this is, e.g. "Claude Code".
+    public var agent = "Claude Code"
+    /// The app it runs in (Ghostty, VS Code, ...), filled in by the app.
+    public var host: String?
+    /// The last thing the user asked it, to tell sessions in one project apart.
+    public var task: String?
 
     public var project: String {
         let name = (cwd as NSString).lastPathComponent
@@ -96,7 +102,9 @@ public struct AgentBoard: Equatable, Sendable {
         let next: AgentState?
         switch message.event {
         case "SessionStart": next = .idle
-        case "UserPromptSubmit": next = .working("Thinking")
+        case "UserPromptSubmit":
+            if let prompt = message.payload["prompt"] as? String { sessions[index].task = Self.summarize(prompt) }
+            next = .working("Thinking")
         case "PreToolUse": next = .working(Self.describe(tool: message.toolName, input: message.toolInput))
         case "PostToolUse", "PostToolUseFailure", "SubagentStop": next = .working("Thinking")
         case "PermissionRequest": next = .needsApproval(Self.describe(tool: message.toolName, input: message.toolInput))
@@ -130,6 +138,19 @@ public struct AgentBoard: Equatable, Sendable {
     /// Drops sessions whose Claude Code process has exited.
     public mutating func prune(isAlive: (Int32) -> Bool) {
         sessions.removeAll { $0.pid > 0 && !isAlive($0.pid) }
+    }
+
+    /// The first line of a prompt, short enough for one row.
+    public static func summarize(_ prompt: String) -> String? {
+        let line = prompt.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        guard !line.isEmpty else { return nil }
+        return line.count > 80 ? String(line.prefix(79)) + "…" : line
+    }
+
+    /// Records the app a session runs in.
+    public mutating func setHost(_ host: String?, session id: String) {
+        guard let host, let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].host != host else { return }
+        sessions[i].host = host
     }
 
     /// A short, human description of a tool call, e.g. "Bash: npm test".

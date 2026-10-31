@@ -48,7 +48,11 @@ struct AgentRow: View {
         HStack(spacing: 10) {
             status.frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                HStack(spacing: 5) {
+                    Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                }
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -68,7 +72,7 @@ struct AgentRow: View {
     private var detail: String {
         switch session.state {
         case .idle: return "Ready"
-        case .working(let what): return what
+        case .working(let what): return what == "Thinking" ? session.task.map { "Thinking · \($0)" } ?? what : what
         case .needsApproval(let what): return "Needs approval · \(what)"
         case .needsInput: return "Waiting for your reply"
         case .done: return "Finished"
@@ -133,18 +137,33 @@ struct ApprovalView: View {
     let model: AppModel
     let request: ApprovalRequest
 
+    /// "in notchboard · Ghostty"
+    static func place(session: AgentSession?, project: String) -> String {
+        let parts = [project.isEmpty ? nil : "in \(project)", session?.host].compactMap { $0 }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            let session = model.board.sessions.first { $0.id == request.sessionID }
+            // Who is asking: agent, where it runs, which project, and its task.
             HStack(spacing: 6) {
                 Image(systemName: "hand.raised.fill").foregroundStyle(Theme.warning)
-                Text("Claude wants to use \(request.tool)")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                if !request.project.isEmpty {
-                    Text("in \(request.project)").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                }
+                Text(session?.agent ?? "Claude Code")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.claude)
+                Text(Self.place(session: session, project: request.project))
+                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()
                 if model.approvals.count > 1 {
                     Text("+\(model.approvals.count - 1) more").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("wants to use \(request.tool)")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                if let task = session?.task {
+                    Text("· \(task)").font(.system(size: 11)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                        .help(task)
                 }
             }
             Text(request.preview)

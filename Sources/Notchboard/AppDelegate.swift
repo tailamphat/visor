@@ -66,6 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var message = message
         message.pid = ProcessTree.claudeAncestor(of: message.pid)
         model.board.apply(message)
+        if let session = message.sessionID, model.board.sessions.first(where: { $0.id == session })?.host == nil {
+            model.board.setHost(ProcessTree.hostApp(of: message.pid), session: session)
+        }
         // The session moved on (interrupted, new prompt, exit): its approvals are moot.
         if let session = message.sessionID {
             switch message.event {
@@ -167,6 +170,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 enum ProcessTree {
+    /// The app a process runs under (the terminal or editor hosting Claude
+    /// Code), found by walking up its parents to the first one inside a .app.
+    static func hostApp(of pid: Int32) -> String? {
+        var current = pid
+        for _ in 0..<12 where current > 1 {
+            var buffer = [CChar](repeating: 0, count: 4096)
+            if proc_pidpath(current, &buffer, UInt32(buffer.count)) > 0 {
+                let path = String(cString: buffer)
+                if let range = path.range(of: ".app/") {
+                    let app = String(path[..<range.lowerBound]) + ".app"
+                    let bundle = Bundle(path: app)
+                    return (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                        ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                        ?? (app as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
+                }
+            }
+            guard let parent = parent(of: current) else { return nil }
+            current = parent
+        }
+        return nil
+    }
+
+    /// Works for processes of any user (proc_pidinfo can't read root's, such as /usr/bin/login).
+    static func parent(of pid: Int32) -> Int32? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+        return info.kp_eproc.e_ppid
+    }
+
     /// Hooks may run under an intermediate shell; walk up to the claude process
     /// so its exit can be noticed. Falls back to the pid given.
     static func claudeAncestor(of pid: Int32) -> Int32 {
