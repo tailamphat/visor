@@ -15,15 +15,48 @@ public struct HookMessage: @unchecked Sendable {
         self.payload = payload
     }
 
-    /// Parses one line written by agent-hook.sh: {"event":..,"pid":..,"raw":{...}}.
+    /// The agent that sent it: "claude" or "copilot".
+    public var provider = "claude"
+
+    /// Parses one line written by agent-hook.sh: {"event":..,"provider":..,"pid":..,"raw":{...}}.
     public static func parse(_ line: Data) -> HookMessage? {
         guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
               let event = object["event"] as? String else { return nil }
         let pid = (object["pid"] as? NSNumber)?.int32Value ?? 0
         let raw = object["raw"] as? [String: Any] ?? [:]
-        var message = HookMessage(event: event, pid: pid, payload: raw)
+        let provider = object["provider"] as? String ?? "claude"
+        var message = provider == "copilot"
+            ? HookMessage(event: copilotEvents[event] ?? event, pid: pid, payload: copilotPayload(raw))
+            : HookMessage(event: event, pid: pid, payload: raw)
+        message.provider = provider
         message.hookPID = (object["hpid"] as? NSNumber)?.int32Value ?? 0
         return message
+    }
+
+    /// Copilot CLI's camelCase hook names, as the Claude Code names the board understands.
+    static let copilotEvents = [
+        "sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "userPromptSubmitted": "UserPromptSubmit",
+        "preToolUse": "PreToolUse", "postToolUse": "PostToolUse", "postToolUseFailure": "PostToolUseFailure",
+        "agentStop": "Stop", "notification": "Notification", "permissionRequest": "PermissionRequest",
+    ]
+
+    /// Copilot's camelCase fields as Claude Code's snake_case ones; Copilot's
+    /// own notification types mapped too ("agent_idle" means waiting for you).
+    static func copilotPayload(_ raw: [String: Any]) -> [String: Any] {
+        var out = raw
+        let renames = ["sessionId": "session_id", "toolName": "tool_name", "toolArgs": "tool_input", "toolInput": "tool_input"]
+        for (from, to) in renames where out[to] == nil {
+            if let value = raw[from] { out[to] = value }
+        }
+        // Copilot passes tool arguments as an object, but older builds sent a JSON string.
+        if let text = out["tool_input"] as? String, let data = text.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            out["tool_input"] = object
+        }
+        if let kind = out["notification_type"] as? String, kind == "agent_idle" { out["notification_type"] = "idle_prompt" }
+        // Copilot names its shell tool "bash" or "shell"; describe it like Claude's Bash.
+        if let tool = out["tool_name"] as? String, ["bash", "shell"].contains(tool.lowercased()) { out["tool_name"] = "Bash" }
+        return out
     }
 
     public var sessionID: String? { payload["session_id"] as? String }
@@ -91,8 +124,10 @@ public struct AgentBoard: Equatable, Sendable {
         if let found = sessions.firstIndex(where: { $0.id == id }) {
             index = found
         } else {
-            sessions.append(AgentSession(id: id, pid: message.pid, cwd: message.cwd ?? "", state: .idle,
-                                         since: now, lastEvent: now))
+            var session = AgentSession(id: id, pid: message.pid, cwd: message.cwd ?? "", state: .idle,
+                                       since: now, lastEvent: now)
+            session.agent = Self.agentName(message.provider)
+            sessions.append(session)
             index = sessions.count - 1
         }
         if let cwd = message.cwd, !cwd.isEmpty { sessions[index].cwd = cwd }
@@ -138,6 +173,30 @@ public struct AgentBoard: Equatable, Sendable {
     /// Drops sessions whose Claude Code process has exited.
     public mutating func prune(isAlive: (Int32) -> Bool) {
         sessions.removeAll { $0.pid > 0 && !isAlive($0.pid) }
+    }
+
+    public static func agentName(_ provider: String) -> String {
+        provider == "copilot" ? "Copilot CLI" : "Claude Code"
+    }
+
+    /// Agents with something going on, in the order the closed notch shows them:
+    /// anyone waiting for you first, then Claude Code before Copilot CLI.
+    public var activeAgents: [(agent: String, count: Int, waiting: Bool)] {
+        var groups: [String: (count: Int, waiting: Bool)] = [:]
+        for session in sessions where session.isActive {
+            var group = groups[session.agent] ?? (0, false)
+            group.count += 1
+            switch session.state {
+            case .needsApproval, .needsInput: group.waiting = true
+            default: break
+            }
+            groups[session.agent] = group
+        }
+        let order = ["Claude Code": 0, "Copilot CLI": 1]
+        return groups.map { ($0.key, $0.value.count, $0.value.waiting) }
+            .sorted { a, b in
+                a.waiting != b.waiting ? a.waiting : (order[a.agent] ?? 9, a.agent) < (order[b.agent] ?? 9, b.agent)
+            }
     }
 
     /// The first line of a prompt, short enough for one row.

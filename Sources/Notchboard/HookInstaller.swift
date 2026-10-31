@@ -17,12 +17,13 @@ enum HookInstaller {
     #!/bin/sh
     # Notchboard: forwards Claude Code hook events to the notch. Always succeeds.
     e=$1
+    p=${2:-claude}
     s="$HOME/Library/Application Support/Notchboard/hook.sock"
     d=$(cat)
     [ -S "$s" ] || exit 0
     [ -n "$d" ] || d='{}'
-    m=$(printf '{"event":"%s","pid":%s,"hpid":%s,"raw":%s}' "$e" "$PPID" "$$" "$d")
-    if [ "$e" = "PermissionRequest" ]; then
+    m=$(printf '{"event":"%s","provider":"%s","pid":%s,"hpid":%s,"raw":%s}' "$e" "$p" "$PPID" "$$" "$d")
+    if [ "$e" = "PermissionRequest" ] && [ "$p" = "claude" ]; then
       printf '%s\\n' "$m" | /usr/bin/nc -U -w 110 "$s" 2>/dev/null
     else
       printf '%s\\n' "$m" | /usr/bin/nc -U -w 1 "$s" >/dev/null 2>&1
@@ -61,6 +62,35 @@ enum HookInstaller {
         }
         settings["hooks"] = hooks
         try writeSettings(settings)
+    }
+
+    // MARK: Copilot CLI
+
+    /// Copilot CLI reads every JSON file in ~/.copilot/hooks; Notchboard keeps its own.
+    static var copilotDirectory: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot") }
+    static var copilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/notchboard.json") }
+    static let copilotEvents = ["sessionStart", "sessionEnd", "userPromptSubmitted", "preToolUse", "postToolUse",
+                                "postToolUseFailure", "agentStop", "notification"]
+
+    static var hasCopilotCLI: Bool { FileManager.default.fileExists(atPath: copilotDirectory.path) }
+    static var copilotInstalled: Bool { FileManager.default.fileExists(atPath: copilotHooksURL.path) }
+
+    /// Status only: Copilot's permission hook runs before its own allow rules,
+    /// so approvals stay in Copilot's terminal for now.
+    static func installCopilot() throws {
+        guard hasCopilotCLI else { return }
+        var hooks: [String: Any] = [:]
+        for event in copilotEvents {
+            hooks[event] = [["type": "command", "bash": "\"\(scriptURL.path)\" \(event) copilot", "timeoutSec": 5]]
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "hooks": hooks],
+                                              options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        try FileManager.default.createDirectory(at: copilotHooksURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: copilotHooksURL, options: .atomic)
+    }
+
+    static func uninstallCopilot() throws {
+        if copilotInstalled { try FileManager.default.removeItem(at: copilotHooksURL) }
     }
 
     static func uninstall() throws {

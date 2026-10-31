@@ -7,6 +7,13 @@ struct NotchLayout {
     var notch: CGSize
 
     static let earWidth: CGFloat = 38
+
+    /// Both ears widen together (the notch stays centred) to fit a second agent
+    /// mark and the +N chip.
+    func earWidth(_ model: AppModel) -> CGFloat {
+        let agents = model.board.activeAgents.count
+        return agents >= 3 ? 84 : agents == 2 ? 62 : Self.earWidth
+    }
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
     static let musicSize = CGSize(width: 580, height: 196)
@@ -21,9 +28,16 @@ struct NotchLayout {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.tab == .usage && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
+            if model.tab == .agents && !model.board.sessions.isEmpty {
+                // Grow with the list: a header per agent group and a row per session, then scroll.
+                let groups = Set(model.board.sessions.map(\.agent)).count
+                let content = CGFloat(groups) * 24 + CGFloat(model.board.sessions.count) * 52 + 30
+                return CGSize(width: Self.expandedSize.width,
+                              height: min(NotchLayout.windowSize.height - 28, max(Self.expandedSize.height, notch.height + content)))
+            }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
-        let ears = showsEars(model) ? 2 * Self.earWidth : 0
+        let ears = showsEars(model) ? 2 * earWidth(model) : 0
         return CGSize(width: notch.width + ears + 2 * flare(expanded: false), height: notch.height)
     }
 
@@ -96,9 +110,9 @@ struct CollapsedView: View {
     var body: some View {
         HStack(spacing: 0) {
             if layout.showsEars(model) {
-                left.frame(width: NotchLayout.earWidth)
+                left.frame(width: layout.earWidth(model))
                 Spacer(minLength: layout.notch.width)
-                right.frame(width: NotchLayout.earWidth)
+                right.frame(width: layout.earWidth(model))
             }
         }
         .frame(height: layout.notch.height)
@@ -136,19 +150,55 @@ struct CollapsedView: View {
     }
 }
 
+/// What each agent looks like: its mark and colour.
+enum AgentStyle {
+    static func symbol(_ agent: String) -> String {
+        agent == "Copilot CLI" ? "chevron.left.forwardslash.chevron.right" : "sparkle"
+    }
+    /// Bright, for marks on black.
+    static func mark(_ agent: String) -> NSColor {
+        agent == "Copilot CLI" ? NSColor(hex: 0xA78BFA) : NSColor(hex: 0xD97757)
+    }
+    /// The tile behind the mark in lists.
+    static func tile(_ agent: String) -> [Color] {
+        agent == "Copilot CLI" ? [Color(hex: 0xA07BF0), Color(hex: 0x6E40C9)] : [Color(hex: 0xE48A6B), Color(hex: 0xB9583B)]
+    }
+}
+
+/// The closed notch's agent marks: one per agent with its count, at most two,
+/// then "+N". An agent waiting for you shows as an amber bubble and always
+/// gets one of the two slots (the board lists waiting agents first).
 struct AgentBadge: View {
     let board: AgentBoard
     let approvals: Int
 
     var body: some View {
-        let waiting = approvals > 0 || board.waiting > 0
-        HStack(spacing: 3) {
-            PulsingSymbol(name: waiting ? "exclamationmark.bubble.fill" : "sparkle",
-                          color: NSColor(hex: waiting ? 0xFAB219 : 0xD97757), size: 13)
-                .id(waiting)
-            let count = board.working + board.waiting
-            if count > 1 {
-                Text("\(count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+        var agents = board.activeAgents
+        // A pending approval card always counts as waiting.
+        if approvals > 0, let i = agents.firstIndex(where: { $0.agent == "Claude Code" }), !agents[i].waiting {
+            let claude = agents.remove(at: i)
+            agents.insert((claude.agent, claude.count, true), at: 0)
+        }
+        let shown = agents.prefix(2)
+        return HStack(spacing: 6) {
+            ForEach(Array(shown.enumerated()), id: \.element.agent) { _, entry in
+                HStack(spacing: 2) {
+                    PulsingSymbol(name: entry.waiting ? "exclamationmark.bubble.fill" : AgentStyle.symbol(entry.agent),
+                                  color: entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
+                                  size: entry.agent == "Copilot CLI" && !entry.waiting ? 11 : 13)
+                        .id("\(entry.agent)\(entry.waiting)")
+                    if entry.count > 1 {
+                        Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                .help(entry.waiting ? "\(entry.agent) needs you" : "\(entry.agent): \(entry.count) working")
+            }
+            if agents.count > 2 {
+                Text("+\(agents.count - 2)")
+                    .font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                    .help(agents.dropFirst(2).map(\.agent).joined(separator: ", "))
             }
         }
     }

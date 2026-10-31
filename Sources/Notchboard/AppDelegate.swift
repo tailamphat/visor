@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if model.hooksInstalled {
             // Keep the script current with this version of the app.
             try? HookInstaller.install()
+            if HookInstaller.copilotInstalled { try? HookInstaller.installCopilot() }
         }
         model.installHooks = { [weak self] in self?.installHooks() }
         model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
@@ -99,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         #endif
         var message = message
-        message.pid = ProcessTree.claudeAncestor(of: message.pid)
+        message.pid = ProcessTree.agentAncestor(of: message.pid)
         model.board.apply(message)
         if let session = message.sessionID, model.board.sessions.first(where: { $0.id == session })?.host == nil {
             model.board.setHost(ProcessTree.hostApp(of: message.pid), session: session)
@@ -147,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func installHooks() {
         do {
             try HookInstaller.install()
+            try? HookInstaller.installCopilot()
             model.hooksInstalled = true
         } catch {
             let alert = NSAlert()
@@ -176,6 +178,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if installed {
             menu.addItem(withTitle: "Disconnect Claude Code", action: #selector(disconnect), keyEquivalent: "").target = self
         }
+        if HookInstaller.hasCopilotCLI {
+            let copilot = HookInstaller.copilotInstalled
+            menu.addItem(withTitle: copilot ? "Disconnect Copilot CLI" : "Connect Copilot CLI",
+                         action: #selector(toggleCopilot), keyEquivalent: "").target = self
+        }
         menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
         menu.addItem(.separator())
         let login = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
@@ -189,10 +196,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func disconnect() {
         try? HookInstaller.uninstall()
+        try? HookInstaller.uninstallCopilot()
         model.hooksInstalled = false
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
+
+    @objc private func toggleCopilot() {
+        if HookInstaller.copilotInstalled { try? HookInstaller.uninstallCopilot() } else { try? HookInstaller.installCopilot() }
+    }
 
     @objc private func toggleLogin() {
         let service = SMAppService.mainApp
@@ -236,16 +248,17 @@ enum ProcessTree {
         return info.kp_eproc.e_ppid
     }
 
-    /// Hooks may run under an intermediate shell; walk up to the claude process
-    /// so its exit can be noticed. Falls back to the pid given.
-    static func claudeAncestor(of pid: Int32) -> Int32 {
+    /// Hooks may run under an intermediate shell; walk up to the agent's process
+    /// (claude or copilot) so its exit can be noticed. Falls back to the pid given.
+    static func agentAncestor(of pid: Int32) -> Int32 {
         var current = pid
         for _ in 0..<4 where current > 1 {
             var info = proc_bsdinfo()
             let size = Int32(MemoryLayout<proc_bsdinfo>.size)
             guard proc_pidinfo(current, PROC_PIDTBSDINFO, 0, &info, size) == size else { break }
             let name = withUnsafeBytes(of: info.pbi_comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
-            if name.lowercased().contains("claude") { return current }
+            let lower = name.lowercased()
+            if lower.contains("claude") || lower.contains("copilot") { return current }
             current = Int32(info.pbi_ppid)
         }
         return pid

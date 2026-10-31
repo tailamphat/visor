@@ -13,11 +13,23 @@ struct AgentsView: View {
                        button: "Connect") { model.installHooks?() }
         } else if model.board.sessions.isEmpty {
             EmptyState(symbol: "sparkles", title: "No agents running",
-                       detail: "Start claude in a terminal and it shows up here.")
+                       detail: "Start claude or copilot in a terminal and it shows up here.")
         } else {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 6) {
-                    ForEach(model.board.sessions.sorted(by: Self.order)) { AgentRow(session: $0) }
+                VStack(alignment: .leading, spacing: 6) {
+                    // Grouped by agent, Claude Code first; within a group, who needs you first.
+                    ForEach(Self.groups(model.board.sessions), id: \.agent) { group in
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                                .fill(LinearGradient(colors: AgentStyle.tile(group.agent), startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 9, height: 9)
+                            Text("\(group.agent) · \(group.sessions.count)")
+                                .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
+                                .foregroundStyle(Theme.textMuted)
+                        }
+                        .padding(.top, 2)
+                        ForEach(group.sessions) { AgentRow(session: $0) }
+                    }
                     if !model.hooksInstalled {
                         Button("Connect Claude Code for approvals") { model.installHooks?() }
                             .buttonStyle(PillButton(fill: Theme.accent)).padding(.top, 4)
@@ -25,6 +37,13 @@ struct AgentsView: View {
                 }
             }
         }
+    }
+
+    static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
+        let rank = ["Claude Code": 0, "Copilot CLI": 1]
+        return Dictionary(grouping: sessions, by: \.agent)
+            .map { ($0.key, $0.value.sorted(by: Self.order)) }
+            .sorted { (rank[$0.agent] ?? 9, $0.agent) < (rank[$1.agent] ?? 9, $1.agent) }
     }
 
     /// Sessions that need you first, then busy ones, then the rest by recency.
@@ -46,7 +65,7 @@ struct AgentRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            status.frame(width: 18)
+            tile
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
                     Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
@@ -67,6 +86,34 @@ struct AgentRow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : .clear, lineWidth: 1))
+    }
+
+    private var needsYou: Bool {
+        switch session.state { case .needsApproval, .needsInput: return true; default: return false }
+    }
+
+    /// The agent's tile with a status dot: mint working, amber waiting, grey done or idle.
+    private var tile: some View {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(LinearGradient(colors: AgentStyle.tile(session.agent), startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: 26, height: 26)
+            .overlay(Image(systemName: AgentStyle.symbol(session.agent))
+                .font(.system(size: session.agent == "Copilot CLI" ? 10 : 12, weight: .bold)).foregroundStyle(.white))
+            .overlay(alignment: .bottomTrailing) {
+                Circle().fill(dotColor).frame(width: 9, height: 9)
+                    .overlay(Circle().strokeBorder(Theme.raised, lineWidth: 2))
+                    .offset(x: 3, y: 3)
+            }
+    }
+
+    private var dotColor: Color {
+        switch session.state {
+        case .working: return ConsentButton.mint
+        case .needsApproval, .needsInput: return Theme.warning
+        case .done, .idle: return Theme.textMuted
+        }
     }
 
     private var detail: String {
@@ -79,20 +126,6 @@ struct AgentRow: View {
         }
     }
 
-    @ViewBuilder private var status: some View {
-        switch session.state {
-        case .working:
-            PulsingSymbol(name: "sparkle", color: NSColor(hex: 0xD97757), size: 12)
-        case .needsApproval:
-            Image(systemName: "hand.raised.fill").foregroundStyle(Theme.warning)
-        case .needsInput:
-            Image(systemName: "text.bubble.fill").foregroundStyle(Theme.accent)
-        case .done:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.good)
-        case .idle:
-            Image(systemName: "circle").foregroundStyle(Theme.textMuted)
-        }
-    }
 }
 
 struct EmptyState: View {

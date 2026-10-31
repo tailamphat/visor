@@ -157,6 +157,38 @@ do {
     check(board.sessions.isEmpty, "events without a session id are ignored")
 }
 
+// MARK: Copilot CLI hooks
+
+do {
+    func copilot(_ event: String, _ raw: String) -> HookMessage {
+        HookMessage.parse(Data(#"{"event":"\#(event)","provider":"copilot","pid":7,"raw":\#(raw)}"#.utf8))!
+    }
+    let base = #""sessionId":"c1","cwd":"/Users/me/shop","timestamp":1793458000000"#
+    let start = copilot("sessionStart", "{\(base),\"source\":\"new\"}")
+    check(start.event == "SessionStart" && start.sessionID == "c1" && start.provider == "copilot", "Copilot names become Claude names")
+    var board = AgentBoard()
+    board.apply(start)
+    check(board.sessions.first?.agent == "Copilot CLI" && board.sessions.first?.project == "shop", "a Copilot session")
+    board.apply(copilot("userPromptSubmitted", "{\(base),\"prompt\":\"Deploy staging\"}"))
+    check(board.sessions[0].task == "Deploy staging" && board.sessions[0].state == .working("Thinking"), "prompt starts work")
+    board.apply(copilot("preToolUse", #"{\#(base),"toolName":"bash","toolArgs":{"command":"npm run deploy"}}"#))
+    check(board.sessions[0].state == .working("Bash: npm run deploy"), "Copilot's bash tool reads like Bash")
+    board.apply(copilot("preToolUse", #"{\#(base),"toolName":"edit","toolArgs":"{\"path\":\"a.ts\"}"}"#))
+    check(board.sessions[0].state == .working("edit"), "tool arguments sent as a JSON string are decoded")
+    board.apply(copilot("notification", #"{\#(base),"hook_event_name":"Notification","notification_type":"agent_idle","message":"Waiting"}"#))
+    check(board.sessions[0].state == .needsInput, "agent_idle is waiting for you")
+    board.apply(copilot("agentStop", "{\(base),\"stopReason\":\"end_turn\"}"))
+    check(board.sessions[0].state == .done, "agentStop is done")
+
+    // Closed-notch order: waiting first, then Claude before Copilot.
+    let claude = HookMessage.parse(Data(#"{"event":"UserPromptSubmit","pid":8,"raw":{"session_id":"k1","cwd":"/x/notchboard"}}"#.utf8))!
+    board.apply(claude)
+    board.apply(copilot("userPromptSubmitted", "{\(base)}"))
+    check(board.activeAgents.map(\.agent) == ["Claude Code", "Copilot CLI"], "Claude first when nobody waits")
+    board.apply(copilot("notification", #"{\#(base),"notification_type":"agent_idle"}"#))
+    check(board.activeAgents.first?.agent == "Copilot CLI" && board.activeAgents.first?.waiting == true, "a waiting agent comes first")
+}
+
 // MARK: Approvals
 
 do {
