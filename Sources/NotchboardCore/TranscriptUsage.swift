@@ -25,18 +25,36 @@ public final class TranscriptUsage: @unchecked Sendable {
             let start = offsets[url.path] ?? 0
             if size == start { continue }
             // A file that shrank was rewritten; start it over (dedupe keeps totals right).
-            let from = size < start ? 0 : start
+            var offset = size < start ? 0 : start
             guard let handle = try? FileHandle(forReadingFrom: url) else { continue }
             defer { try? handle.close() }
-            try? handle.seek(toOffset: from)
-            guard let data = try? handle.readToEnd(), !data.isEmpty else { continue }
-            // Only consume complete lines; a half-written last line is read next time.
-            guard let lastNewline = data.lastIndex(of: 0x0A) else { continue }
-            ingest(data[data.startIndex...lastNewline])
-            offsets[url.path] = from + UInt64(lastNewline - data.startIndex + 1)
+            try? handle.seek(toOffset: offset)
+            // Chunks keep memory flat on big transcripts. The pool frees the
+            // JSON parser's temporaries, which a background queue never drains.
+            var carry = Data()
+            while true {
+                let done: Bool = autoreleasepool {
+                    guard let chunk = try? handle.read(upToCount: Self.chunkSize), !chunk.isEmpty else { return true }
+                    var data = carry
+                    data.append(chunk)
+                    // Only consume complete lines; a half-written last line waits.
+                    guard let lastNewline = data.lastIndex(of: 0x0A) else {
+                        carry = data
+                        return false
+                    }
+                    ingest(data[data.startIndex...lastNewline])
+                    offset += UInt64(lastNewline - data.startIndex + 1)
+                    carry = Data(data[(lastNewline + 1)...])
+                    return false
+                }
+                if done { break }
+            }
+            offsets[url.path] = offset
         }
         return records.count != before
     }
+
+    static let chunkSize = 4 << 20
 
     private static let usageMarker = Data("\"usage\"".utf8)
 

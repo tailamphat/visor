@@ -1,4 +1,5 @@
 import Foundation
+import JavaScriptCore
 import NotchboardCore
 
 var failures = 0
@@ -172,6 +173,51 @@ do {
     check(request.reply(.allow).last == 0x0A, "reply is one line")
     check(ApprovalRequest(HookMessage.parse(Data(#"{"event":"PreToolUse","raw":{"session_id":"s"}}"#.utf8))!) == nil,
           "only PermissionRequest makes an approval")
+}
+
+// MARK: Browser media
+
+do {
+    let json = #"{"p":true,"t":61.5,"d":200,"title":"Song","artist":"Band","album":"","art":"https://x/a.jpg","url":"https://www.youtube.com/watch?v=abc123"}"#
+    let media = BrowserMedia.parse(json, tab: "1")!
+    check(media.playing && media.position == 61.5 && media.duration == 200, "playback fields")
+    check(media.title == "Song" && media.artist == "Band" && media.site == "YouTube", "metadata and site")
+    check(media.artworkURL?.absoluteString == "https://x/a.jpg", "media session artwork wins")
+    let bare = BrowserMedia.parse(#"{"p":false,"t":0,"d":0,"title":"(3) Lofi beats - YouTube","url":"https://www.youtube.com/watch?v=XYZ&t=4"}"#, tab: "2")!
+    check(bare.title == "Lofi beats", "page title loses the unread count and site suffix")
+    check(bare.artworkURL?.absoluteString == "https://i.ytimg.com/vi/XYZ/hqdefault.jpg", "YouTube thumbnail fallback")
+    check(BrowserMedia.parse("", tab: "3") == nil, "a tab without media is skipped")
+    check(BrowserMedia.fromTitle("Mix - YouTube", url: "https://music.youtube.com/watch?v=q", tab: "4", playing: true)?.site == "YouTube Music",
+          "title-only fallback")
+    check(BrowserMedia.isMediaSite("https://www.youtube.com/watch?v=1") && !BrowserMedia.isMediaSite("https://github.com"), "media sites")
+    check(!BrowserMedia.probe.contains("\""), "probe has no double quotes, so it fits in AppleScript")
+
+    // Run the page scripts against a fake YouTube page.
+    let js = JSContext()!
+    js.exceptionHandler = { _, e in check(false, "page script threw: \(e?.toString() ?? "")") }
+    js.evaluateScript("""
+    var video = {paused: false, currentTime: 42, duration: 180, play: function(){this.paused=false;}, pause: function(){this.paused=true;}};
+    var clicked = '';
+    var document = {title: '(2) Song - YouTube',
+      querySelectorAll: function(){ return [video]; },
+      querySelector: function(q){ if (q.indexOf('ytp-next-button') >= 0) return {click: function(){clicked='next';}}; return q.indexOf('video') === 0 ? video : null; }};
+    var navigator = {mediaSession: {metadata: {title: 'Song', artist: 'Band', album: '', artwork: [{src: 'https://img/s.jpg'}]}}};
+    var location = {href: 'https://www.youtube.com/watch?v=abc'};
+    """)
+    let probed = js.evaluateScript(BrowserMedia.probe)?.toString() ?? ""
+    let live = BrowserMedia.parse(probed, tab: "7")
+    check(live?.playing == true && live?.position == 42 && live?.duration == 180 && live?.title == "Song"
+          && live?.artist == "Band" && live?.artworkURL?.absoluteString == "https://img/s.jpg", "probe reads the page")
+    js.evaluateScript(BrowserMedia.script(for: .playPause))
+    check(js.evaluateScript("video.paused")?.toBool() == true, "play/pause pauses a playing video")
+    js.evaluateScript(BrowserMedia.script(for: .playPause))
+    check(js.evaluateScript("video.paused")?.toBool() == false, "and plays it again")
+    js.evaluateScript(BrowserMedia.script(for: .next))
+    check(js.evaluateScript("clicked")?.toString() == "next", "next clicks the site's next button")
+    js.evaluateScript(BrowserMedia.script(for: .previous))
+    check(js.evaluateScript("video.currentTime")?.toInt32() == 0, "previous restarts when there's no previous button")
+    js.evaluateScript("navigator.mediaSession = undefined; video.paused = true; video.currentTime = 0")
+    check(js.evaluateScript(BrowserMedia.probe)?.toString() == "", "a page with untouched media reports nothing")
 }
 
 print("\(passed) passed, \(failures) failed")

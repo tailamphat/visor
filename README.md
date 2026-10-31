@@ -5,9 +5,9 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 - **Usage**: your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
 - **Agents**: every running Claude Code session and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.
 - **Approvals**: when Claude Code asks for permission, the notch opens with Allow / Deny / Always allow, or hands the question back to the terminal.
-- **Music**: what Spotify or Apple Music is playing, with artwork, progress and play/pause/skip.
+- **Music**: what Spotify, Apple Music, or a browser (YouTube, YouTube Music, SoundCloud, ...) is playing, with artwork, progress and play/pause/skip.
 
-Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven: nothing polls while you're idle.
+Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers in the window server, so the app uses ~0% CPU and ~50 MB at rest.
 
 ## Build
 
@@ -28,6 +28,7 @@ Then choose **Connect Claude Code** in the notch (or the menu bar icon).
 | Spend | Token usage in `~/.claude/projects/**/*.jsonl`, priced with API list prices (`Sources/NotchboardCore/Pricing.swift`). Files are read incrementally, so a rescan takes milliseconds. This is the API-equivalent value, not what a subscription bills. |
 | Agents & approvals | Claude Code [hooks](https://code.claude.com/docs/en/hooks). Connecting adds `~/Library/Application Support/Notchboard/agent-hook.sh` to `~/.claude/settings.json` (a one-time backup is saved as `settings.json.notchboard-backup`). The script sends each event to a Unix socket owned by the app, and always exits 0, so Claude Code is never blocked when Notchboard isn't running. |
 | Music | Distributed notifications from Spotify / Music, plus AppleScript for position, artwork and controls (macOS asks for Automation permission once). Apps are only scripted while already running. |
+| Browser music | Core Audio reports which browser is making sound (no permission needed). Only then is that browser asked, over AppleScript, to run a small script in its media-site tabs that reads the page's Media Session metadata and `<video>`/`<audio>` state, and to play/pause/skip. Chrome, Arc, Brave, Edge, Vivaldi and Safari. For this, turn on **Allow JavaScript from Apple Events** (Chrome: View > Developer; Safari: Develop menu); without it the notch shows the tab title only, with no controls. |
 
 ### Approvals
 

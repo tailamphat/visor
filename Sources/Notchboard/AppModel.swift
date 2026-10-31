@@ -15,21 +15,36 @@ enum Tab: String, CaseIterable {
 }
 
 struct NowPlaying: Equatable {
-    enum Player: String { case spotify = "Spotify", music = "Music" }
-    var player: Player
+    enum Source: Hashable {
+        case spotify, music
+        /// A browser tab. `tab` is the browser's tab reference; `scriptable` is
+        /// false when the browser doesn't allow JavaScript from Apple Events.
+        case browser(bundleID: String, tab: String, scriptable: Bool)
+    }
+    var source: Source
+    /// Shown under the controls, e.g. "Spotify" or "Chrome · YouTube".
+    var sourceName: String
     var title: String
     var artist: String
     var album: String
-    /// Seconds.
+    /// Seconds; 0 when unknown.
     var duration: Double
     var position: Double
     /// When `position` was read, so progress can run on locally.
     var positionAt: Date
     var isPlaying: Bool
+    /// Browsers: artwork from the page (Media Session or the YouTube thumbnail).
+    var artworkURL: URL? = nil
+
+    var canControl: Bool {
+        if case .browser(_, _, let scriptable) = source { return scriptable }
+        return true
+    }
 
     func position(at date: Date) -> Double {
         guard isPlaying else { return position }
-        return min(duration, position + date.timeIntervalSince(positionAt))
+        let now = position + date.timeIntervalSince(positionAt)
+        return duration > 0 ? min(duration, now) : now
     }
 }
 

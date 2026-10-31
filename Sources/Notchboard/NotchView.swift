@@ -89,10 +89,7 @@ struct CollapsedView: View {
             if model.hasActivity || model.justFinished {
                 Artwork(image: model.artwork, size: 20, corner: 5)
             } else {
-                Image(systemName: "waveform")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .symbolEffect(.variableColor.iterative, isActive: true)
+                EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
         } else if let left = model.plan?.session?.percentLeft {
             Text("\(Int(left.rounded()))%")
@@ -109,10 +106,9 @@ struct AgentBadge: View {
     var body: some View {
         let waiting = approvals > 0 || board.waiting > 0
         HStack(spacing: 3) {
-            Image(systemName: waiting ? "exclamationmark.bubble.fill" : "sparkle")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(waiting ? Theme.warning : Theme.claude)
-                .symbolEffect(.pulse, isActive: true)
+            PulsingSymbol(name: waiting ? "exclamationmark.bubble.fill" : "sparkle",
+                          color: NSColor(hex: waiting ? 0xFAB219 : 0xD97757), size: 13)
+                .id(waiting)
             let count = board.working + board.waiting
             if count > 1 {
                 Text("\(count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
