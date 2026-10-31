@@ -116,6 +116,41 @@ struct EmptyState: View {
     }
 }
 
+/// Approval buttons: a quiet outlined Deny, a neutral Always allow, and a
+/// solid Allow as the main action. All press down slightly.
+struct ConsentButton: ButtonStyle {
+    enum Kind { case deny, secondary, allow }
+    var kind: Kind
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .labelStyle(ConsentLabel())
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(kind == .deny ? Color(hex: 0xFF8A80) : .white)
+            .padding(.horizontal, kind == .allow ? 18 : 14)
+            .frame(height: 32)
+            .background(
+                Capsule().fill(kind == .allow ? Theme.good : kind == .deny ? Theme.critical.opacity(0.14) : Color.white.opacity(0.1))
+            )
+            .overlay(Capsule().strokeBorder(kind == .deny ? Theme.critical.opacity(0.45) : .clear, lineWidth: 1))
+            .brightness(pressed ? -0.08 : 0)
+            .scaleEffect(pressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.12), value: pressed)
+            .contentShape(Capsule())
+    }
+}
+
+/// Icon then title, with the icon a touch bolder.
+struct ConsentLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon.font(.system(size: 11, weight: .bold))
+            configuration.title
+        }
+    }
+}
+
 struct PillButton: ButtonStyle {
     var fill: Color
     var foreground: Color = .white
@@ -175,19 +210,26 @@ struct ApprovalView: View {
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.raised))
             HStack(spacing: 8) {
-                Button("Ask in terminal") { model.decide?(request, nil) }
-                    .buttonStyle(PillButton(fill: Theme.raised, foreground: Theme.textSecondary))
-                    .help("Let Claude Code show its own prompt instead")
-                Spacer()
-                Button("Deny") { model.decide?(request, .deny) }
-                    .buttonStyle(PillButton(fill: Theme.critical))
-                if !request.suggestions.isEmpty {
-                    Button("Always allow") { model.decide?(request, .allowAlways) }
-                        .buttonStyle(PillButton(fill: Theme.raised, foreground: Theme.textPrimary))
-                        .help("Allow, and don't ask again for this kind of call")
+                Button { model.decide?(request, .deny) } label: {
+                    Label("Deny", systemImage: "xmark")
                 }
-                Button("Allow") { model.decide?(request, .allow) }
-                    .buttonStyle(PillButton(fill: Theme.good))
+                .buttonStyle(ConsentButton(kind: .deny))
+                Spacer(minLength: 8)
+                if let always = request.alwaysAllowLabel {
+                    Button { model.decide?(request, .allowAlways) } label: {
+                        HStack(spacing: 5) {
+                            Text("Always allow")
+                            Text(always).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(ConsentButton(kind: .secondary))
+                    .help("Allow this now, and don't ask again for \(always)")
+                }
+                Button { model.decide?(request, .allow) } label: {
+                    Label("Allow", systemImage: "checkmark")
+                }
+                .buttonStyle(ConsentButton(kind: .allow))
             }
         }
     }

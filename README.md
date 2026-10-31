@@ -4,7 +4,7 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 
 - **Usage**: your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
 - **Agents**: every running Claude Code session and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.
-- **Approvals**: when Claude Code asks for permission, the notch opens with Allow / Deny / Always allow, or hands the question back to the terminal.
+- **Approvals**: when Claude Code asks for permission, the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow (naming the rule, e.g. `git push`).
 - **Music**: what Spotify, Apple Music, or a browser (YouTube, YouTube Music, SoundCloud, ...) is playing, with artwork, progress and play/pause/skip.
 
 Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers in the window server, so the app uses ~0% CPU and ~50 MB at rest.
@@ -32,7 +32,7 @@ Then choose **Connect Claude Code** in the notch (or the menu bar icon).
 
 ### Approvals
 
-`PermissionRequest` hooks run *before* Claude Code shows its own prompt. Notchboard holds the request for up to ~110 seconds. If you don't answer in that time, choose **Ask in terminal**, or interrupt Claude Code, the request goes back to the normal terminal prompt.
+`PermissionRequest` hooks run *before* Claude Code shows its own prompt. Notchboard holds the request for up to ~110 seconds. If you don't answer in that time, or you answer in the terminal, or interrupt Claude Code, the card closes and the terminal prompt takes over.
 
 If another app (for example Notchy) also registers a `PermissionRequest` hook, both will ask you. Use one at a time.
 

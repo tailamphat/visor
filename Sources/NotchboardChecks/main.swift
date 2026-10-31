@@ -164,6 +164,14 @@ do {
     let request = ApprovalRequest(HookMessage.parse(Data(line.utf8))!)!
     check(request.tool == "Bash" && request.preview == "rm -rf build" && request.project == "app", "approval fields")
     check(request.suggestions.count == 1, "suggestions kept for always-allow")
+    check(request.alwaysAllowLabel == "rm", "always-allow names the rule")
+    func label(_ suggestions: String) -> String? {
+        let line = #"{"event":"PermissionRequest","raw":{"session_id":"s","tool_name":"Edit","tool_input":{},"permission_suggestions":"# + suggestions + "}}"
+        return ApprovalRequest(HookMessage.parse(Data(line.utf8))!)!.alwaysAllowLabel
+    }
+    check(label(#"[{"type":"setMode","mode":"acceptEdits","destination":"session"}]"#) == "edits", "accept-edits suggestion")
+    check(label(#"[{"type":"addRules","rules":[{"toolName":"Edit"}]}]"#) == "Edit", "rule without content names the tool")
+    check(label("[]") == nil, "no suggestion, no always-allow")
     func decision(_ d: ApprovalRequest.Decision) -> [String: Any] {
         let object = try! JSONSerialization.jsonObject(with: request.reply(d)) as! [String: Any]
         let output = object["hookSpecificOutput"] as! [String: Any]

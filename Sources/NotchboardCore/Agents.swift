@@ -206,6 +206,22 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         suggestions = message.payload["permission_suggestions"] as? [Any] ?? []
     }
 
+    /// What "Always allow" will allow, from Claude Code's suggested rule:
+    /// "git push" for Bash(git push:*), "edits" when it offers to accept edits.
+    public var alwaysAllowLabel: String? {
+        guard !suggestions.isEmpty else { return nil }
+        for case let suggestion as [String: Any] in suggestions {
+            if suggestion["type"] as? String == "setMode", suggestion["mode"] as? String == "acceptEdits" { return "edits" }
+            for case let rule as [String: Any] in suggestion["rules"] as? [Any] ?? [] {
+                guard var content = rule["ruleContent"] as? String, !content.isEmpty else { continue }
+                if content.hasSuffix(":*") { content.removeLast(2) }
+                if content.hasSuffix("/**") { content = (content.dropLast(3) as Substring).description + "/" }
+                return content.count > 28 ? String(content.prefix(27)) + "…" : content
+            }
+        }
+        return tool
+    }
+
     public enum Decision: Sendable { case allow, allowAlways, deny }
 
     /// The JSON line the hook prints back to Claude Code.
