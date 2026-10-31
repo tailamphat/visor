@@ -122,18 +122,42 @@ struct ConsentButton: ButtonStyle {
     enum Kind { case deny, secondary, allow }
     var kind: Kind
 
+    static let mint = Color(hex: 0x7EE0A0)
+    static let rose = Color(hex: 0xFF8F86)
+
+    /// Soft mint: a solid mint Allow, a mint-tinted Always, a rose-tinted Deny.
+    private var text: Color {
+        switch kind {
+        case .allow: return Color(hex: 0x06260F)
+        case .secondary: return Color(hex: 0xC9F3D6)
+        case .deny: return Color(hex: 0xFF9D95)
+        }
+    }
+    private var fill: Color {
+        switch kind {
+        case .allow: return Self.mint
+        case .secondary: return Self.mint.opacity(0.12)
+        case .deny: return Self.rose.opacity(0.12)
+        }
+    }
+    private var stroke: Color {
+        switch kind {
+        case .allow: return .clear
+        case .secondary: return Self.mint.opacity(0.25)
+        case .deny: return Self.rose.opacity(0.25)
+        }
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
         configuration.label
             .labelStyle(ConsentLabel())
             .font(.system(size: 12.5, weight: .semibold))
-            .foregroundStyle(kind == .deny ? Color(hex: 0xFF8A80) : .white)
-            .padding(.horizontal, kind == .allow ? 18 : 14)
-            .frame(height: 32)
-            .background(
-                Capsule().fill(kind == .allow ? Theme.good : kind == .deny ? Theme.critical.opacity(0.14) : Color.white.opacity(0.1))
-            )
-            .overlay(Capsule().strokeBorder(kind == .deny ? Theme.critical.opacity(0.45) : .clear, lineWidth: 1))
+            .foregroundStyle(text)
+            .padding(.horizontal, 16)
+            .frame(height: 34)
+            .background(Capsule().fill(fill))
+            .overlay(Capsule().strokeBorder(stroke, lineWidth: 1))
             .brightness(pressed ? -0.08 : 0)
             .scaleEffect(pressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.12), value: pressed)
@@ -212,18 +236,21 @@ struct ApprovalView: View {
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.07)))
                 .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+            // Deny, Always and Allow together in the centre.
             HStack(spacing: 8) {
                 Button { model.decide?(request, .deny) } label: {
                     Label("Deny", systemImage: "xmark")
                 }
                 .buttonStyle(ConsentButton(kind: .deny))
-                Spacer(minLength: 8)
                 if let always = request.alwaysAllowLabel {
                     Button { model.decide?(request, .allowAlways) } label: {
-                        HStack(spacing: 5) {
-                            Text("Always allow")
-                            Text(always).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-                                .lineLimit(1)
+                        Label {
+                            HStack(spacing: 5) {
+                                Text("Always")
+                                Text(always).font(.system(size: 11.5, design: .monospaced)).opacity(0.75).lineLimit(1)
+                            }
+                        } icon: {
+                            Image(systemName: "arrow.triangle.2.circlepath")
                         }
                     }
                     .buttonStyle(ConsentButton(kind: .secondary))
@@ -234,6 +261,7 @@ struct ApprovalView: View {
                 }
                 .buttonStyle(ConsentButton(kind: .allow))
             }
+            .frame(maxWidth: .infinity)
             .padding(.top, 2)
         }
         // On top of the panel's own padding: room on every side, like the music panel.

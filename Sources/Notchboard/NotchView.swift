@@ -50,9 +50,9 @@ struct NotchView: View {
         }
         .frame(width: size.width, height: size.height, alignment: .top)
         .background {
-            // Approvals: a soft glow in the agent's colour from the top-left corner.
+            // Approvals: a soft mint glow from the top-left corner, matching the buttons.
             if model.expanded && !model.approvals.isEmpty {
-                RadialGradient(colors: [Theme.claude.opacity(0.28), .clear],
+                RadialGradient(colors: [ConsentButton.mint.opacity(0.16), .clear],
                                center: .topLeading, startRadius: 0, endRadius: 380)
                     .transition(.opacity)
             }
