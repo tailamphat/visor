@@ -9,7 +9,7 @@ struct NotchLayout {
     static let earWidth: CGFloat = 38
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 162)
-    static let musicSize = CGSize(width: 580, height: 140)
+    static let musicSize = CGSize(width: 580, height: 196)
     /// The window is a little larger than the biggest panel, room for the shadow.
     static let windowSize = CGSize(width: 620, height: 240)
 
@@ -49,16 +49,22 @@ struct NotchView: View {
             }
         }
         .frame(width: size.width, height: size.height, alignment: .top)
-        .background(alignment: .topLeading) {
-            // Album-art glow behind the music panel.
-            if model.showsMusic, let tint = model.artworkTint {
-                RadialGradient(colors: [Color(nsColor: tint).opacity(0.7), Color(nsColor: tint).opacity(0.18), .clear],
-                               center: UnitPoint(x: 0.12, y: 0.75), startRadius: 0, endRadius: 420)
-                    .transition(.opacity)
+        .background {
+            // Music: blurred artwork behind a dark shade, lit by the artwork colour.
+            if model.showsMusic, let backdrop = model.artworkBackdrop {
+                ZStack {
+                    Image(nsImage: backdrop).resizable().aspectRatio(contentMode: .fill).opacity(0.6)
+                    LinearGradient(colors: [.black.opacity(0.25), .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                    if let tint = model.artworkTint {
+                        RadialGradient(colors: [Color(nsColor: tint).opacity(0.45), .clear],
+                                       center: UnitPoint(x: 0.15, y: 0.7), startRadius: 0, endRadius: 300)
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .background(Theme.surface)
-        .animation(.easeOut(duration: 0.4), value: model.artworkTint)
+        .animation(.easeOut(duration: 0.4), value: model.artworkBackdrop)
         .clipShape(shape)
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
         .animation(Theme.spring, value: model.expanded)
@@ -186,6 +192,7 @@ struct ExpandedView: View {
                     TabButton(tab: tab, selected: model.tab == tab && model.approvals.isEmpty) {
                         model.tab = tab
                         if tab == .usage { model.refreshPlan?() }
+                        if tab == .music { model.refreshVolume?() }
                     }
                 }
             }

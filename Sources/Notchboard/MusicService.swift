@@ -1,5 +1,6 @@
 import AppKit
 import CoreAudio
+import CoreImage
 import NotchboardCore
 
 /// Now playing and playback controls for Spotify, Apple Music and browsers.
@@ -93,6 +94,7 @@ final class MusicService {
             artworkKey = nil
             model.artwork = nil
             model.artworkTint = nil
+            model.artworkBackdrop = nil
             return
         }
         let key = "\(pick.sourceName)|\(pick.title)|\(pick.album)"
@@ -100,6 +102,7 @@ final class MusicService {
             artworkKey = key
             model.artwork = nil
             model.artworkTint = nil
+            model.artworkBackdrop = nil
             loadArtwork(for: pick, key: key)
         }
     }
@@ -363,6 +366,40 @@ final class MusicService {
         "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
+    // MARK: Volume
+
+    /// Reads the system output volume (when the music panel opens).
+    func refreshVolume() {
+        scripts.async {
+            let value = Self.run("output volume of (get volume settings)").result?.int32Value
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    if let value { self.model.volume = Double(value) / 100 }
+                }
+            }
+        }
+    }
+
+    private var pendingVolume: Double?
+
+    /// Sets the system output volume. Slider drags arrive many times a second,
+    /// so only the latest value is sent, at most one script at a time.
+    func setVolume(_ value: Double) {
+        model.volume = value
+        let first = pendingVolume == nil
+        pendingVolume = value
+        guard first else { return }
+        scripts.async {
+            let latest = DispatchQueue.main.sync { MainActor.assumeIsolated { () -> Double? in
+                let v = self.pendingVolume
+                self.pendingVolume = nil
+                return v
+            } }
+            guard let latest else { return }
+            _ = Self.run("set volume output volume \(Int((latest * 100).rounded()))")
+        }
+    }
+
     // MARK: Controls
 
     func perform(_ command: MusicCommand) {
@@ -448,15 +485,34 @@ final class MusicService {
                        brightness: max(hsb.brightnessComponent, 0.7), alpha: 1)
     }
 
+    /// A heavily blurred copy of the artwork for the panel's backdrop. Made once
+    /// per song off the main thread, so SwiftUI never blurs anything per frame.
+    nonisolated static func backdrop(of image: NSImage) -> NSImage? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let input = CIImage(cgImage: cg)
+        // Small first: blurring 160 px is ~50x cheaper than the full artwork, and it's blurred anyway.
+        let scale = 160 / max(input.extent.width, 1)
+        let small = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale)).clampedToExtent()
+        guard let blur = CIFilter(name: "CIGaussianBlur", parameters: [kCIInputImageKey: small, kCIInputRadiusKey: 14])?
+            .outputImage?.cropped(to: CGRect(x: 0, y: 0, width: 160, height: 160)),
+              let saturated = CIFilter(name: "CIColorControls", parameters: [kCIInputImageKey: blur, kCIInputSaturationKey: 1.3])?
+            .outputImage,
+              let out = CIContext(options: [.useSoftwareRenderer: false]).createCGImage(saturated, from: saturated.extent)
+        else { return nil }
+        return NSImage(cgImage: out, size: NSSize(width: 160, height: 160))
+    }
+
     private func loadArtwork(for item: NowPlaying, key: String) {
         let show: @Sendable (Data?) -> Void = { data in
             let image = data.flatMap(NSImage.init(data:))
             let tint = image.flatMap(Self.tint(of:))
+            let backdrop = image.flatMap(Self.backdrop(of:))
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard self.artworkKey == key else { return }
                     self.model.artwork = image
                     self.model.artworkTint = tint
+                    self.model.artworkBackdrop = backdrop
                 }
             }
         }

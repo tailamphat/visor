@@ -348,48 +348,57 @@ struct DailyBars: View {
 
 // MARK: Music
 
-/// One compact row lit by the artwork's colour: artwork, title and progress,
-/// and the controls with a big play button.
+/// Big artwork on the left over a blurred copy of itself; title, progress and
+/// controls on the right, with the play button in the artwork's colour.
 struct MusicView: View {
     let model: AppModel
 
     var body: some View {
         if let now = model.nowPlaying {
             let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
-            HStack(spacing: 14) {
-                Artwork(image: model.artwork, size: 72, corner: 12)
-                    .shadow(color: Color(nsColor: tint).opacity(0.5), radius: 12, y: 4)
+            HStack(alignment: .top, spacing: 18) {
+                Artwork(image: model.artwork, size: 120, corner: 14)
+                    .shadow(color: .black.opacity(0.45), radius: 14, y: 6)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
-                        Text(now.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                        Text(now.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).help(now.title)
                         EqualizerBars(color: tint, active: now.isPlaying)
                     }
                     Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                    Spacer(minLength: 2)
+                        .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Spacer(minLength: 4)
                     if now.duration > 0 {
                         Progress(now: now)
                     } else if now.usesMediaKeys && !MediaKeys.isAllowed {
                         Text("Allow Notchboard under Privacy & Security \u{203A} Accessibility to use the controls.")
                             .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2)
                     }
+                    HStack(spacing: 14) {
+                        control("backward.fill", .previous)
+                        Button { model.musicCommand?(.playPause) } label: {
+                            Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 17)).foregroundStyle(.black)
+                                .frame(width: 40, height: 40)
+                                .background(Circle().fill(Color(nsColor: tint)))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        control("forward.fill", .next)
+                        Spacer(minLength: 8)
+                        if let volume = model.volume {
+                            Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                            Slider(value: Binding(get: { model.volume ?? volume }, set: { model.setVolume?($0) }), in: 0...1)
+                                .controlSize(.mini)
+                                .tint(Color(nsColor: tint))
+                                .frame(width: 90)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 10) {
-                    control("backward.fill", .previous)
-                    Button { model.musicCommand?(.playPause) } label: {
-                        Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 18)).foregroundStyle(.black)
-                            .frame(width: 42, height: 42)
-                            .background(Circle().fill(Color(nsColor: tint)))
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    control("forward.fill", .next)
-                }
             }
-            .frame(height: 76)
+            .frame(height: 124)
         } else {
             EmptyState(symbol: "music.note", title: "Nothing playing",
                        detail: "Play something in Spotify, Apple Music, or YouTube in your browser.")

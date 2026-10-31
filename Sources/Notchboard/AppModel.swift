@@ -78,10 +78,16 @@ final class AppModel {
     var artwork: NSImage?
     /// The artwork's colour, for the music panel's glow.
     var artworkTint: NSColor?
+    /// Blurred artwork behind the music panel.
+    var artworkBackdrop: NSImage?
+    /// System output volume, 0...1; nil until read.
+    var volume: Double?
 
     /// Set by the hook server; answers an approval.
     var decide: ((ApprovalRequest, ApprovalRequest.Decision?) -> Void)?
     var musicCommand: ((MusicCommand) -> Void)?
+    var setVolume: ((Double) -> Void)?
+    var refreshVolume: (() -> Void)?
     var installHooks: (() -> Void)?
     var refreshPlan: (() -> Void)?
 

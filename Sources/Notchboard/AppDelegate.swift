@@ -23,13 +23,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.installHooks = { [weak self] in self?.installHooks() }
         model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
         model.musicCommand = { [weak self] in self?.music.perform($0) }
+        model.setVolume = { [weak self] in self?.music.setVolume($0) }
+        model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
 
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
         do { try hooks.start() } catch { NSLog("Notchboard: hook socket failed: \(error)") }
 
-        notch.onExpand = { [weak self] tab in if tab == .usage { self?.usage.refreshIfStale() } }
+        notch.onExpand = { [weak self] tab in
+            if tab == .usage { self?.usage.refreshIfStale() }
+            if tab == .music { self?.music.refreshVolume() }
+        }
         notch.start()
         usage.start()
         // NOTCHBOARD_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
@@ -68,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                           isPlaying: p["playing"] as? Bool ?? true)
             model.artwork = image
             model.artworkTint = image.flatMap(MusicService.tint(of:))
+            model.artworkBackdrop = image.flatMap(MusicService.backdrop(of:))
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.
