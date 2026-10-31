@@ -356,7 +356,7 @@ struct MusicView: View {
     var body: some View {
         if let now = model.nowPlaying {
             let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
-            HStack(alignment: .top, spacing: 18) {
+            HStack(alignment: .center, spacing: 18) {
                 Artwork(image: model.artwork, size: 120, corner: 14)
                     .shadow(color: .black.opacity(0.45), radius: 14, y: 6)
                 VStack(alignment: .leading, spacing: 3) {
@@ -392,8 +392,10 @@ struct MusicView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 124)
             }
-            .frame(height: 124)
+            // Fill the panel below the tabs so the artwork sits in its vertical centre.
+            .frame(maxHeight: .infinity)
         } else {
             EmptyState(symbol: "music.note", title: "Nothing playing",
                        detail: "Play something in Spotify, Apple Music, or YouTube in your browser.")
