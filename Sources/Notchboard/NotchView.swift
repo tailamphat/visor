@@ -189,6 +189,7 @@ struct ExpandedView: View {
                     case .agents: AgentsView(model: model)
                     case .usage: UsageView(model: model)
                     case .music: MusicView(model: model)
+                    case .bar: BarView(model: model)
                     }
                 }
             }

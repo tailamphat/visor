@@ -3,13 +3,14 @@ import NotchboardCore
 import Observation
 
 enum Tab: String, CaseIterable {
-    case agents, usage, music
+    case agents, usage, music, bar
 
     var symbol: String {
         switch self {
         case .agents: return "sparkles"
         case .usage: return "gauge.with.dots.needle.50percent"
         case .music: return "music.note"
+        case .bar: return "square.grid.2x2"
         }
     }
 }
@@ -72,6 +73,20 @@ final class AppModel {
     var planError: String?
     var planUpdated: Date?
     var spend: SpendSummary?
+
+    // Bar
+    var bar = BarLayout()
+    /// Something is being dragged over the bar (highlights the drop area).
+    var barTargeted = false
+    /// The tile something is being dragged onto.
+    var barTargetTile: UUID?
+    var shortcutNames: [String] = []
+    var cpuUsage: Double?
+    var battery: (percent: Int, charging: Bool)?
+    /// A running timer ends at this date; a paused one keeps its time left.
+    var timerEnds: Date?
+    var timerPaused: TimeInterval?
+    var barActions: BarService?
 
     // Music
     var nowPlaying: NowPlaying?

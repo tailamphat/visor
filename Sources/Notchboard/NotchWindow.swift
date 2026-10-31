@@ -31,6 +31,10 @@ final class NotchController {
     private var hosting: NSHostingView<NotchView>?
     private var monitors: [Any] = []
     private var collapseWork: DispatchWorkItem?
+    /// While the mouse button is down: is something (a file, a link) being dragged?
+    private var dragWatch: Timer?
+    private var dragBase = 0
+    private(set) var dragging = false
     private var expandWork: DispatchWorkItem?
 
     var onExpand: ((Tab) -> Void)?
@@ -58,7 +62,41 @@ final class NotchController {
         }) {
             monitors.append(local)
         }
+        // Dragging a file or link over the closed notch opens the Bar tab, ready for the drop.
+        if let down = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown], handler: { [weak self] _ in
+            MainActor.assumeIsolated { self?.watchForDrag() }
+        }) {
+            monitors.append(down)
+        }
         observe()
+    }
+
+    /// Runs only while the mouse button is held, 20 times a second.
+    private func watchForDrag() {
+        dragBase = NSPasteboard(name: .drag).changeCount
+        dragging = false
+        dragWatch?.invalidate()
+        dragWatch = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.dragTick() }
+        }
+    }
+
+    private func dragTick() {
+        guard NSEvent.pressedMouseButtons & 1 != 0 else {
+            dragWatch?.invalidate()
+            dragWatch = nil
+            dragging = false
+            return
+        }
+        guard NSPasteboard(name: .drag).changeCount != dragBase else { return }
+        dragging = true
+        guard !model.expanded else { return }
+        var zone = notchRect().insetBy(dx: -10, dy: 0)
+        zone.size.height += 6
+        if zone.contains(NSEvent.mouseLocation) {
+            model.tab = .bar
+            expand()
+        }
     }
 
     /// Re-applies window state whenever `expanded` changes, wherever it changed.
@@ -120,7 +158,7 @@ final class NotchController {
                         guard let self else { return }
                         self.collapseWork = nil
                         // An approval stays open until it's answered.
-                        guard self.model.approvals.isEmpty, !self.model.pinned else { return }
+                        guard self.model.approvals.isEmpty, !self.model.pinned, !self.dragging else { return }
                         self.model.expanded = false
                     }
                 }

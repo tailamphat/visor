@@ -233,5 +233,34 @@ do {
     check(js.evaluateScript(BrowserMedia.probe)?.toString() == "", "a page with untouched media reports nothing")
 }
 
+// MARK: Bar
+
+do {
+    let app = BarItem.dropped(URL(fileURLWithPath: "/Applications/Safari.app"), isDirectory: true)!
+    check(app.kind == .app && app.name == "Safari" && app.target == "/Applications/Safari.app", "an .app is an app")
+    let folder = BarItem.dropped(URL(fileURLWithPath: "/Users/me/Work"), isDirectory: true)!
+    check(folder.kind == .folder && folder.name == "Work", "a directory is a folder")
+    let file = BarItem.dropped(URL(fileURLWithPath: "/Users/me/Q4 report.pdf"), isDirectory: false)!
+    check(file.kind == .file && file.name == "Q4 report.pdf", "a file keeps its name")
+    let link = BarItem.dropped(URL(string: "https://www.github.com/octocat")!, isDirectory: false)!
+    check(link.kind == .link && link.name == "github.com" && link.target == "https://www.github.com/octocat", "a web link is named by its site")
+    check(BarItem.dropped(URL(string: "mailto:a@b.c")!, isDirectory: false) == nil, "non-web links are refused")
+    check(BarItem.widget(.cpu).widget == .cpu && BarItem.shortcut("Deploy").target == "Deploy", "widgets and shortcuts")
+
+    var bar = BarLayout()
+    check(bar.add(app) && bar.add(folder) && bar.add(file), "adding")
+    check(!bar.add(BarItem.dropped(URL(fileURLWithPath: "/Applications/Safari.app"), isDirectory: true)!), "the same app twice is refused")
+    bar.move(file.id, to: 0)
+    check(bar.items.map(\.name) == ["Q4 report.pdf", "Safari", "Work"], "move to the front")
+    bar.move(file.id, to: 9)
+    check(bar.items.last?.id == file.id, "move past the end lands last")
+    bar.add(link, at: 1)
+    check(bar.items[1].id == link.id, "add at a position")
+    bar.remove(app.id)
+    check(!bar.items.contains { $0.id == app.id }, "remove")
+    let data = try! JSONEncoder().encode(bar)
+    check((try? JSONDecoder().decode(BarLayout.self, from: data)) == bar, "the bar saves and loads")
+}
+
 print("\(passed) passed, \(failures) failed")
 exit(failures == 0 ? 0 : 1)

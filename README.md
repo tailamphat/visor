@@ -5,6 +5,7 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 - **Usage**: your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
 - **Agents**: every running Claude Code session and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.
 - **Approvals**: when Claude Code asks for permission, the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow (naming the rule, e.g. `git push`).
+- **Bar**: your own row of things in the notch. Drag apps, files, folders and web links onto the notch to add them; add live widgets (clock, CPU, battery, timer) and your Shortcuts from the + tile. Drag tiles to reorder, right-click to remove, drop a file on an app to open it with that app.
 - **Music**: what Spotify, Apple Music, or a browser (YouTube, YouTube Music, SoundCloud, ...) is playing, with artwork, progress and play/pause/skip.
 
 Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers in the window server, so the app uses ~0% CPU and ~50 MB at rest.

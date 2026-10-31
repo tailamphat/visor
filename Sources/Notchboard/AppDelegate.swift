@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var notch = NotchController(model: model)
     private lazy var usage = UsageService(model: model)
     private lazy var music = MusicService(model: model)
+    private lazy var bar = BarService(model: model)
     private let hooks = HookServer()
     private var statusItem: NSStatusItem?
     private var pruneTimer: Timer?
@@ -35,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if tab == .usage { self?.usage.refreshIfStale() }
             if tab == .music { self?.music.refreshVolume() }
         }
+        model.barActions = bar
+        bar.start()
+        watchBarVisibility()
         notch.start()
         usage.start()
         // NOTCHBOARD_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
@@ -50,6 +54,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         pruneTimer?.tolerance = 1
+    }
+
+    /// The bar's live widgets sample only while the Bar tab is on screen.
+    private func watchBarVisibility() {
+        withObservationTracking {
+            bar.setVisible(model.expanded && model.tab == .bar && model.approvals.isEmpty)
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.watchBarVisibility() } }
+        }
     }
 
     // MARK: Agents
