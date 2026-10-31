@@ -228,6 +228,10 @@ enum AddMenu {
 
     static func show(model: AppModel) {
         let menu = NSMenu()
+        if let browser = model.barActions?.currentBrowser() {
+            menu.addItem(Item("Add current \(browser.name) tab") { model.barActions?.addCurrentTab() })
+            menu.addItem(.separator())
+        }
         let have = Set(model.bar.items.compactMap(\.widget))
         let widgets = BarItem.Widget.allCases.filter { !have.contains($0) }
         if !widgets.isEmpty {
@@ -241,7 +245,7 @@ enum AddMenu {
             for name in shortcuts { menu.addItem(Item(name) { model.barActions?.add(.shortcut(name)) }) }
         }
         menu.addItem(.separator())
-        let hint = NSMenuItem(title: "Drag apps, files, folders and links onto the notch", action: nil, keyEquivalent: "")
+        let hint = NSMenuItem(title: "Drag apps, files, folders, links or a browser\u{2019}s address onto the notch", action: nil, keyEquivalent: "")
         hint.isEnabled = false
         menu.addItem(hint)
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)

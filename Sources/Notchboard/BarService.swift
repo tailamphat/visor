@@ -58,6 +58,36 @@ final class BarService {
         if model.bar.add(item) { save() }
     }
 
+    /// The browser to take "the current tab" from: the frontmost app when it's
+    /// a browser (clicking the notch doesn't change it), else any running one.
+    func currentBrowser() -> (id: String, name: String)? {
+        let browsers = MusicService.chromium + [MusicService.safari]
+        let front = NSWorkspace.shared.frontmostApplication
+        let app = front.flatMap { f in browsers.contains(f.bundleIdentifier ?? "") ? f : nil }
+            ?? NSWorkspace.shared.runningApplications.first { browsers.contains($0.bundleIdentifier ?? "") }
+        guard let app, let id = app.bundleIdentifier else { return nil }
+        return (id, app.localizedName ?? "Browser")
+    }
+
+    /// Adds the tab that's open in the browser, named by its page title.
+    func addCurrentTab() {
+        guard let browser = currentBrowser() else { return }
+        let tab = browser.id == MusicService.safari ? "current tab of front window" : "active tab of front window"
+        let title = browser.id == MusicService.safari ? "name" : "title"
+        let source = "tell application id \"\(browser.id)\" to return {URL of \(tab), \(title) of \(tab)}"
+        work.async {
+            var error: NSDictionary?
+            let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
+            guard error == nil, let list = result, list.numberOfItems >= 1,
+                  let address = list.atIndex(1)?.stringValue, let url = URL(string: address),
+                  var item = BarItem.dropped(url, isDirectory: false) else { return }
+            if let pageTitle = list.atIndex(2)?.stringValue, !pageTitle.isEmpty {
+                item.name = pageTitle.count > 40 ? String(pageTitle.prefix(39)) + "…" : pageTitle
+            }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.add(item) } }
+        }
+    }
+
     func move(_ id: UUID, to index: Int) {
         model.bar.move(id, to: index)
         save()
