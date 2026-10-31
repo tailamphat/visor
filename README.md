@@ -39,6 +39,12 @@ Then choose **Connect Claude Code** in the notch (or the menu bar icon).
 
 If another app (for example Notchy) also registers a `PermissionRequest` hook, both will ask you. Use one at a time.
 
+## Development
+
+- **Test first.** For any behaviour change, add a failing check to `Sources/NotchboardChecks` (run `swift run NotchboardChecks` and see it fail), then make it pass. Logic lives in `NotchboardCore` so it can be checked.
+- **Commits** follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): short plain description`, for example `feat(usage): show Copilot premium requests` or `fix(bar): accept addresses dragged as text`.
+- **UI changes** start from a mockup; after building, check the real thing with a screenshot (debug builds accept `_show`, `_music` and `_decide` socket messages, see below).
+
 ## Layout
 
 - `Sources/NotchboardCore`: pure logic: pricing, transcript parsing, plan limits, agent state, approval replies.
