@@ -10,14 +10,17 @@ struct NotchLayout {
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
     static let musicSize = CGSize(width: 580, height: 196)
+    /// Usage with Copilot below Claude.
+    static let usageWithCopilotSize = CGSize(width: 580, height: 272)
     /// The window is a little larger than the biggest panel, room for the shadow.
-    static let windowSize = CGSize(width: 620, height: 240)
+    static let windowSize = CGSize(width: 620, height: 320)
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
+            if model.tab == .usage && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
         let ears = showsEars(model) ? 2 * Self.earWidth : 0

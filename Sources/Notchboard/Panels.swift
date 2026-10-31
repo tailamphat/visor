@@ -290,28 +290,32 @@ struct UsageView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 22) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(model.planName ?? "Plan limits").font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    if let updated = model.planUpdated {
-                        (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
-                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 7) {
+                        ProviderMark(symbol: "sparkle", color: Theme.claude)
+                        Text(model.planName ?? "Claude").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Spacer()
+                        if let updated = model.planUpdated {
+                            (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        }
+                    }
+                    if let plan = model.plan {
+                        ForEach(plan.limits.prefix(3)) { LimitMeter(limit: $0) }
+                        if let extra = plan.extra {
+                            Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
+                                .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        }
+                    } else {
+                        Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    }
+                    if let error = model.planError, model.plan != nil {
+                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                     }
                 }
-                if let plan = model.plan {
-                    ForEach(plan.limits.prefix(3)) { LimitMeter(limit: $0) }
-                    if let extra = plan.extra {
-                        Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                            .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    }
-                } else {
-                    Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                }
-                if let error = model.planError, model.plan != nil {
-                    Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                }
+                ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -320,6 +324,79 @@ struct UsageView: View {
     }
 
     private func money(_ value: Double) -> String { String(format: "$%.2f", value) }
+}
+
+/// A provider's small coloured badge beside its name.
+struct ProviderMark: View {
+    var symbol: String
+    var color: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4.5, style: .continuous).fill(color)
+            .frame(width: 16, height: 16)
+            .overlay(Image(systemName: symbol).font(.system(size: 8.5, weight: .bold)).foregroundStyle(.white))
+    }
+}
+
+/// Copilot's premium requests for one account.
+struct CopilotBlock: View {
+    let usage: CopilotUsage
+
+    static let purple = Color(hex: 0x8957E5)
+
+    var body: some View {
+        let used = usage.premiumUnlimited ? 0 : 100 - usage.percentLeft
+        let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                ProviderMark(symbol: "chevron.left.forwardslash.chevron.right", color: Self.purple)
+                Text(usage.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text(usage.host).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text("Premium requests").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                    if used >= 75 {
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(fill)
+                    }
+                    Spacer()
+                    Text(usage.premiumUnlimited ? "Unlimited"
+                         : "\(usage.premiumUsed.formatted()) of \(usage.premiumEntitlement.formatted()) · \(Int(usage.percentLeft.rounded()))% left")
+                        .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.accentTrack)
+                        Capsule().fill(fill).frame(width: max(4, geo.size.width * min(used, 100) / 100))
+                    }
+                }
+                .frame(height: 6)
+                Text(subtitle).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            }
+            if usage.chatUnlimited || usage.completionsUnlimited {
+                HStack(spacing: 6) {
+                    if usage.chatUnlimited { chip("Chat: unlimited") }
+                    if usage.completionsUnlimited { chip("Completions: unlimited") }
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var subtitle: String {
+        var parts: [String] = []
+        if let reset = usage.resetsAt { parts.append("Resets " + reset.formatted(.dateTime.day().month(.abbreviated))) }
+        if let perDay = usage.perDayToLast() { parts.append("~\(perDay.formatted()) a day to last") }
+        if usage.overagePermitted { parts.append(usage.overageUsed > 0 ? "\(usage.overageUsed) over" : "overage allowed") }
+        return parts.joined(separator: " · ")
+    }
+
+    private func chip(_ text: String) -> some View {
+        Text(text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .background(Capsule().fill(Color.white.opacity(0.07)))
+    }
 }
 
 struct LimitMeter: View {

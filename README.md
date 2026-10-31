@@ -2,7 +2,7 @@
 
 A small, fast macOS notch app for people who work with AI agents. Hover the notch to open it.
 
-- **Usage**: your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
+- **Usage**: your Copilot premium requests (used, left, reset date) for every GitHub account `gh` is signed in to, including company `*.ghe.com` accounts; and your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
 - **Agents**: every running Claude Code session and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.
 - **Approvals**: when Claude Code asks for permission, the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow (naming the rule, e.g. `git push`).
 - **Bar**: your own row of things in the notch. Drag apps, files, folders and web links onto the notch to add them; add live widgets (clock, CPU, battery, timer) and your Shortcuts from the + tile. Drag tiles to reorder, right-click to remove, drop a file on an app to open it with that app.
@@ -26,6 +26,7 @@ Then choose **Connect Claude Code** in the notch (or the menu bar icon).
 | Feature | Source |
 |---|---|
 | Plan limits | `GET https://api.anthropic.com/api/oauth/usage` with the OAuth token Claude Code keeps in your login keychain (`Claude Code-credentials`). Read with `/usr/bin/security`; never written or refreshed by Notchboard. Refreshed every 2 minutes, and when you open the Usage tab if older than 45s. This endpoint is not a documented public API and may change. |
+| Copilot | For each host in `gh auth status` (github.com and `*.ghe.com`), `GET <api>/copilot_internal/user` with that host's `gh auth token`, the same call Copilot's own apps use. Plans without premium requests (Copilot Free) are hidden. The token is fetched from `gh` each time and never stored. Internal endpoint; it may change. |
 | Spend | Token usage in `~/.claude/projects/**/*.jsonl`, priced with API list prices (`Sources/NotchboardCore/Pricing.swift`). Files are read incrementally, so a rescan takes milliseconds. This is the API-equivalent value, not what a subscription bills. |
 | Agents & approvals | Claude Code [hooks](https://code.claude.com/docs/en/hooks). Connecting adds `~/Library/Application Support/Notchboard/agent-hook.sh` to `~/.claude/settings.json` (a one-time backup is saved as `settings.json.notchboard-backup`). The script sends each event to a Unix socket owned by the app, and always exits 0, so Claude Code is never blocked when Notchboard isn't running. |
 | Music | Distributed notifications from Spotify / Music, plus AppleScript for position, artwork and controls (macOS asks for Automation permission once). Apps are only scripted while already running. |

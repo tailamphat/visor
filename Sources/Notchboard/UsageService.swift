@@ -51,6 +51,7 @@ final class UsageService {
     }
 
     func refreshPlan() {
+        refreshCopilot()
         guard !fetching else { return }
         fetching = true
         let cached = token
@@ -73,6 +74,60 @@ final class UsageService {
                 }
             }
         }
+    }
+
+    // MARK: Copilot
+
+    private var fetchingCopilot = false
+
+    /// Copilot allowances for every GitHub host `gh` is signed in to (github.com
+    /// and company *.ghe.com), keeping plans with premium requests to count.
+    /// The token comes from `gh` each time; Notchboard never stores it.
+    private func refreshCopilot() {
+        guard !fetchingCopilot, let gh = Self.ghPath else { return }
+        fetchingCopilot = true
+        work.async {
+            let status = Self.run(gh, ["auth", "status"]) ?? ""
+            var found: [CopilotUsage] = []
+            for host in CopilotUsage.signedInHosts(fromStatus: status) {
+                guard let base = CopilotUsage.apiBase(for: host),
+                      let token = Self.run(gh, ["auth", "token", "--hostname", host])?
+                        .trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else { continue }
+                var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
+                request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                request.setValue("Notchboard", forHTTPHeaderField: "User-Agent")
+                request.timeoutInterval = 15
+                if case .ok(let data) = Self.send(request), let usage = CopilotUsage.parse(data, host: host), usage.isTracked {
+                    found.append(usage)
+                }
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self.fetchingCopilot = false
+                    // Company plans first.
+                    let sorted = found.sorted { ($0.host == "github.com" ? 1 : 0) < ($1.host == "github.com" ? 1 : 0) }
+                    if sorted != self.model.copilot { self.model.copilot = sorted }
+                }
+            }
+        }
+    }
+
+    private nonisolated static let ghPath: String? = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
+        .first { FileManager.default.isExecutableFile(atPath: $0) }
+
+    /// Runs a command and returns its output (stdout and stderr; `gh auth status` writes to stderr).
+    private nonisolated static func run(_ path: String, _ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        guard (try? process.run()) != nil else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(decoding: data, as: UTF8.self)
     }
 
     struct PlanError: Error { var message: String }
@@ -130,6 +185,18 @@ final class UsageService {
     }
 
     enum Response { case ok(Data), status(Int) }
+
+    private nonisolated static func send(_ request: URLRequest) -> Response {
+        let done = DispatchSemaphore(value: 0)
+        var result = Response.status(0)
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            result = status == 200 && data != nil ? .ok(data!) : .status(status)
+            done.signal()
+        }.resume()
+        done.wait()
+        return result
+    }
 
     private nonisolated static func request(token: String) -> Response {
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)

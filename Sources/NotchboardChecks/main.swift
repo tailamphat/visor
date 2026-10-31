@@ -233,6 +233,32 @@ do {
     check(js.evaluateScript(BrowserMedia.probe)?.toString() == "", "a page with untouched media reports nothing")
 }
 
+// MARK: Copilot
+
+do {
+    let json = #"{"login":"octocat","copilot_plan":"business","quota_reset_date":"2026-11-01","quota_reset_date_utc":"2026-11-01T00:00:00.000Z","quota_snapshots":{"chat":{"unlimited":true,"entitlement":0,"remaining":0},"completions":{"unlimited":true},"premium_interactions":{"entitlement":15000,"remaining":8906,"percent_remaining":59.3,"unlimited":false,"overage_permitted":true,"overage_count":0}}}"#
+    let c = CopilotUsage.parse(Data(json.utf8), host: "acme.ghe.com")!
+    check(c.title == "Copilot Business" && c.login == "octocat" && c.host == "acme.ghe.com", "plan and account")
+    check(c.premiumUsed == 6094 && c.premiumRemaining == 8906 && abs(c.percentLeft - 59.37) < 0.01, "premium requests used and left")
+    check(c.chatUnlimited && c.completionsUnlimited && c.overagePermitted && c.isTracked, "unlimited chat, overage allowed")
+    let oct30 = ISO8601DateFormatter().date(from: "2026-10-30T00:00:00Z")!
+    check(c.perDayToLast(now: oct30) == 4453, "per day to last until the reset")
+    check(c.perDayToLast(now: oct30.addingTimeInterval(86_400 + 3600)) == nil, "no per-day figure on the last day")
+    let free = CopilotUsage.parse(Data(#"{"login":"me","copilot_plan":"individual","quota_snapshots":{"premium_interactions":{"entitlement":0,"remaining":0}}}"#.utf8), host: "github.com")!
+    check(!free.isTracked, "Copilot Free has no premium requests to track")
+    check(CopilotUsage.parse(Data("{}".utf8), host: "x") == nil, "empty response")
+    check(CopilotUsage.apiBase(for: "github.com")?.absoluteString == "https://api.github.com", "github.com API")
+    check(CopilotUsage.apiBase(for: "acme.ghe.com")?.absoluteString == "https://api.acme.ghe.com", "ghe.com API")
+    check(CopilotUsage.apiBase(for: "git.example.com") == nil, "other hosts are skipped")
+    let status = """
+    github.com
+      ✓ Logged in to github.com account octocat (keyring)
+    acme.ghe.com
+      ✓ Logged in to acme.ghe.com account octocat-ext (keyring)
+    """
+    check(CopilotUsage.signedInHosts(fromStatus: status) == ["github.com", "acme.ghe.com"], "hosts from gh auth status")
+}
+
 // MARK: Bar
 
 do {

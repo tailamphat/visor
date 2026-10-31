@@ -73,6 +73,8 @@ final class AppModel {
     var planError: String?
     var planUpdated: Date?
     var spend: SpendSummary?
+    /// Copilot plans with premium requests, company (*.ghe.com) first.
+    var copilot: [CopilotUsage] = []
 
     // Bar
     var bar = BarLayout()

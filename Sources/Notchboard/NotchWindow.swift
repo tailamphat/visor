@@ -103,14 +103,51 @@ final class NotchController {
     private func observe() {
         withObservationTracking {
             _ = model.expanded
+            _ = layout.size(for: model)
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.panel.ignoresMouseEvents = !self.model.expanded
+                    self.fitWindow()
                     self.observe()
                 }
             }
+        }
+    }
+
+    private var shrinkWork: DispatchWorkItem?
+    private var shrinkTarget: CGFloat?
+
+    /// Keeps the window just tall enough for the panel (plus its shadow), so the
+    /// see-through part under a short panel never blocks clicks. It grows at
+    /// once and shrinks after the panel's closing animation.
+    private func fitWindow() {
+        let wanted = min(NotchLayout.windowSize.height, layout.size(for: model).height + 28)
+        let frame = panel.frame
+        guard abs(frame.height - wanted) > 0.5 else { return }
+        let apply = { [weak self] in
+            guard let self else { return }
+            let f = self.panel.frame
+            self.panel.setFrame(NSRect(x: f.minX, y: f.maxY - wanted, width: f.width, height: wanted), display: true)
+        }
+        if wanted > frame.height {
+            shrinkWork?.cancel()
+            shrinkTarget = nil
+            apply()
+        } else if shrinkTarget != wanted {
+            // Don't restart a pending shrink to the same height (agent activity
+            // changes the model often while the notch closes).
+            shrinkWork?.cancel()
+            shrinkTarget = wanted
+            let work = DispatchWorkItem { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.shrinkTarget = nil
+                    apply()
+                }
+            }
+            shrinkWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
         }
     }
 
@@ -122,7 +159,7 @@ final class NotchController {
             notch = CGSize(width: screen.frame.width - left.width - right.width, height: screen.safeAreaInsets.top)
         }
         layout = NotchLayout(notch: notch)
-        let size = NotchLayout.windowSize
+        let size = CGSize(width: NotchLayout.windowSize.width, height: min(NotchLayout.windowSize.height, layout.size(for: model).height + 28))
         panel.setFrame(NSRect(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
                               width: size.width, height: size.height), display: false)
         let view = NotchView(model: model, layout: layout)
