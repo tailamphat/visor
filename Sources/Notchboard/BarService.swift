@@ -54,8 +54,8 @@ final class BarService {
         if !added.isEmpty { save() }
     }
 
-    func add(_ item: BarItem) {
-        if model.bar.add(item) { save() }
+    func add(_ item: BarItem, at index: Int? = nil) {
+        if model.bar.add(item, at: index) { save() }
     }
 
     /// The browser to take "the current tab" from: the frontmost app when it's

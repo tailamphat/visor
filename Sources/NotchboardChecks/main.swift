@@ -245,6 +245,11 @@ do {
     let link = BarItem.dropped(URL(string: "https://www.github.com/octocat")!, isDirectory: false)!
     check(link.kind == .link && link.name == "github.com" && link.target == "https://www.github.com/octocat", "a web link is named by its site")
     check(BarItem.dropped(URL(string: "mailto:a@b.c")!, isDirectory: false) == nil, "non-web links are refused")
+    check(BarItem.link(fromText: "https://github.com/octocat")?.target == "https://github.com/octocat", "dropped text with https is a link")
+    check(BarItem.link(fromText: "github.com/octocat/acme")?.target == "https://github.com/octocat/acme", "a bare address gets https")
+    check(BarItem.link(fromText: "  www.apple.com \nsecond line")?.name == "apple.com", "first line, trimmed")
+    check(BarItem.link(fromText: "localhost:8765/#features") == nil, "no dot, not a web address")
+    check(BarItem.link(fromText: "hello world") == nil && BarItem.link(fromText: "notes.txt2") == nil, "plain words are not links")
     check(BarItem.widget(.cpu).widget == .cpu && BarItem.shortcut("Deploy").target == "Deploy", "widgets and shortcuts")
 
     var bar = BarLayout()

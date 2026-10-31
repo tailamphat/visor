@@ -44,6 +44,24 @@ public struct BarItem: Codable, Equatable, Identifiable, Sendable {
         return BarItem(kind: .link, name: name, target: url.absoluteString)
     }
 
+    /// A link from dropped text, when the text is a web address. Browsers like
+    /// Dia drag their address bar as text, sometimes without "https://".
+    public static func link(fromText text: String) -> BarItem? {
+        let line = text.split(whereSeparator: \.isNewline).first.map(String.init)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        guard !line.isEmpty, !line.contains(" ") else { return nil }
+        let lower = line.lowercased()
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://") {
+            return URL(string: line).flatMap { dropped($0, isDirectory: false) }
+        }
+        // A bare address: a host with a dot and a real-looking ending, then an optional path.
+        let host = lower.split(separator: "/", maxSplits: 1).first.map(String.init) ?? ""
+        let parts = host.split(separator: ".")
+        guard parts.count >= 2, let ending = parts.last, ending.count >= 2, ending.allSatisfy(\.isLetter),
+              host.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == ":" }) else { return nil }
+        return URL(string: "https://" + line).flatMap { dropped($0, isDirectory: false) }
+    }
+
     public static func widget(_ widget: Widget) -> BarItem {
         BarItem(kind: .widget, name: widget.title, target: widget.rawValue)
     }

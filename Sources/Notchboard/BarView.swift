@@ -255,20 +255,44 @@ enum AddMenu {
 /// Turns a drop into the right action.
 @MainActor
 enum BarDrop {
+    /// Plain text from a provider, or the text of rich text.
+    nonisolated static func loadText(_ provider: NSItemProvider, done: @escaping @Sendable (String?) -> Void) {
+        if provider.canLoadObject(ofClass: NSString.self) {
+            _ = provider.loadObject(ofClass: NSString.self) { object, _ in done(object as? String) }
+        } else if provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier) {
+            _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.rtf.identifier) { data, _ in
+                done(data.flatMap { NSAttributedString(rtf: $0, documentAttributes: nil)?.string })
+            }
+        } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+            _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.plainText.identifier) { data, _ in
+                done(data.map { String(decoding: $0, as: UTF8.self) })
+            }
+        } else {
+            done(nil)
+        }
+    }
+
     nonisolated static let reorderPrefix = "notchboard-bar:"
 
     static func handle(_ providers: [NSItemProvider], model: AppModel, onto tile: BarItem?, index: Int?) -> Bool {
         model.barTargeted = false
         model.barTargetTile = nil
-        // A tile dragged within the bar: move it to this spot.
-        if let provider = providers.first, provider.canLoadObject(ofClass: NSString.self),
-           !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
-           !provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-            _ = provider.loadObject(ofClass: NSString.self) { object, _ in
-                guard let text = object as? String, text.hasPrefix(reorderPrefix),
-                      let id = UUID(uuidString: String(text.dropFirst(reorderPrefix.count))) else { return }
+        // Text: a tile dragged within the bar, or an address dragged as text
+        // (Dia's address bar drags plain and rich text, not a link).
+        let isLink = { (p: NSItemProvider) in
+            p.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) || p.hasItemConformingToTypeIdentifier(UTType.url.identifier)
+        }
+        if let provider = providers.first, !isLink(provider) {
+            loadText(provider) { text in
+                guard let text else { return }
                 DispatchQueue.main.async {
-                    MainActor.assumeIsolated { model.barActions?.move(id, to: index ?? model.bar.items.count) }
+                    MainActor.assumeIsolated {
+                        if text.hasPrefix(reorderPrefix), let id = UUID(uuidString: String(text.dropFirst(reorderPrefix.count))) {
+                            model.barActions?.move(id, to: index ?? model.bar.items.count)
+                        } else if let link = BarItem.link(fromText: text) {
+                            model.barActions?.add(link, at: index)
+                        }
+                    }
                 }
             }
             return true
