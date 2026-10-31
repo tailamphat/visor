@@ -11,8 +11,7 @@ struct NotchLayout {
     /// Both ears widen together (the notch stays centred) to fit a second agent
     /// mark and the +N chip.
     func earWidth(_ model: AppModel) -> CGFloat {
-        let agents = model.board.activeAgents.count
-        return agents >= 3 ? 84 : agents == 2 ? 62 : Self.earWidth
+        CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count))
     }
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
@@ -173,15 +172,9 @@ struct AgentBadge: View {
     let approvals: Int
 
     var body: some View {
-        var agents = board.activeAgents
-        // A pending approval card always counts as waiting.
-        if approvals > 0, let i = agents.firstIndex(where: { $0.agent == "Claude Code" }), !agents[i].waiting {
-            let claude = agents.remove(at: i)
-            agents.insert((claude.agent, claude.count, true), at: 0)
-        }
-        let shown = agents.prefix(2)
+        let marks = NotchMarks.make(board, pendingApproval: approvals > 0)
         return HStack(spacing: 6) {
-            ForEach(Array(shown.enumerated()), id: \.element.agent) { _, entry in
+            ForEach(marks.shown, id: \.agent) { entry in
                 HStack(spacing: 2) {
                     PulsingSymbol(name: entry.waiting ? "exclamationmark.bubble.fill" : AgentStyle.symbol(entry.agent),
                                   color: entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
@@ -193,12 +186,12 @@ struct AgentBadge: View {
                 }
                 .help(entry.waiting ? "\(entry.agent) needs you" : "\(entry.agent): \(entry.count) working")
             }
-            if agents.count > 2 {
-                Text("+\(agents.count - 2)")
+            if !marks.more.isEmpty {
+                Text("+\(marks.more.count)")
                     .font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 4).padding(.vertical, 1)
                     .background(Capsule().fill(Color.white.opacity(0.12)))
-                    .help(agents.dropFirst(2).map(\.agent).joined(separator: ", "))
+                    .help(marks.more.joined(separator: ", "))
             }
         }
     }

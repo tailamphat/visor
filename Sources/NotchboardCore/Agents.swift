@@ -176,7 +176,11 @@ public struct AgentBoard: Equatable, Sendable {
     }
 
     public static func agentName(_ provider: String) -> String {
-        provider == "copilot" ? "Copilot CLI" : "Claude Code"
+        switch provider {
+        case "claude": return "Claude Code"
+        case "copilot": return "Copilot CLI"
+        default: return provider.prefix(1).uppercased() + provider.dropFirst()
+        }
     }
 
     /// Agents with something going on, in the order the closed notch shows them:
@@ -331,5 +335,40 @@ public enum ApprovalRelease: Equatable, Sendable {
         default:
             return nil
         }
+    }
+}
+
+/// What the closed notch shows for agents: at most two marks, then "+N".
+public struct NotchMarks: Equatable, Sendable {
+    public struct Mark: Equatable, Sendable {
+        public var agent: String
+        public var count: Int
+        public var waiting: Bool
+
+        public init(agent: String, count: Int, waiting: Bool) {
+            self.agent = agent
+            self.count = count
+            self.waiting = waiting
+        }
+    }
+    public var shown: [Mark]
+    /// Agents folded into the "+N" chip.
+    public var more: [String]
+
+    /// Waiting agents come first in `activeAgents`, so they always get a slot.
+    public static func make(_ board: AgentBoard, pendingApproval: Bool) -> NotchMarks {
+        var agents = board.activeAgents.map { Mark(agent: $0.agent, count: $0.count, waiting: $0.waiting) }
+        // An open approval card is Claude Code waiting for you.
+        if pendingApproval, let i = agents.firstIndex(where: { $0.agent == "Claude Code" }), !agents[i].waiting {
+            var claude = agents.remove(at: i)
+            claude.waiting = true
+            agents.insert(claude, at: 0)
+        }
+        return NotchMarks(shown: Array(agents.prefix(2)), more: agents.dropFirst(2).map(\.agent))
+    }
+
+    /// Width of each side of the closed notch: both widen together so it stays centred.
+    public static func earWidth(agents: Int) -> Double {
+        agents >= 3 ? 84 : agents == 2 ? 62 : 38
     }
 }

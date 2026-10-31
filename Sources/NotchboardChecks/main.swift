@@ -189,6 +189,40 @@ do {
     check(board.activeAgents.first?.agent == "Copilot CLI" && board.activeAgents.first?.waiting == true, "a waiting agent comes first")
 }
 
+// MARK: Closed notch marks
+
+do {
+    func start(_ provider: String, _ id: String, waiting: Bool = false) -> [HookMessage] {
+        var out = [HookMessage.parse(Data(#"{"event":"UserPromptSubmit","provider":"\#(provider)","pid":1,"raw":{"session_id":"\#(id)","sessionId":"\#(id)"}}"#.utf8))!]
+        if waiting {
+            out.append(HookMessage.parse(Data(#"{"event":"Notification","provider":"\#(provider)","pid":1,"raw":{"session_id":"\#(id)","sessionId":"\#(id)","notification_type":"idle_prompt"}}"#.utf8))!)
+        }
+        return out
+    }
+    check(AgentBoard.agentName("codex") == "Codex" && AgentBoard.agentName("claude") == "Claude Code", "a third agent keeps its own name")
+
+    var board = AgentBoard()
+    (start("claude", "a") + start("claude", "b")).forEach { board.apply($0) }
+    var marks = NotchMarks.make(board, pendingApproval: false)
+    check(marks.shown == [.init(agent: "Claude Code", count: 2, waiting: false)] && marks.more.isEmpty, "one agent, two sessions")
+
+    (start("copilot", "c") + start("codex", "d")).forEach { board.apply($0) }
+    marks = NotchMarks.make(board, pendingApproval: false)
+    check(marks.shown.map(\.agent) == ["Claude Code", "Copilot CLI"] && marks.more == ["Codex"], "two marks, then +1")
+
+    start("codex", "d", waiting: true).forEach { board.apply($0) }
+    marks = NotchMarks.make(board, pendingApproval: false)
+    check(marks.shown.first == .init(agent: "Codex", count: 1, waiting: true) && marks.more == ["Copilot CLI"],
+          "a waiting agent always gets a slot")
+
+    var claudeOnly = AgentBoard()
+    start("claude", "a").forEach { claudeOnly.apply($0) }
+    check(NotchMarks.make(claudeOnly, pendingApproval: true).shown.first?.waiting == true, "an open approval card counts as waiting")
+
+    check(NotchMarks.earWidth(agents: 0) == 38 && NotchMarks.earWidth(agents: 1) == 38, "one mark fits the normal ear")
+    check(NotchMarks.earWidth(agents: 2) == 62 && NotchMarks.earWidth(agents: 5) == 84, "ears widen for two marks and +N")
+}
+
 // MARK: Approvals closing by themselves
 
 do {
