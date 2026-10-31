@@ -1,10 +1,10 @@
 import Foundation
+import NotchboardCore
 
 /// Installs agent-hook.sh and registers it for Claude Code's hook events in
 /// ~/.claude/settings.json. Other hooks (other apps, the user's own) are kept.
 enum HookInstaller {
-    static let events = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
-                         "PermissionRequest", "Notification", "Stop"]
+    static let events = HookSettings.claudeEvents
 
     static var scriptURL: URL { HookServer.directory.appendingPathComponent("agent-hook.sh") }
     static var settingsURL: URL {
@@ -32,16 +32,10 @@ enum HookInstaller {
 
     """
 
-    private static func command(_ event: String) -> String { "\"\(scriptURL.path)\" \(event)" }
-
     /// Connected at all, even by an older version with fewer events; launch
     /// then re-installs to bring the script and event list up to date.
     static var isInstalled: Bool {
-        guard FileManager.default.isExecutableFile(atPath: scriptURL.path),
-              let hooks = readSettings()?["hooks"] as? [String: Any] else { return false }
-        return events.contains { event in
-            (hooks[event] as? [[String: Any]] ?? []).contains(where: isOurs)
-        }
+        FileManager.default.isExecutableFile(atPath: scriptURL.path) && HookSettings.isInstalled(readSettings() ?? [:])
     }
 
     static func install() throws {
@@ -49,19 +43,8 @@ enum HookInstaller {
         try Data(script.utf8).write(to: scriptURL, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
 
-        var settings = readSettings() ?? [:]
         backUpSettingsOnce()
-        var hooks = settings["hooks"] as? [String: Any] ?? [:]
-        for event in events {
-            var groups = (hooks[event] as? [[String: Any]] ?? []).filter { !isOurs($0) }
-            var hook: [String: Any] = ["type": "command", "command": command(event)]
-            // Claude Code waits for the hook before it shows its own prompt; give up in time.
-            if event == "PermissionRequest" { hook["timeout"] = 120 }
-            groups.append(["hooks": [hook]])
-            hooks[event] = groups
-        }
-        settings["hooks"] = hooks
-        try writeSettings(settings)
+        try writeSettings(HookSettings.install(into: readSettings() ?? [:], script: scriptURL.path))
     }
 
     // MARK: Copilot CLI
@@ -69,21 +52,13 @@ enum HookInstaller {
     /// Copilot CLI reads every JSON file in ~/.copilot/hooks; Notchboard keeps its own.
     static var copilotDirectory: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot") }
     static var copilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/notchboard.json") }
-    static let copilotEvents = ["sessionStart", "sessionEnd", "userPromptSubmitted", "preToolUse", "postToolUse",
-                                "postToolUseFailure", "agentStop", "notification"]
 
     static var hasCopilotCLI: Bool { FileManager.default.fileExists(atPath: copilotDirectory.path) }
     static var copilotInstalled: Bool { FileManager.default.fileExists(atPath: copilotHooksURL.path) }
 
-    /// Status only: Copilot's permission hook runs before its own allow rules,
-    /// so approvals stay in Copilot's terminal for now.
     static func installCopilot() throws {
         guard hasCopilotCLI else { return }
-        var hooks: [String: Any] = [:]
-        for event in copilotEvents {
-            hooks[event] = [["type": "command", "bash": "\"\(scriptURL.path)\" \(event) copilot", "timeoutSec": 5]]
-        }
-        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "hooks": hooks],
+        let data = try JSONSerialization.data(withJSONObject: HookSettings.copilotFile(script: scriptURL.path),
                                               options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try FileManager.default.createDirectory(at: copilotHooksURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: copilotHooksURL, options: .atomic)
@@ -94,20 +69,8 @@ enum HookInstaller {
     }
 
     static func uninstall() throws {
-        guard var settings = readSettings(), var hooks = settings["hooks"] as? [String: Any] else { return }
-        for (event, value) in hooks {
-            let groups = (value as? [[String: Any]] ?? []).filter { !isOurs($0) }
-            hooks[event] = groups.isEmpty ? nil : groups
-        }
-        settings["hooks"] = hooks
-        try writeSettings(settings)
-    }
-
-    /// A hook group that runs our script.
-    private static func isOurs(_ group: [String: Any]) -> Bool {
-        (group["hooks"] as? [[String: Any]] ?? []).contains {
-            ($0["command"] as? String)?.contains("Notchboard/agent-hook.sh") == true
-        }
+        guard let settings = readSettings() else { return }
+        try writeSettings(HookSettings.uninstall(from: settings))
     }
 
     private static func readSettings() -> [String: Any]? {

@@ -265,6 +265,48 @@ do {
     check(js.evaluateScript(BrowserMedia.probe)?.toString() == "", "a page with untouched media reports nothing")
 }
 
+// MARK: Hook settings
+
+do {
+    let script = "/Users/me/Library/Application Support/Notchboard/agent-hook.sh"
+    let notchy: [String: Any] = ["hooks": [["type": "command", "command": "\"/Users/me/Library/Application Support/Notchy/agent-hook.sh\" Stop"]]]
+    let before: [String: Any] = ["theme": "dark", "permissions": ["allow": ["Bash(ls:*)"]], "hooks": ["Stop": [notchy]]]
+
+    func groups(_ settings: [String: Any], _ event: String) -> [[String: Any]] {
+        (settings["hooks"] as? [String: Any])?[event] as? [[String: Any]] ?? []
+    }
+    func commands(_ settings: [String: Any], _ event: String) -> [String] {
+        groups(settings, event).flatMap { ($0["hooks"] as? [[String: Any]] ?? []).compactMap { $0["command"] as? String } }
+    }
+
+    let installed = HookSettings.install(into: before, script: script)
+    check(HookSettings.claudeEvents.allSatisfy { event in commands(installed, event).contains(HookSettings.command(script: script, event: event)) },
+          "every event runs our script")
+    check(HookSettings.command(script: script, event: "Stop") == "\"\(script)\" Stop", "the script path is quoted")
+    check(commands(installed, "Stop").first?.contains("Notchy") == true && commands(installed, "Stop").count == 2,
+          "other apps' hooks stay, ours is added after them")
+    check(installed["theme"] as? String == "dark" && installed["permissions"] != nil, "other settings are untouched")
+    let permission = groups(installed, "PermissionRequest").last?["hooks"] as? [[String: Any]]
+    check((permission?.first?["timeout"] as? Int) == 120, "approvals give up after 120 s, before Claude Code's own limit")
+    check(HookSettings.isInstalled(installed) && !HookSettings.isInstalled(before), "installed or not")
+
+    let twice = HookSettings.install(into: installed, script: script)
+    check(commands(twice, "Stop").count == 2 && commands(twice, "PreToolUse").count == 1, "installing again doesn't duplicate")
+
+    let removed = HookSettings.uninstall(from: twice)
+    check(commands(removed, "Stop") == commands(before, "Stop"), "uninstall keeps other apps' hooks")
+    check((removed["hooks"] as? [String: Any])?["PreToolUse"] == nil, "events left empty are removed")
+    check(!HookSettings.isInstalled(removed), "nothing of ours remains")
+
+    let copilot = HookSettings.copilotFile(script: script)
+    let copilotHooks = copilot["hooks"] as? [String: Any] ?? [:]
+    check(copilot["version"] as? Int == 1 && Set(copilotHooks.keys) == Set(HookSettings.copilotEvents), "Copilot file lists its events")
+    let first = (copilotHooks["preToolUse"] as? [[String: Any]])?.first
+    check(first?["bash"] as? String == "\"\(script)\" preToolUse copilot" && first?["timeoutSec"] as? Int == 5,
+          "Copilot hooks tag their events and never hold Copilot up")
+    check(!HookSettings.copilotEvents.contains("permissionRequest"), "Copilot approvals stay in its terminal for now")
+}
+
 // MARK: Copilot
 
 do {
