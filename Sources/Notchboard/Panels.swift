@@ -364,6 +364,8 @@ struct MusicView: View {
                         Text(now.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).help(now.title)
                         EqualizerBars(color: tint, active: now.isPlaying)
+                        Spacer(minLength: 8)
+                        volume(tint: tint)
                     }
                     Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -374,7 +376,8 @@ struct MusicView: View {
                         Text("Allow Notchboard under Privacy & Security \u{203A} Accessibility to use the controls.")
                             .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2)
                     }
-                    HStack(spacing: 14) {
+                    // Centred in the text column, under the progress bar.
+                    HStack(spacing: 18) {
                         control("backward.fill", .previous)
                         Button { model.musicCommand?(.playPause) } label: {
                             Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
@@ -385,16 +388,8 @@ struct MusicView: View {
                         }
                         .buttonStyle(.plain)
                         control("forward.fill", .next)
-                        Spacer(minLength: 8)
-                        if let volume = model.volume {
-                            Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                            Slider(value: Binding(get: { model.volume ?? volume }, set: { model.setVolume?($0) }), in: 0...1)
-                                .controlSize(.mini)
-                                .tint(Color(nsColor: tint))
-                                .frame(width: 90)
-                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -402,6 +397,20 @@ struct MusicView: View {
         } else {
             EmptyState(symbol: "music.note", title: "Nothing playing",
                        detail: "Play something in Spotify, Apple Music, or YouTube in your browser.")
+        }
+    }
+
+    /// System volume, beside the title so the controls have their row to themselves.
+    @ViewBuilder private func volume(tint: NSColor) -> some View {
+        if let volume = model.volume {
+            HStack(spacing: 5) {
+                Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                Slider(value: Binding(get: { model.volume ?? volume }, set: { model.setVolume?($0) }), in: 0...1)
+                    .controlSize(.mini)
+                    .tint(Color(nsColor: tint))
+                    .frame(width: 70)
+            }
         }
     }
 
