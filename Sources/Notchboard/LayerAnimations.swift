@@ -54,20 +54,27 @@ struct PulsingSymbol: NSViewRepresentable {
 struct EqualizerBars: NSViewRepresentable {
     var color: NSColor = .white
     var active = true
+    /// Full size by default; `.mini` fits a badge on a 20 pt thumbnail.
+    var barWidth: CGFloat = 3
+    var gap: CGFloat = 2.5
+    var height: CGFloat = 12
 
-    private static let size = CGSize(width: 14, height: 12)
+    static func mini(color: NSColor, active: Bool) -> EqualizerBars {
+        EqualizerBars(color: color, active: active, barWidth: 2, gap: 1, height: 8)
+    }
+
+    private var size: CGSize { CGSize(width: 3 * barWidth + 2 * gap, height: height) }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         view.wantsLayer = true
-        let width: CGFloat = 3, gap: CGFloat = 2.5
         for i in 0..<3 {
             let bar = CALayer()
             bar.backgroundColor = color.cgColor
-            bar.cornerRadius = width / 2
+            bar.cornerRadius = barWidth / 2
             bar.anchorPoint = CGPoint(x: 0.5, y: 0)
-            bar.bounds = CGRect(x: 0, y: 0, width: width, height: Self.size.height)
-            bar.position = CGPoint(x: CGFloat(i) * (width + gap) + width / 2, y: 0)
+            bar.bounds = CGRect(x: 0, y: 0, width: barWidth, height: height)
+            bar.position = CGPoint(x: CGFloat(i) * (barWidth + gap) + barWidth / 2, y: 0)
             view.layer?.addSublayer(bar)
         }
         return view
@@ -92,7 +99,7 @@ struct EqualizerBars: NSViewRepresentable {
         }
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? { Self.size }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? { size }
 }
 
 extension NSColor {

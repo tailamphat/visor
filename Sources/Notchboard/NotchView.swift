@@ -114,7 +114,14 @@ struct CollapsedView: View {
     @ViewBuilder private var right: some View {
         if model.isPlaying {
             if model.hasActivity || model.justFinished {
+                // The agent has the left side: show "playing" as a bar badge on the artwork.
                 Artwork(image: model.artwork, size: 20, corner: 5)
+                    .overlay(alignment: .bottomTrailing) {
+                        EqualizerBars.mini(color: model.artworkTint ?? .white, active: true)
+                            .padding(2.5)
+                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black))
+                            .offset(x: 4, y: 4)
+                    }
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
