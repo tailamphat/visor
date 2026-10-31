@@ -11,8 +11,8 @@ enum HookInstaller {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
     }
 
-    /// The hook must never get in Claude Code's way: it exits 0 whether or not
-    /// Notchboard is running, and only PermissionRequest waits for an answer.
+    /// The hook must never get in the agent's way: it exits 0 whether or not
+    /// Notchboard is running, and only approval requests wait for an answer.
     static let script = """
     #!/bin/sh
     # Notchboard: forwards Claude Code hook events to the notch. Always succeeds.
@@ -23,7 +23,7 @@ enum HookInstaller {
     [ -S "$s" ] || exit 0
     [ -n "$d" ] || d='{}'
     m=$(printf '{"event":"%s","provider":"%s","pid":%s,"hpid":%s,"raw":%s}' "$e" "$p" "$PPID" "$$" "$d")
-    if [ "$e" = "PermissionRequest" ] && [ "$p" = "claude" ]; then
+    if [ "$e" = "PermissionRequest" ] || [ "$e" = "permissionRequest" ]; then
       printf '%s\\n' "$m" | /usr/bin/nc -U -w 110 "$s" 2>/dev/null
     else
       printf '%s\\n' "$m" | /usr/bin/nc -U -w 1 "$s" >/dev/null 2>&1

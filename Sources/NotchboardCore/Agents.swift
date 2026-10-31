@@ -40,6 +40,11 @@ public struct HookMessage: @unchecked Sendable {
         "agentStop": "Stop", "notification": "Notification", "permissionRequest": "PermissionRequest",
     ]
 
+    static let copilotTools = [
+        "bash": "Bash", "shell": "Bash", "powershell": "Bash", "edit": "Edit", "create": "Write",
+        "web_fetch": "WebFetch", "view": "Read", "grep": "Grep", "glob": "Glob", "task": "Task",
+    ]
+
     /// Copilot's camelCase fields as Claude Code's snake_case ones; Copilot's
     /// own notification types mapped too ("agent_idle" means waiting for you).
     static func copilotPayload(_ raw: [String: Any]) -> [String: Any] {
@@ -54,8 +59,13 @@ public struct HookMessage: @unchecked Sendable {
             out["tool_input"] = object
         }
         if let kind = out["notification_type"] as? String, kind == "agent_idle" { out["notification_type"] = "idle_prompt" }
-        // Copilot names its shell tool "bash" or "shell"; describe it like Claude's Bash.
-        if let tool = out["tool_name"] as? String, ["bash", "shell"].contains(tool.lowercased()) { out["tool_name"] = "Bash" }
+        // Copilot's tools under Claude's names, so they read the same everywhere.
+        if let tool = out["tool_name"] as? String, let claude = copilotTools[tool.lowercased()] { out["tool_name"] = claude }
+        // Copilot calls a file "path"; Claude calls it "file_path".
+        if var input = out["tool_input"] as? [String: Any], input["file_path"] == nil, let path = input["path"] {
+            input["file_path"] = path
+            out["tool_input"] = input
+        }
         return out
     }
 
@@ -243,6 +253,8 @@ public struct AgentBoard: Equatable, Sendable {
 /// A Claude Code PermissionRequest waiting for the user to allow or deny it.
 public struct ApprovalRequest: Identifiable, @unchecked Sendable {
     public let id = UUID()
+    /// "claude" or "copilot": who is asking, and which reply format it expects.
+    public var provider = "claude"
     public var sessionID: String
     public var project: String
     public var tool: String
@@ -251,8 +263,13 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
     /// Rules Claude Code offers for "always allow"; echoed back as updatedPermissions.
     public var suggestions: [Any]
 
+    /// The session's working directory: which project an always-allow rule belongs to.
+    public var cwd: String
+
     public init?(_ message: HookMessage) {
         guard message.event == "PermissionRequest", let session = message.sessionID else { return nil }
+        provider = message.provider
+        cwd = message.cwd ?? ""
         sessionID = session
         project = ((message.cwd ?? "") as NSString).lastPathComponent
         tool = message.toolName ?? "Tool"
@@ -286,6 +303,7 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
     /// What "Always allow" will allow, from Claude Code's suggested rule:
     /// "git push" for Bash(git push:*), "edits" when it offers to accept edits.
     public var alwaysAllowLabel: String? {
+        if provider == "copilot" { return CopilotRules.Rule(for: self).label }
         guard !suggestions.isEmpty else { return nil }
         for case let suggestion as [String: Any] in suggestions {
             if suggestion["type"] as? String == "setMode", suggestion["mode"] as? String == "acceptEdits" { return "edits" }
@@ -303,6 +321,14 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
 
     /// The JSON line the hook prints back to Claude Code.
     public func reply(_ decision: Decision) -> Data {
+        if provider == "copilot" {
+            // Copilot's permissionRequest output; "always" is remembered by Notchboard.
+            let body: [String: Any] = decision == .deny
+                ? ["behavior": "deny", "message": "Denied from Notchboard."] : ["behavior": "allow"]
+            var data = (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
+            data.append(0x0A)
+            return data
+        }
         var body: [String: Any]
         switch decision {
         case .allow: body = ["behavior": "allow"]
@@ -370,5 +396,58 @@ public struct NotchMarks: Equatable, Sendable {
     /// Width of each side of the closed notch: both widen together so it stays centred.
     public static func earWidth(agents: Int) -> Double {
         agents >= 3 ? 84 : agents == 2 ? 62 : 38
+    }
+}
+
+
+/// Copilot CLI "always allow" rules. Copilot's hooks can't save rules, so
+/// Notchboard keeps them, per project, like Claude Code's own rules.
+public struct CopilotRules: Codable, Equatable, Sendable {
+    public struct Rule: Codable, Equatable, Sendable {
+        public var project: String
+        /// "command", "edits", "web", or another tool's name.
+        public var kind: String
+        /// The command's first word, the site, or "*" for any.
+        public var match: String
+
+        public init(for request: ApprovalRequest) {
+            project = request.cwd
+            switch request.tool {
+            case "Bash":
+                kind = "command"
+                match = request.preview.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? "*"
+            case "Edit", "Write", "MultiEdit":
+                kind = "edits"
+                match = "*"
+            case "WebFetch":
+                kind = "web"
+                match = URL(string: request.preview)?.host ?? "*"
+            default:
+                kind = request.tool
+                match = "*"
+            }
+        }
+
+        /// What the "Always" button names: "npm", "edits", "docs.github.com".
+        public var label: String {
+            switch kind {
+            case "edits": return "edits"
+            default: return match == "*" ? kind : match
+            }
+        }
+    }
+
+    public var rules: [Rule] = []
+
+    public init() {}
+
+    public mutating func add(for request: ApprovalRequest) {
+        let rule = Rule(for: request)
+        if !rules.contains(rule) { rules.append(rule) }
+    }
+
+    public func allows(_ request: ApprovalRequest) -> Bool {
+        let wanted = Rule(for: request)
+        return rules.contains { $0.project == wanted.project && $0.kind == wanted.kind && ($0.match == "*" || $0.match == wanted.match) }
     }
 }

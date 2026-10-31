@@ -85,7 +85,7 @@ struct CopilotHookTests {
         board.apply(hook("preToolUse", provider: "copilot", #"{\#(base),"toolName":"bash","toolArgs":{"command":"npm run deploy"}}"#))
         #expect(board.sessions[0].state == .working("Bash: npm run deploy"), "Copilot's bash tool reads like Bash")
         board.apply(hook("preToolUse", provider: "copilot", #"{\#(base),"toolName":"edit","toolArgs":"{\"path\":\"a.ts\"}"}"#))
-        #expect(board.sessions[0].state == .working("edit"), "tool arguments sent as a JSON string are decoded")
+        #expect(board.sessions[0].state == .working("Edit: a.ts"), "Copilot's edit reads like Claude's, arguments decoded from a JSON string")
         board.apply(hook("notification", provider: "copilot", #"{\#(base),"notification_type":"agent_idle","message":"Waiting"}"#))
         #expect(board.sessions[0].state == .needsInput)
         board.apply(hook("agentStop", provider: "copilot", "{\(base),\"stopReason\":\"end_turn\"}"))

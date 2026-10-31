@@ -5,10 +5,12 @@ import Foundation
 public enum HookSettings {
     public static let claudeEvents = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
                                       "PostToolUseFailure", "PermissionRequest", "Notification", "Stop"]
-    /// Status only: Copilot's permission hook runs before its own allow rules,
-    /// so approvals stay in Copilot's terminal for now.
     public static let copilotEvents = ["sessionStart", "sessionEnd", "userPromptSubmitted", "preToolUse", "postToolUse",
-                                       "postToolUseFailure", "agentStop", "notification"]
+                                       "postToolUseFailure", "agentStop", "notification", "permissionRequest"]
+
+    /// Copilot tools that ask: commands, file changes and web fetches. Reading
+    /// and searching never ask.
+    public static let copilotApprovalTools = "bash|powershell|create|edit|web_fetch"
 
     /// How a hook command is recognised as Notchboard's.
     static let marker = "Notchboard/agent-hook.sh"
@@ -53,7 +55,13 @@ public enum HookSettings {
     public static func copilotFile(script: String) -> [String: Any] {
         var hooks: [String: Any] = [:]
         for event in copilotEvents {
-            hooks[event] = [["type": "command", "bash": command(script: script, event: event) + " copilot", "timeoutSec": 5]]
+            var hook: [String: Any] = ["type": "command", "bash": command(script: script, event: event) + " copilot", "timeoutSec": 5]
+            if event == "permissionRequest" {
+                // Waits for the card, then Copilot falls back to its own prompt.
+                hook["matcher"] = copilotApprovalTools
+                hook["timeoutSec"] = 120
+            }
+            hooks[event] = [hook]
         }
         return ["version": 1, "hooks": hooks]
     }

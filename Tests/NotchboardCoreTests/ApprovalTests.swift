@@ -116,7 +116,9 @@ struct HookSettingsTests {
         #expect(copilot["version"] as? Int == 1 && Set(hooks.keys) == Set(HookSettings.copilotEvents))
         let first = (hooks["preToolUse"] as? [[String: Any]])?.first
         #expect(first?["bash"] as? String == "\"\(script)\" preToolUse copilot" && first?["timeoutSec"] as? Int == 5)
-        #expect(!HookSettings.copilotEvents.contains("permissionRequest"), "Copilot approvals stay in its terminal")
+        let approvals = (hooks["permissionRequest"] as? [[String: Any]])?.first
+        #expect(approvals?["matcher"] as? String == "bash|powershell|create|edit|web_fetch", "only commands, file changes and web fetches ask")
+        #expect(approvals?["timeoutSec"] as? Int == 120, "Copilot waits for the card, then falls back to its own prompt")
     }
 }
 
@@ -169,5 +171,83 @@ struct HookSettingsMoreTests {
     @Test func uninstallWithoutHooksChangesNothing() {
         let settings = HookSettings.uninstall(from: ["theme": "dark"])
         #expect(settings.count == 1 && settings["hooks"] == nil)
+    }
+}
+
+
+@Suite("Copilot approvals")
+struct CopilotApprovalTests {
+    func request(_ tool: String, _ input: String, cwd: String = "/x/shop") -> ApprovalRequest? {
+        ApprovalRequest(hook("permissionRequest", provider: "copilot", #"{"sessionId":"c1","cwd":"\#(cwd)","toolName":"\#(tool)","toolInput":\#(input)}"#))
+    }
+
+    @Test("Same words as Claude", arguments: [
+        ("bash", #"{"command":"npm run deploy:staging"}"#, "run a command", "npm"),
+        ("powershell", #"{"command":"Get-Process"}"#, "run a command", "Get-Process"),
+        ("edit", #"{"path":"src/a.ts"}"#, "edit a file", "edits"),
+        ("create", #"{"path":"src/b.ts"}"#, "create a file", "edits"),
+        ("web_fetch", #"{"url":"https://docs.github.com/x"}"#, "fetch a web page", "docs.github.com"),
+    ])
+    func words(tool: String, input: String, action: String, always: String) throws {
+        let r = try #require(request(tool, input))
+        #expect(r.provider == "copilot" && r.action == action && r.alwaysAllowLabel == always)
+    }
+
+    @Test func previewAndProject() throws {
+        let r = try #require(request("bash", #"{"command":"npm run deploy:staging"}"#))
+        #expect(r.preview == "npm run deploy:staging" && r.project == "shop" && r.sessionID == "c1")
+        #expect(try #require(request("edit", #"{"path":"src/a.ts"}"#)).preview == "src/a.ts")
+    }
+
+    @Test func repliesInCopilotsFormat() throws {
+        let r = try #require(request("bash", #"{"command":"ls"}"#))
+        func reply(_ d: ApprovalRequest.Decision) throws -> [String: Any] {
+            let data = r.reply(d)
+            #expect(data.last == 0x0A)
+            return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        #expect(try reply(.allow)["behavior"] as? String == "allow")
+        #expect(try reply(.allowAlways)["behavior"] as? String == "allow", "Notchboard keeps the rule; Copilot just hears allow")
+        let deny = try reply(.deny)
+        #expect(deny["behavior"] as? String == "deny" && deny["message"] as? String == "Denied from Notchboard.")
+        #expect(try reply(.allow)["hookSpecificOutput"] == nil)
+    }
+}
+
+@Suite("Copilot always-allow rules")
+struct CopilotRuleTests {
+    func request(_ tool: String, _ input: String, cwd: String = "/x/shop") -> ApprovalRequest {
+        ApprovalRequest(hook("permissionRequest", provider: "copilot", #"{"sessionId":"c1","cwd":"\#(cwd)","toolName":"\#(tool)","toolInput":\#(input)}"#))!
+    }
+
+    @Test func aCommandRuleCoversThatCommandInThatProject() throws {
+        var rules = CopilotRules()
+        rules.add(for: request("bash", #"{"command":"npm run deploy:staging"}"#))
+        #expect(rules.allows(request("bash", #"{"command":"npm test"}"#)))
+        #expect(!rules.allows(request("bash", #"{"command":"rm -rf build"}"#)), "another command still asks")
+        #expect(!rules.allows(request("bash", #"{"command":"npm test"}"#, cwd: "/x/other")), "another project still asks")
+        #expect(!rules.allows(request("edit", #"{"path":"a.ts"}"#)), "another kind of action still asks")
+    }
+
+    @Test func anEditRuleCoversCreatingToo() {
+        var rules = CopilotRules()
+        rules.add(for: request("edit", #"{"path":"a.ts"}"#))
+        #expect(rules.allows(request("create", #"{"path":"b.ts"}"#)))
+    }
+
+    @Test func aWebRuleCoversThatSite() {
+        var rules = CopilotRules()
+        rules.add(for: request("web_fetch", #"{"url":"https://docs.github.com/a"}"#))
+        #expect(rules.allows(request("web_fetch", #"{"url":"https://docs.github.com/b"}"#)))
+        #expect(!rules.allows(request("web_fetch", #"{"url":"https://example.com"}"#)))
+    }
+
+    @Test func rulesAreSavedAndNotDuplicated() throws {
+        var rules = CopilotRules()
+        rules.add(for: request("bash", #"{"command":"npm test"}"#))
+        rules.add(for: request("bash", #"{"command":"npm run build"}"#))
+        #expect(rules.rules.count == 1)
+        let data = try JSONEncoder().encode(rules)
+        #expect(try JSONDecoder().decode(CopilotRules.self, from: data) == rules)
     }
 }

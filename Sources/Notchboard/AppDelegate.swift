@@ -15,6 +15,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var pruneTimer: Timer?
     private var finishedWork: DispatchWorkItem?
 
+    // MARK: Copilot approvals
+
+    /// Copilot's "Always" choices, per project (Copilot's hooks can't save rules).
+    private lazy var copilotRules: CopilotRules = {
+        guard let data = try? Data(contentsOf: Self.copilotRulesURL),
+              let rules = try? JSONDecoder().decode(CopilotRules.self, from: data) else { return CopilotRules() }
+        return rules
+    }()
+    private static var copilotRulesURL: URL { HookServer.directory.appendingPathComponent("copilot-rules.json") }
+
+    private func saveCopilotRules() {
+        guard let data = try? JSONEncoder().encode(copilotRules) else { return }
+        try? data.write(to: Self.copilotRulesURL, options: .atomic)
+    }
+
+    /// Menu bar switch; on by default.
+    static var copilotApprovalsOn: Bool {
+        get { UserDefaults.standard.object(forKey: "copilotApprovals") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "copilotApprovals") }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.hooksInstalled = HookInstaller.isInstalled
         if model.hooksInstalled {
@@ -70,9 +91,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func received(_ message: HookMessage, _ approval: ApprovalRequest?) {
         #if DEBUG
-        // Debug builds: {"event":"_decide","raw":{"decision":"allow|deny"}} answers the first approval.
+        // Debug builds: {"event":"_decide","raw":{"decision":"allow|always|deny"}} answers the first approval.
         if message.event == "_decide", let first = model.approvals.first {
-            decide(first, message.payload["decision"] as? String == "deny" ? .deny : .allow)
+            let answer = message.payload["decision"] as? String
+            decide(first, answer == "deny" ? .deny : answer == "always" ? .allowAlways : .allow)
             return
         }
         // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true}} fakes a song.
@@ -113,8 +135,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         if let approval {
-            model.approvals.append(approval)
-            notch.expand()
+            if approval.provider == "copilot" && !Self.copilotApprovalsOn {
+                // Off: Copilot asks in its own terminal.
+                hooks.reply(approval, nil)
+            } else if approval.provider == "copilot" && copilotRules.allows(approval) {
+                // Allowed before with "Always": answer at once, no card.
+                hooks.reply(approval, .allow)
+                model.board.resolveApproval(session: approval.sessionID)
+            } else {
+                model.approvals.append(approval)
+                notch.expand()
+            }
         }
         if message.event == "Stop" {
             model.justFinished = true
@@ -126,6 +157,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func decide(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
+        if decision == .allowAlways && request.provider == "copilot" {
+            copilotRules.add(for: request)
+            saveCopilotRules()
+        }
         hooks.reply(request, decision)
         model.approvals.removeAll { $0.id == request.id }
         if decision != nil { model.board.resolveApproval(session: request.sessionID) }
@@ -175,6 +210,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let copilot = HookInstaller.copilotInstalled
             menu.addItem(withTitle: copilot ? "Disconnect Copilot CLI" : "Connect Copilot CLI",
                          action: #selector(toggleCopilot), keyEquivalent: "").target = self
+            if copilot {
+                let approvals = menu.addItem(withTitle: "Copilot Approvals in the Notch", action: #selector(toggleCopilotApprovals), keyEquivalent: "")
+                approvals.target = self
+                approvals.state = Self.copilotApprovalsOn ? .on : .off
+            }
         }
         menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
         menu.addItem(.separator())
@@ -194,6 +234,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
+
+    @objc private func toggleCopilotApprovals() { Self.copilotApprovalsOn.toggle() }
 
     @objc private func toggleCopilot() {
         if HookInstaller.copilotInstalled { try? HookInstaller.uninstallCopilot() } else { try? HookInstaller.installCopilot() }

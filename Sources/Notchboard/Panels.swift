@@ -239,10 +239,12 @@ struct ApprovalView: View {
         VStack(alignment: .leading, spacing: 9) {
             let session = model.board.sessions.first { $0.id == request.sessionID }
             // Who is asking: agent, where it runs, which project.
+            let agent = session?.agent ?? AgentBoard.agentName(request.provider)
             HStack(spacing: 7) {
-                AgentIcon(size: 22)
-                Text(session?.agent ?? "Claude Code")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(hex: 0xF0A58A))
+                AgentIcon(agent: agent, size: 22)
+                Text(agent)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A))
                 Text(Self.place(session: session, project: request.project))
                     .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()
@@ -304,15 +306,17 @@ struct ApprovalView: View {
     }
 }
 
-/// The agent's mark: Claude's sparkle on an orange tile.
+/// The agent's mark on its coloured tile: Claude's sparkle, Copilot's brackets.
 struct AgentIcon: View {
+    var agent = "Claude Code"
     var size: CGFloat
 
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-            .fill(LinearGradient(colors: [Color(hex: 0xE48A6B), Color(hex: 0xB9583B)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .fill(LinearGradient(colors: AgentStyle.tile(agent), startPoint: .topLeading, endPoint: .bottomTrailing))
             .frame(width: size, height: size)
-            .overlay(Image(systemName: "sparkle").font(.system(size: size * 0.5, weight: .bold)).foregroundStyle(.white))
+            .overlay(Image(systemName: AgentStyle.symbol(agent))
+                .font(.system(size: size * (agent == "Copilot CLI" ? 0.4 : 0.5), weight: .bold)).foregroundStyle(.white))
     }
 }
 
