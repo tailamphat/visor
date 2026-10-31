@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -12,8 +12,10 @@ let package = Package(
         .target(name: "NotchboardCore"),
         // The macOS app: notch window, SwiftUI views, hook server, music.
         .executableTarget(name: "Notchboard", dependencies: ["NotchboardCore"]),
-        // Assertion runner for NotchboardCore. Command Line Tools ship without a
-        // working XCTest/Swift Testing, so `swift run NotchboardChecks` stands in.
-        .executableTarget(name: "NotchboardChecks", dependencies: ["NotchboardCore"]),
-    ]
+        // Unit tests for NotchboardCore: `swift test` (Swift Testing; XCTest
+        // isn't available with the Command Line Tools).
+        .testTarget(name: "NotchboardCoreTests", dependencies: ["NotchboardCore"]),
+    ],
+    // The app predates Swift 6's strict concurrency checking.
+    swiftLanguageModes: [.v5]
 )
