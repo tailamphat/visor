@@ -4,6 +4,9 @@
 #   scripts/bundle.sh             # this Mac's architecture, ad-hoc signed
 #   scripts/bundle.sh --open      # ...and launch it
 #   scripts/bundle.sh --universal # Apple Silicon + Intel
+#
+# Signed with the "Notchboard Local Signing" certificate when present
+# (see scripts/make-signing-identity.sh), otherwise ad hoc.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,7 +28,17 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Notchboard"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-codesign --force --sign - "$APP"
+# Sign with a stable local identity when there is one, so macOS keeps the
+# Accessibility and Automation permissions across rebuilds (an ad-hoc
+# signature is tied to the exact binary and changes every build).
+# Create it once with scripts/make-signing-identity.sh.
+IDENTITY="Notchboard Local Signing"
+if security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
+  codesign --force --sign "$IDENTITY" "$APP"
+else
+  echo "note: no \"$IDENTITY\" certificate; signing ad hoc (permissions reset on every build)" >&2
+  codesign --force --sign - "$APP"
+fi
 
 echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/Notchboard"))"
 if [[ $OPEN == 1 ]]; then
