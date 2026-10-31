@@ -16,7 +16,7 @@ Needs macOS 14+ and the Command Line Tools (Xcode not required).
 
 ```sh
 ./scripts/bundle.sh --open     # builds build/Notchboard.app and launches it
-swift test                     # unit tests (Swift Testing)
+scripts/test.sh                # unit tests (Swift Testing)
 ```
 
 Then choose **Connect Claude Code** in the notch (or the menu bar icon).
@@ -41,7 +41,7 @@ If another app (for example Notchy) also registers a `PermissionRequest` hook, b
 
 ## Development
 
-- **Test first.** For any behaviour change, add a failing test to `Tests/NotchboardCoreTests` (run `swift test` and see it fail), then make it pass. Logic lives in `NotchboardCore` so it can be tested.
+- **Test first.** For any behaviour change, add a failing test to `Tests/NotchboardCoreTests` (run `scripts/test.sh` and see it fail), then make it pass. Logic lives in `NotchboardCore` so it can be tested.
 - **Commits** follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): short plain description`, for example `feat(usage): show Copilot premium requests` or `fix(bar): accept addresses dragged as text`.
 - **UI changes** start from a mockup; after building, check the real thing with a screenshot (debug builds accept `_show`, `_music` and `_decide` socket messages, see below).
 
@@ -49,7 +49,7 @@ If another app (for example Notchy) also registers a `PermissionRequest` hook, b
 
 - `Sources/NotchboardCore`: pure logic: pricing, transcript parsing, plan limits, agent state, approval replies.
 - `Sources/Notchboard`: the app: notch window and hover, SwiftUI views, hook socket server, usage and music services.
-- `Tests/NotchboardCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools). `NOTCHBOARD_REAL=1 swift test --filter realTranscripts` times a scan of your real transcripts.
+- `Tests/NotchboardCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools). `NOTCHBOARD_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. Use `scripts/test.sh` rather than plain `swift test`: with the Command Line Tools, incremental test builds can lose Swift Testing's macro plugin, and the script passes its location.
 
 Debug builds accept two extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it) and `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval.
 
