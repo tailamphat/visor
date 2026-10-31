@@ -119,3 +119,55 @@ struct HookSettingsTests {
         #expect(!HookSettings.copilotEvents.contains("permissionRequest"), "Copilot approvals stay in its terminal")
     }
 }
+
+@Suite("Approvals, more")
+struct ApprovalMoreTests {
+    func request(tool: String, input: String, suggestions: String = "[]") -> ApprovalRequest? {
+        ApprovalRequest(hook("PermissionRequest", #"{"session_id":"s","cwd":"/x/app","tool_name":"\#(tool)","tool_input":\#(input),"permission_suggestions":\#(suggestions)}"#))
+    }
+
+    @Test("What the agent wants to do", arguments: [
+        ("Edit", "edit a file"), ("Write", "create a file"), ("Read", "read a file"), ("WebFetch", "fetch a web page"),
+        ("WebSearch", "search the web"), ("Task", "start a subagent"), ("mcp__linear__create_issue", "use mcp__linear__create_issue"),
+    ])
+    func action(tool: String, words: String) {
+        #expect(request(tool: tool, input: "{}")?.action == words)
+    }
+
+    @Test func previewFallsBackToTheArguments() {
+        #expect(request(tool: "mcp__x__y", input: #"{"b":2,"a":1}"#)?.preview == #"{"a":1,"b":2}"#)
+    }
+
+    @Test func folderRulesReadAsFolders() {
+        let r = request(tool: "Edit", input: "{}", suggestions: #"[{"type":"addRules","rules":[{"toolName":"Edit","ruleContent":"src/**"}]}]"#)
+        #expect(r?.alwaysAllowLabel == "src/")
+    }
+
+    @Test func longRulesAreCut() {
+        let rule = String(repeating: "x", count: 40)
+        let r = request(tool: "Bash", input: "{}", suggestions: #"[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"\#(rule)"}]}]"#)
+        #expect(r?.alwaysAllowLabel?.count == 28 && r?.alwaysAllowLabel?.hasSuffix("…") == true)
+    }
+
+    @Test func denyExplainsItself() throws {
+        let data = try #require(request(tool: "Bash", input: #"{"command":"ls"}"#)).reply(.deny)
+        let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let decision = (object["hookSpecificOutput"] as? [String: Any])?["decision"] as? [String: Any]
+        #expect(decision?["message"] as? String == "Denied from Notchboard.")
+    }
+}
+
+@Suite("Hook settings, more")
+struct HookSettingsMoreTests {
+    let script = "/x/Notchboard/agent-hook.sh"
+
+    @Test func installIntoSettingsWithoutHooks() {
+        let installed = HookSettings.install(into: ["theme": "dark"], script: script)
+        #expect(HookSettings.isInstalled(installed) && installed["theme"] as? String == "dark")
+    }
+
+    @Test func uninstallWithoutHooksChangesNothing() {
+        let settings = HookSettings.uninstall(from: ["theme": "dark"])
+        #expect(settings.count == 1 && settings["hooks"] == nil)
+    }
+}

@@ -118,3 +118,72 @@ struct BrowserMediaTests {
         #expect(thrown == nil)
     }
 }
+
+@Suite("Bar items, more")
+struct BarItemMoreTests {
+    @Test func appExtensionIgnoresCase() {
+        #expect(BarItem.dropped(URL(fileURLWithPath: "/Applications/Foo.APP"), isDirectory: true)?.kind == .app)
+    }
+
+    @Test func pathsAreTidied() {
+        #expect(BarItem.dropped(URL(fileURLWithPath: "/Users/me/../me/Work"), isDirectory: true)?.target == "/Users/me/Work")
+    }
+
+    @Test func plainAddressWithoutAPath() {
+        let link = BarItem.link(fromText: "www.apple.com")
+        #expect(link?.target == "https://www.apple.com" && link?.name == "apple.com")
+    }
+
+    @Test func httpIsKeptOtherSchemesAreNot() {
+        #expect(BarItem.link(fromText: "http://example.com/a")?.target == "http://example.com/a")
+        #expect(BarItem.link(fromText: "ftp://example.com/a") == nil)
+    }
+}
+
+@Suite("Bar layout, more")
+struct BarLayoutMoreTests {
+    @Test func unknownItemsAreIgnored() {
+        var bar = BarLayout.starter
+        let before = bar
+        bar.move(UUID(), to: 0)
+        bar.remove(UUID())
+        #expect(bar == before)
+    }
+
+    @Test func addingPastTheEndAppends() {
+        var bar = BarLayout.starter
+        let shortcut = BarItem.shortcut("Deploy")
+        bar.add(shortcut, at: 99)
+        #expect(bar.items.last == shortcut)
+    }
+
+    @Test func aWidgetOnlyOnce() {
+        var bar = BarLayout.starter
+        let again = bar.add(.widget(.clock))
+        #expect(!again)
+    }
+}
+
+@Suite("Browser media, more")
+struct BrowserMediaMoreTests {
+    @Test func shortYouTubeLinksGetAThumbnail() {
+        let media = BrowserMedia.fromTitle("Song - YouTube", url: "https://youtu.be/AbC123", tab: "1", playing: true)
+        #expect(media?.artworkURL?.absoluteString == "https://i.ytimg.com/vi/AbC123/hqdefault.jpg")
+    }
+
+    @Test("Site names", arguments: [
+        ("https://soundcloud.com/artist/track", "SoundCloud"), ("https://www.twitch.tv/x", "Twitch"),
+        ("https://open.spotify.com/track/1", "Spotify Web"), ("https://www.bandcamp.com/x", "bandcamp.com"),
+    ])
+    func siteNames(url: String, site: String) {
+        #expect(BrowserMedia.fromTitle("Song", url: url, tab: "1", playing: false)?.site == site)
+    }
+
+    @Test func titlesWithoutDecorationsAreKept() {
+        #expect(BrowserMedia.fromTitle("Plain title", url: "https://x.com", tab: "1", playing: false)?.title == "Plain title")
+    }
+
+    @Test func pausedTitleOnlyIsNotPlaying() {
+        #expect(BrowserMedia.fromTitle("Song", url: "https://x.com", tab: "1", playing: false)?.playing == false)
+    }
+}

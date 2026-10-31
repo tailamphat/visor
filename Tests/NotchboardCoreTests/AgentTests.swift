@@ -143,3 +143,78 @@ struct NotchMarksTests {
         #expect(NotchMarks.earWidth(agents: agents) == width)
     }
 }
+
+@Suite("Describing what an agent does")
+struct DescribeTests {
+    @Test("Tool calls in plain words", arguments: [
+        ("Read", #"{"file_path":"/a/b/Main.swift"}"#, "Read: Main.swift"),
+        ("Write", #"{"file_path":"/a/README.md"}"#, "Write: README.md"),
+        ("Grep", #"{"pattern":"TODO"}"#, "Grep: TODO"),
+        ("WebFetch", #"{"url":"https://docs.github.com/en/rest"}"#, "WebFetch: docs.github.com"),
+        ("WebSearch", #"{"query":"swift testing"}"#, "WebSearch: swift testing"),
+        ("Task", #"{"description":"Explore the repo"}"#, "Task: Explore the repo"),
+        ("Bash", #"{"description":"Run tests","command":"swift test"}"#, "Bash: Run tests"),
+        ("mcp__figma__get_code", "{}", "mcp__figma__get_code"),
+    ])
+    func describe(tool: String, input: String, expected: String) throws {
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(input.utf8)) as? [String: Any])
+        #expect(AgentBoard.describe(tool: tool, input: object) == expected)
+    }
+
+    @Test func noToolIsWorking() {
+        #expect(AgentBoard.describe(tool: nil, input: [:]) == "Working")
+    }
+
+    @Test func longDetailsAreCut() {
+        let command = String(repeating: "x", count: 100)
+        let text = AgentBoard.describe(tool: "Bash", input: ["command": command])
+        #expect(text.hasPrefix("Bash: ") && text.hasSuffix("…") && text.count == "Bash: ".count + 60)
+    }
+
+    @Test func promptsAreSummarised() {
+        #expect(AgentBoard.summarize("   \n\n") == nil)
+        let long = AgentBoard.summarize(String(repeating: "a", count: 120))
+        #expect(long?.count == 80 && long?.hasSuffix("…") == true)
+    }
+}
+
+@Suite("Agent board, more")
+struct AgentBoardMoreTests {
+    let base = #""session_id":"s1","cwd":"/x/app""#
+
+    @Test func waitingNotificationWithoutAType() {
+        var board = AgentBoard()
+        board.apply(hook("Notification", #"{\#(base),"message":"Claude is waiting for your input"}"#))
+        #expect(board.sessions.first?.state == .needsInput)
+    }
+
+    @Test func otherNotificationsChangeNothing() {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base)}"))
+        board.apply(hook("Notification", #"{\#(base),"notification_type":"auth_success","message":"Signed in"}"#))
+        #expect(board.sessions.first?.state == .working("Thinking"))
+    }
+
+    @Test func sessionsWithoutAKnownProcessArentPruned() {
+        var board = AgentBoard()
+        board.apply(hook("SessionStart", pid: 0, "{\(base)}"))
+        board.prune { _ in false }
+        #expect(board.sessions.count == 1)
+    }
+
+    @Test func resolvingWhenNothingIsAskedDoesNothing() {
+        var board = AgentBoard()
+        board.apply(hook("Stop", "{\(base)}"))
+        board.resolveApproval(session: "s1")
+        #expect(board.sessions.first?.state == .done)
+    }
+
+    @Test("Lines that aren't hook messages", arguments: ["not json", #"{"pid":1,"raw":{}}"#, ""])
+    func badLines(line: String) {
+        #expect(HookMessage.parse(Data(line.utf8)) == nil)
+    }
+
+    @Test func providerDefaultsToClaude() {
+        #expect(HookMessage.parse(Data(#"{"event":"Stop","raw":{}}"#.utf8))?.provider == "claude")
+    }
+}

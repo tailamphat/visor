@@ -170,3 +170,105 @@ struct CopilotUsageTests {
         #expect(CopilotUsage.signedInHosts(fromStatus: status) == ["github.com", "acme.ghe.com"])
     }
 }
+
+@Suite("Pricing, more")
+struct PricingMoreTests {
+    @Test("Cache read prices that differ from 0.1x input", arguments: [
+        ("claude-fable-5-1", 0.25), ("claude-opus-5-5", 0.20), ("claude-sonnet-5-5", 0.20), ("claude-sonnet-4-6", 0.30),
+    ])
+    func cacheReads(model: String, read: Double) throws {
+        // Prices are derived from input (3 x 0.1 is 0.30000000000000004), so compare closely, not exactly.
+        let price = try #require(Pricing.price(for: model))
+        #expect(near(price.cacheRead, read))
+    }
+
+    @Test func unknownModelsCostNothing() {
+        #expect(TokenUsage(model: "gpt-9", timestamp: Date(), input: 1_000_000, output: 1_000_000).cost == 0)
+    }
+}
+
+@Suite("Transcripts, more")
+struct TranscriptMoreTests {
+    func folder(_ body: (URL) throws -> Void) throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("nb-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try body(dir)
+    }
+
+    @Test func aRewrittenShorterFileIsReadAgainWithoutDoubleCounting() throws {
+        try folder { dir in
+            let file = dir.appendingPathComponent("s.jsonl")
+            try Data((TranscriptTests.line1 + "\n" + TranscriptTests.noSplit + "\n").utf8).write(to: file)
+            let scanner = TranscriptUsage()
+            scanner.scan(root: dir)
+            #expect(scanner.records.count == 2)
+            // Rewritten (e.g. compacted) with only the first response: shorter than before.
+            try Data((TranscriptTests.line1 + "\n").utf8).write(to: file)
+            scanner.scan(root: dir)
+            #expect(scanner.records.count == 2, "the same responses aren't counted twice")
+        }
+    }
+
+    @Test func onlyJSONLFilesAreRead() throws {
+        try folder { dir in
+            try Data((TranscriptTests.line1 + "\n").utf8).write(to: dir.appendingPathComponent("notes.txt"))
+            let scanner = TranscriptUsage()
+            #expect(!scanner.scan(root: dir) && scanner.records.isEmpty)
+        }
+    }
+
+    @Test func brokenAndUnrelatedLinesAreSkipped() {
+        let log = TranscriptUsage()
+        let lines = [
+            #"{"type":"assistant","message":{"usage":{"output_tokens":1}}"#,                       // cut off
+            #"{"type":"user","message":{"content":"what is my \"usage\" today?"}}"#,               // a user asking about usage
+            #"{"type":"assistant","timestamp":"2026-10-31T02:31:01Z","message":{"usage":{"output_tokens":5}}}"#, // no model
+            "",
+        ]
+        log.ingest(Data(lines.joined(separator: "\n").utf8))
+        #expect(log.records.isEmpty)
+    }
+}
+
+@Suite("Spend summary, more")
+struct SpendMoreTests {
+    @Test func nothingSpent() {
+        let s = SpendSummary.make(from: [])
+        #expect(s.today == 0 && s.last30Days == 0 && s.daily == Array(repeating: 0, count: 14))
+    }
+
+    @Test func futureTimestampsAreIgnored() {
+        let now = Date()
+        let tomorrow = TokenUsage(model: "claude-sonnet-5", timestamp: now.addingTimeInterval(86_400 * 2), output: 1_000_000)
+        #expect(SpendSummary.make(from: [tomorrow], now: now).last30Days == 0)
+    }
+}
+
+@Suite("Plan limits, more")
+struct PlanLimitMoreTests {
+    @Test func extraUsageInDollars() throws {
+        let json = #"{"limits":[{"kind":"session","percent":10}],"extra_usage":{"is_enabled":true,"used_credits":1234,"monthly_limit":5000,"decimal_places":2,"currency":"USD"}}"#
+        let extra = try #require(PlanUsage.parse(Data(json.utf8))?.extra)
+        #expect(extra.used == 12.34 && extra.limit == 50 && extra.currency == "USD")
+    }
+
+    @Test func unknownLimitsGetReadableTitles() {
+        #expect(PlanLimit(kind: "seven_day_cowork", percentUsed: 1, resetsAt: nil).title == "Seven Day Cowork")
+    }
+
+    @Test func overTheLimitLeavesNothing() {
+        #expect(PlanLimit(kind: "session", percentUsed: 104, resetsAt: nil).percentLeft == 0)
+    }
+}
+
+@Suite("Copilot usage, more")
+struct CopilotUsageMoreTests {
+    @Test func unlimitedPremiumRequests() throws {
+        let json = #"{"login":"me","copilot_plan":"enterprise","quota_reset_date":"2026-11-01","quota_snapshots":{"premium_interactions":{"unlimited":true,"entitlement":0,"remaining":0}}}"#
+        let c = try #require(CopilotUsage.parse(Data(json.utf8), host: "acme.ghe.com"))
+        #expect(c.title == "Copilot Enterprise")
+        #expect(c.isTracked && c.percentLeft == 100 && c.perDayToLast() == nil)
+        #expect(c.resetsAt == ISO8601DateFormatter().date(from: "2026-11-01T00:00:00Z"), "date-only reset is midnight UTC")
+    }
+}
