@@ -8,8 +8,8 @@ import Foundation
 /// listeners never fire. What does notify: the list of audio processes
 /// changing, and the output device starting or stopping altogether. So:
 /// - those two notifications report changes at once;
-/// - while the output device is running, a light check every 3 s catches one
-///   app pausing while another keeps playing;
+/// - while the output device is running, a light check every second catches
+///   an app pausing (a pause shows within about a second);
 /// - while nothing plays, there is no timer at all.
 @MainActor
 final class AudioOutputWatcher {
@@ -77,13 +77,13 @@ final class AudioOutputWatcher {
     private func updatePoll() {
         let running = Self.isRunning(device)
         if running, poll == nil {
-            poll = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.updatePoll()
                     self?.onChange?()
                 }
             }
-            poll?.tolerance = 1
+            poll?.tolerance = 0.2
         } else if !running, let timer = poll {
             timer.invalidate()
             poll = nil
