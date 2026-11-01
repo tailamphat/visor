@@ -218,3 +218,40 @@ struct AgentBoardMoreTests {
         #expect(HookMessage.parse(Data(#"{"event":"Stop","raw":{}}"#.utf8))?.provider == "claude")
     }
 }
+
+@Suite("Only visible changes redraw")
+struct VisibleChangeTests {
+    let base = #""session_id":"s1","cwd":"/x/app""#
+
+    @Test func anotherEventWithTheSameStateIsNotVisible() {
+        var before = AgentBoard()
+        before.apply(hook("PreToolUse", #"{\#(base),"tool_name":"Bash","tool_input":{"command":"swift test"}}"#), now: Date(timeIntervalSince1970: 1))
+        var after = before
+        // The same tool again a second later: only the last-event time moves.
+        after.apply(hook("PreToolUse", #"{\#(base),"tool_name":"Bash","tool_input":{"command":"swift test"}}"#), now: Date(timeIntervalSince1970: 2))
+        #expect(!after.differsVisibly(from: before))
+    }
+
+    @Test func aNewStateIsVisible() {
+        var before = AgentBoard()
+        before.apply(hook("UserPromptSubmit", "{\(base)}"))
+        var after = before
+        after.apply(hook("PreToolUse", #"{\#(base),"tool_name":"Bash","tool_input":{"command":"ls"}}"#))
+        #expect(after.differsVisibly(from: before))
+    }
+
+    @Test func newAndEndedSessionsAreVisible() {
+        let empty = AgentBoard()
+        var one = empty
+        one.apply(hook("SessionStart", "{\(base)}"))
+        #expect(one.differsVisibly(from: empty) && empty.differsVisibly(from: one))
+    }
+
+    @Test func theHostAppearingIsVisible() {
+        var before = AgentBoard()
+        before.apply(hook("SessionStart", "{\(base)}"))
+        var after = before
+        after.setHost("Ghostty", session: "s1")
+        #expect(after.differsVisibly(from: before))
+    }
+}

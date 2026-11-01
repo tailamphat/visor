@@ -15,6 +15,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var pruneTimer: Timer?
     private var finishedWork: DispatchWorkItem?
 
+    /// Every agent session, updated on each hook event. The notch gets a copy
+    /// only when something it shows changes: most tool calls just move the
+    /// last-event time, and redrawing for those would be wasted work.
+    private var agents = AgentBoard()
+
+    private func publishAgents() {
+        if agents.differsVisibly(from: model.board) { model.board = agents }
+    }
+
     // MARK: Copilot approvals
 
     /// Copilot's "Always" choices, per project (Copilot's hooks can't save rules).
@@ -71,9 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                var board = self.model.board
-                board.prune { kill($0, 0) == 0 || errno == EPERM }
-                if board != self.model.board { self.model.board = board }
+                self.agents.prune { kill($0, 0) == 0 || errno == EPERM }
+                self.publishAgents()
             }
         }
         pruneTimer?.tolerance = 1
@@ -124,9 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         #endif
         var message = message
         message.pid = ProcessTree.agentAncestor(of: message.pid)
-        model.board.apply(message)
-        if let session = message.sessionID, model.board.sessions.first(where: { $0.id == session })?.host == nil {
-            model.board.setHost(ProcessTree.hostApp(of: message.pid), session: session)
+        agents.apply(message)
+        if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
+            agents.setHost(ProcessTree.hostApp(of: message.pid), session: session)
         }
         // The session moved on (answered in the terminal, interrupted, new prompt): its approvals are moot.
         if let session = message.sessionID, let release = ApprovalRelease.after(message) {
@@ -142,12 +150,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else if approval.provider == "copilot" && copilotRules.allows(approval) {
                 // Allowed before with "Always": answer at once, no card.
                 hooks.reply(approval, .allow)
-                model.board.resolveApproval(session: approval.sessionID)
+                agents.resolveApproval(session: approval.sessionID)
             } else {
                 model.approvals.append(approval)
                 notch.expand()
             }
         }
+        publishAgents()
         if message.event == "Stop" {
             model.justFinished = true
             finishedWork?.cancel()
@@ -164,7 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         hooks.reply(request, decision)
         model.approvals.removeAll { $0.id == request.id }
-        if decision != nil { model.board.resolveApproval(session: request.sessionID) }
+        if decision != nil { agents.resolveApproval(session: request.sessionID) }
+        publishAgents()
         notch.collapseIfAway()
     }
 

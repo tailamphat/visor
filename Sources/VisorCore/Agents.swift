@@ -451,3 +451,15 @@ public struct CopilotRules: Codable, Equatable, Sendable {
         return rules.contains { $0.project == wanted.project && $0.kind == wanted.kind && ($0.match == "*" || $0.match == wanted.match) }
     }
 }
+
+extension AgentBoard {
+    /// Whether anything shown in the notch differs. The last-event time moves
+    /// on every tool call but is never shown, so it alone doesn't count.
+    public func differsVisibly(from other: AgentBoard) -> Bool {
+        guard sessions.count == other.sessions.count else { return true }
+        return zip(sessions, other.sessions).contains { a, b in
+            a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
+                || a.agent != b.agent || a.host != b.host || a.task != b.task
+        }
+    }
+}
