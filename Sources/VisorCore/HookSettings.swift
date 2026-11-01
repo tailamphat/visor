@@ -1,6 +1,6 @@
 import Foundation
 
-/// Adds and removes Notchboard's hooks in Claude Code's settings and Copilot CLI's
+/// Adds and removes Visor's hooks in Claude Code's settings and Copilot CLI's
 /// hook file. Other apps' and the user's own hooks are always kept.
 public enum HookSettings {
     public static let claudeEvents = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
@@ -12,12 +12,13 @@ public enum HookSettings {
     /// and searching never ask.
     public static let copilotApprovalTools = "bash|powershell|create|edit|web_fetch"
 
-    /// How a hook command is recognised as Notchboard's.
-    static let marker = "Notchboard/agent-hook.sh"
+    /// How a hook command is recognised as ours: Visor's, and Notchboard's from
+    /// before the app was renamed (so those are replaced, not left behind).
+    static let markers = ["Visor/agent-hook.sh", "Notchboard/agent-hook.sh"]
 
     public static func command(script: String, event: String) -> String { "\"\(script)\" \(event)" }
 
-    /// Claude Code settings with Notchboard's hooks added once per event, after any others.
+    /// Claude Code settings with Visor's hooks added once per event, after any others.
     public static func install(into settings: [String: Any], script: String) -> [String: Any] {
         var settings = settings
         var hooks = settings["hooks"] as? [String: Any] ?? [:]
@@ -33,7 +34,7 @@ public enum HookSettings {
         return settings
     }
 
-    /// Claude Code settings without Notchboard's hooks; events left empty are dropped.
+    /// Claude Code settings without Visor's hooks; events left empty are dropped.
     public static func uninstall(from settings: [String: Any]) -> [String: Any] {
         guard var hooks = settings["hooks"] as? [String: Any] else { return settings }
         var settings = settings
@@ -51,7 +52,7 @@ public enum HookSettings {
         return claudeEvents.contains { (hooks[$0] as? [[String: Any]] ?? []).contains(where: isOurs) }
     }
 
-    /// The contents of ~/.copilot/hooks/notchboard.json.
+    /// The contents of ~/.copilot/hooks/visor.json.
     public static func copilotFile(script: String) -> [String: Any] {
         var hooks: [String: Any] = [:]
         for event in copilotEvents {
@@ -68,6 +69,9 @@ public enum HookSettings {
 
     /// A hook group that runs our script.
     static func isOurs(_ group: [String: Any]) -> Bool {
-        (group["hooks"] as? [[String: Any]] ?? []).contains { ($0["command"] as? String)?.contains(marker) == true }
+        (group["hooks"] as? [[String: Any]] ?? []).contains { hook in
+            guard let command = hook["command"] as? String else { return false }
+            return markers.contains { command.contains($0) }
+        }
     }
 }

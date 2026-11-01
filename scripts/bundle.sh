@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds build/Notchboard.app.
+# Builds build/Visor.app.
 #
 #   scripts/bundle.sh             # this Mac's architecture, ad-hoc signed
 #   scripts/bundle.sh --open      # ...and launch it
@@ -20,14 +20,16 @@ for arg in "$@"; do
   esac
 done
 
-swift build -c release --product Notchboard ${ARCHS[@]+"${ARCHS[@]}"}
-BIN="$(swift build -c release ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)/Notchboard"
+swift build -c release --product Visor ${ARCHS[@]+"${ARCHS[@]}"}
+BIN="$(swift build -c release ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)/Visor"
 
-APP=build/Notchboard.app
+APP=build/Visor.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Notchboard"
+cp "$BIN" "$APP/Contents/MacOS/Visor"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# Icons come from scripts/make-icon.swift.
+cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
 # Sign with a stable local identity when there is one, so macOS keeps the
 # Accessibility and Automation permissions across rebuilds (an ad-hoc
 # signature is tied to the exact binary and changes every build).
@@ -40,8 +42,8 @@ else
   codesign --force --sign - "$APP"
 fi
 
-echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/Notchboard"))"
+echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/Visor"))"
 if [[ $OPEN == 1 ]]; then
-  pkill -x Notchboard 2>/dev/null || true
+  pkill -x Visor 2>/dev/null || true
   open "$APP"
 fi

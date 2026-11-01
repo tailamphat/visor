@@ -1,13 +1,13 @@
 import AppKit
 import IOKit.ps
-import NotchboardCore
+import VisorCore
 
 /// Keeps the user's bar: saves it, opens what's in it, and reads the live
 /// widgets. Widgets are only sampled while the Bar tab is on screen.
 @MainActor
 final class BarService {
     private let model: AppModel
-    private let work = DispatchQueue(label: "notchboard.bar", qos: .userInitiated)
+    private let work = DispatchQueue(label: "visor.bar", qos: .userInitiated)
     private var sampler: Timer?
     private var lastCPU: host_cpu_load_info?
 

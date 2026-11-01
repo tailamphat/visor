@@ -1,6 +1,6 @@
 import AppKit
 import Darwin
-import NotchboardCore
+import VisorCore
 import ServiceManagement
 
 @MainActor
@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        HookServer.migrateFromNotchboard()
         model.hooksInstalled = HookInstaller.isInstalled
         if model.hooksInstalled {
             // Keep the script current with this version of the app.
@@ -52,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
-        do { try hooks.start() } catch { NSLog("Notchboard: hook socket failed: \(error)") }
+        do { try hooks.start() } catch { NSLog("Visor: hook socket failed: \(error)") }
 
         notch.onExpand = { [weak self] tab in
             if tab == .usage { self?.usage.refreshIfStale() }
@@ -63,8 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         watchBarVisibility()
         notch.start()
         usage.start()
-        // NOTCHBOARD_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
-        if ProcessInfo.processInfo.environment["NOTCHBOARD_NO_MUSIC"] == nil { music.start() }
+        // VISOR_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
+        if ProcessInfo.processInfo.environment["VISOR_NO_MUSIC"] == nil { music.start() }
         setUpStatusItem()
 
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -190,7 +191,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Notchboard")
+        // The visor from the app icon, tinted by macOS for light and dark menu bars.
+        let icon = Bundle.main.image(forResource: "MenuIcon")
+            ?? NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Visor")
+        icon?.isTemplate = true
+        icon?.accessibilityDescription = "Visor"
+        item.button?.image = icon
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
@@ -222,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Notchboard", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit Visor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
     @objc private func connect() { installHooks() }
@@ -246,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             if service.status == .enabled { try service.unregister() } else { try service.register() }
         } catch {
-            NSLog("Notchboard: launch at login failed: \(error)")
+            NSLog("Visor: launch at login failed: \(error)")
         }
     }
 }

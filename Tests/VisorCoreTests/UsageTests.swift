@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NotchboardCore
+@testable import VisorCore
 
 private func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
 
@@ -70,8 +70,8 @@ struct TranscriptTests {
         #expect(!scanner.scan(root: dir), "an unchanged directory finds nothing new")
     }
 
-    /// `NOTCHBOARD_REAL=1 swift test --filter realTranscripts` times a scan of this Mac's transcripts.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["NOTCHBOARD_REAL"] != nil))
+    /// `VISOR_REAL=1 swift test --filter realTranscripts` times a scan of this Mac's transcripts.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VISOR_REAL"] != nil))
     func realTranscripts() {
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects")
         let log = TranscriptUsage()

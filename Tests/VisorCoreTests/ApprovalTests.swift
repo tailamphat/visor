@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NotchboardCore
+@testable import VisorCore
 
 @Suite("Approvals")
 struct ApprovalTests {
@@ -71,7 +71,7 @@ struct ApprovalReleaseTests {
 
 @Suite("Hook settings")
 struct HookSettingsTests {
-    let script = "/Users/me/Library/Application Support/Notchboard/agent-hook.sh"
+    let script = "/Users/me/Library/Application Support/Visor/agent-hook.sh"
     let notchy: [String: Any] = ["hooks": [["type": "command", "command": "\"/Users/me/Library/Application Support/Notchy/agent-hook.sh\" Stop"]]]
     var before: [String: Any] { ["theme": "dark", "permissions": ["allow": ["Bash(ls:*)"]], "hooks": ["Stop": [notchy]]] }
 
@@ -155,13 +155,33 @@ struct ApprovalMoreTests {
         let data = try #require(request(tool: "Bash", input: #"{"command":"ls"}"#)).reply(.deny)
         let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         let decision = (object["hookSpecificOutput"] as? [String: Any])?["decision"] as? [String: Any]
-        #expect(decision?["message"] as? String == "Denied from Notchboard.")
+        #expect(decision?["message"] as? String == "Denied from Visor.")
     }
 }
 
 @Suite("Hook settings, more")
 struct HookSettingsMoreTests {
-    let script = "/x/Notchboard/agent-hook.sh"
+    let script = "/x/Visor/agent-hook.sh"
+
+    /// Hooks installed while the app was still called Visor.
+    var legacy: [String: Any] {
+        ["hooks": ["Stop": [["hooks": [["type": "command", "command": "\"/x/Visor/agent-hook.sh\" Stop"]]]]]]
+    }
+
+    @Test func notchboardHooksCountAsOurs() {
+        #expect(HookSettings.isInstalled(legacy), "so Visor upgrades them on launch")
+    }
+
+    @Test func installingReplacesVisorHooks() {
+        let installed = HookSettings.install(into: legacy, script: script)
+        let stop = ((installed["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]]) ?? []
+        let commands = stop.flatMap { ($0["hooks"] as? [[String: Any]] ?? []).compactMap { $0["command"] as? String } }
+        #expect(commands == ["\"\(script)\" Stop"], "the old Visor hook is replaced, not kept beside it")
+    }
+
+    @Test func uninstallRemovesVisorHooksToo() {
+        #expect(!HookSettings.isInstalled(HookSettings.uninstall(from: legacy)))
+    }
 
     @Test func installIntoSettingsWithoutHooks() {
         let installed = HookSettings.install(into: ["theme": "dark"], script: script)
@@ -207,9 +227,9 @@ struct CopilotApprovalTests {
             return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         }
         #expect(try reply(.allow)["behavior"] as? String == "allow")
-        #expect(try reply(.allowAlways)["behavior"] as? String == "allow", "Notchboard keeps the rule; Copilot just hears allow")
+        #expect(try reply(.allowAlways)["behavior"] as? String == "allow", "Visor keeps the rule; Copilot just hears allow")
         let deny = try reply(.deny)
-        #expect(deny["behavior"] as? String == "deny" && deny["message"] as? String == "Denied from Notchboard.")
+        #expect(deny["behavior"] as? String == "deny" && deny["message"] as? String == "Denied from Visor.")
         #expect(try reply(.allow)["hookSpecificOutput"] == nil)
     }
 }

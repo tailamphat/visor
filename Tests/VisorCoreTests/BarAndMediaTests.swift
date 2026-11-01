@@ -1,7 +1,7 @@
 import Foundation
 import JavaScriptCore
 import Testing
-@testable import NotchboardCore
+@testable import VisorCore
 
 @Suite("Bar items")
 struct BarItemTests {

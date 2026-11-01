@@ -1,4 +1,4 @@
-import NotchboardCore
+import VisorCore
 import SwiftUI
 
 // MARK: Agents
@@ -9,7 +9,7 @@ struct AgentsView: View {
     var body: some View {
         if !model.hooksInstalled && model.board.sessions.isEmpty {
             EmptyState(symbol: "link", title: "Connect Claude Code",
-                       detail: "Adds Notchboard hooks to ~/.claude/settings.json so the notch can see your agents and ask you for approvals.",
+                       detail: "Adds Visor hooks to ~/.claude/settings.json so the notch can see your agents and ask you for approvals.",
                        button: "Connect") { model.installHooks?() }
         } else if model.board.sessions.isEmpty {
             EmptyState(symbol: "sparkles", title: "No agents running",
@@ -654,7 +654,7 @@ struct AccessibilityHint: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Notchboard presses the media keys to control the browser, which needs Accessibility permission.")
+        .help("Visor presses the media keys to control the browser, which needs Accessibility permission.")
     }
 }
 

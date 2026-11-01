@@ -1,6 +1,6 @@
 import Foundation
 
-/// Something the user keeps in their Notchboard bar.
+/// Something the user keeps in their Visor bar.
 public struct BarItem: Codable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Codable, Sendable { case app, file, folder, link, shortcut, widget }
     public enum Widget: String, Codable, CaseIterable, Sendable {

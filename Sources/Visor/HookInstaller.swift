@@ -1,5 +1,5 @@
 import Foundation
-import NotchboardCore
+import VisorCore
 
 /// Installs agent-hook.sh and registers it for Claude Code's hook events in
 /// ~/.claude/settings.json. Other hooks (other apps, the user's own) are kept.
@@ -12,13 +12,13 @@ enum HookInstaller {
     }
 
     /// The hook must never get in the agent's way: it exits 0 whether or not
-    /// Notchboard is running, and only approval requests wait for an answer.
+    /// Visor is running, and only approval requests wait for an answer.
     static let script = """
     #!/bin/sh
-    # Notchboard: forwards Claude Code hook events to the notch. Always succeeds.
+    # Visor: forwards Claude Code hook events to the notch. Always succeeds.
     e=$1
     p=${2:-claude}
-    s="$HOME/Library/Application Support/Notchboard/hook.sock"
+    s="$HOME/Library/Application Support/Visor/hook.sock"
     d=$(cat)
     [ -S "$s" ] || exit 0
     [ -n "$d" ] || d='{}'
@@ -49,12 +49,16 @@ enum HookInstaller {
 
     // MARK: Copilot CLI
 
-    /// Copilot CLI reads every JSON file in ~/.copilot/hooks; Notchboard keeps its own.
+    /// Copilot CLI reads every JSON file in ~/.copilot/hooks; Visor keeps its own.
     static var copilotDirectory: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot") }
-    static var copilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/notchboard.json") }
+    static var copilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/visor.json") }
+    /// The file Notchboard wrote before the rename.
+    static var legacyCopilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/notchboard.json") }
 
     static var hasCopilotCLI: Bool { FileManager.default.fileExists(atPath: copilotDirectory.path) }
-    static var copilotInstalled: Bool { FileManager.default.fileExists(atPath: copilotHooksURL.path) }
+    static var copilotInstalled: Bool {
+        FileManager.default.fileExists(atPath: copilotHooksURL.path) || FileManager.default.fileExists(atPath: legacyCopilotHooksURL.path)
+    }
 
     static func installCopilot() throws {
         guard hasCopilotCLI else { return }
@@ -62,10 +66,13 @@ enum HookInstaller {
                                               options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try FileManager.default.createDirectory(at: copilotHooksURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: copilotHooksURL, options: .atomic)
+        try? FileManager.default.removeItem(at: legacyCopilotHooksURL)
     }
 
     static func uninstallCopilot() throws {
-        if copilotInstalled { try FileManager.default.removeItem(at: copilotHooksURL) }
+        for url in [copilotHooksURL, legacyCopilotHooksURL] where FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
+        }
     }
 
     static func uninstall() throws {
@@ -86,7 +93,7 @@ enum HookInstaller {
     }
 
     private static func backUpSettingsOnce() {
-        let backup = settingsURL.appendingPathExtension("notchboard-backup")
+        let backup = settingsURL.appendingPathExtension("visor-backup")
         guard !FileManager.default.fileExists(atPath: backup.path),
               FileManager.default.fileExists(atPath: settingsURL.path) else { return }
         try? FileManager.default.copyItem(at: settingsURL, to: backup)

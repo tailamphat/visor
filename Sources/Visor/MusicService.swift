@@ -1,7 +1,7 @@
 import AppKit
 import CoreAudio
 import CoreImage
-import NotchboardCore
+import VisorCore
 
 /// Now playing and playback controls for Spotify, Apple Music and browsers.
 ///
@@ -16,7 +16,7 @@ import NotchboardCore
 @MainActor
 final class MusicService {
     private let model: AppModel
-    private let scripts = DispatchQueue(label: "notchboard.music", qos: .userInitiated)
+    private let scripts = DispatchQueue(label: "visor.music", qos: .userInitiated)
     private var timers: [Timer] = []
     private var artworkKey: String?
 

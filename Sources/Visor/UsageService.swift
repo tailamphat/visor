@@ -1,5 +1,5 @@
 import Foundation
-import NotchboardCore
+import VisorCore
 
 /// Keeps the model's usage numbers fresh, all off the main thread:
 /// - plan limits (5-hour session, weekly) from the Claude account Claude Code signed in with
@@ -7,7 +7,7 @@ import NotchboardCore
 @MainActor
 final class UsageService {
     private let model: AppModel
-    private let work = DispatchQueue(label: "notchboard.usage", qos: .utility)
+    private let work = DispatchQueue(label: "visor.usage", qos: .utility)
     private let transcripts = TranscriptUsage()
     private var timers: [Timer] = []
     private var fetching = false
@@ -82,7 +82,7 @@ final class UsageService {
 
     /// Copilot allowances for every GitHub host `gh` is signed in to (github.com
     /// and company *.ghe.com), keeping plans with premium requests to count.
-    /// The token comes from `gh` each time; Notchboard never stores it.
+    /// The token comes from `gh` each time; Visor never stores it.
     private func refreshCopilot() {
         guard !fetchingCopilot, let gh = Self.ghPath else { return }
         fetchingCopilot = true
@@ -96,7 +96,7 @@ final class UsageService {
                 var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
                 request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "Accept")
-                request.setValue("Notchboard", forHTTPHeaderField: "User-Agent")
+                request.setValue("Visor", forHTTPHeaderField: "User-Agent")
                 request.timeoutInterval = 15
                 if case .ok(let data) = Self.send(request), let usage = CopilotUsage.parse(data, host: host), usage.isTracked {
                     found.append(usage)
@@ -202,7 +202,7 @@ final class UsageService {
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        request.setValue("Notchboard", forHTTPHeaderField: "User-Agent")
+        request.setValue("Visor", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
         let done = DispatchSemaphore(value: 0)
         var result = Response.status(0)

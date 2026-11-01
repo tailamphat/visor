@@ -1,4 +1,4 @@
-import NotchboardCore
+import VisorCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -67,7 +67,7 @@ struct BarTile: View {
         }
         .buttonStyle(.plain)
         .help(help)
-        .onDrag { NSItemProvider(object: "notchboard-bar:\(item.id.uuidString)" as NSString) }
+        .onDrag { NSItemProvider(object: "visor-bar:\(item.id.uuidString)" as NSString) }
         // Drop on a tile: reorder before it, open files with an app, or insert here.
         .onDrop(of: [.fileURL, .url, .text], isTargeted: Binding(
             get: { model.barTargetTile == item.id },
@@ -272,7 +272,7 @@ enum BarDrop {
         }
     }
 
-    nonisolated static let reorderPrefix = "notchboard-bar:"
+    nonisolated static let reorderPrefix = "visor-bar:"
 
     static func handle(_ providers: [NSItemProvider], model: AppModel, onto tile: BarItem?, index: Int?) -> Bool {
         model.barTargeted = false

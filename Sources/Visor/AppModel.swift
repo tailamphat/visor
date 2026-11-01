@@ -1,5 +1,5 @@
 import AppKit
-import NotchboardCore
+import VisorCore
 import Observation
 
 enum Tab: String, CaseIterable {

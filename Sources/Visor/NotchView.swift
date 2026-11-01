@@ -1,4 +1,4 @@
-import NotchboardCore
+import VisorCore
 import SwiftUI
 
 /// Sizes shared by the view and the window controller's hover hit-testing.

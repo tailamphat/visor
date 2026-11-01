@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NotchboardCore
+@testable import VisorCore
 
 /// A hook message as agent-hook.sh writes it.
 func hook(_ event: String, provider: String = "claude", pid: Int = 4242, _ raw: String) -> HookMessage {

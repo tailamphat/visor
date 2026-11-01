@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import NotchboardCore
+import VisorCore
 
 /// A Unix socket that agent-hook.sh writes Claude Code hook events to, one JSON
 /// line per connection. Most connections are closed as soon as the line is read.
@@ -9,11 +9,26 @@ import NotchboardCore
 final class HookServer: @unchecked Sendable {
     static var directory: URL {
         FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Visor", isDirectory: true)
+    }
+    /// Where the app kept its files when it was called Notchboard.
+    static var legacyDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Notchboard", isDirectory: true)
     }
+
+    /// Moves Notchboard's files (bar, Copilot rules, hook script) to Visor's
+    /// folder, once. The hooks themselves are re-pointed by HookInstaller.
+    static func migrateFromNotchboard() {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: legacyDirectory.path), !fm.fileExists(atPath: directory.path) else { return }
+        try? fm.moveItem(at: legacyDirectory, to: directory)
+        try? fm.removeItem(at: directory.appendingPathComponent("hook.sock"))
+    }
+
     static var socketPath: String { directory.appendingPathComponent("hook.sock").path }
 
-    private let queue = DispatchQueue(label: "notchboard.hooks")
+    private let queue = DispatchQueue(label: "visor.hooks")
     private var listener: DispatchSourceRead?
     /// Open PermissionRequest connections by approval id. Touched on `queue` only.
     private var pending: [UUID: Held] = [:]

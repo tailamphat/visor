@@ -159,7 +159,7 @@ public struct AgentBoard: Equatable, Sendable {
             if kind == "idle_prompt" || text.contains("waiting for your input") {
                 next = .needsInput
             } else if kind == "permission_prompt" || text.contains("permission") {
-                // Notchboard's own approval card already shows this when its hook asked.
+                // Visor's own approval card already shows this when its hook asked.
                 if case .needsApproval = sessions[index].state { next = nil } else { next = .needsApproval("Needs permission") }
             } else {
                 next = nil
@@ -322,9 +322,9 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
     /// The JSON line the hook prints back to Claude Code.
     public func reply(_ decision: Decision) -> Data {
         if provider == "copilot" {
-            // Copilot's permissionRequest output; "always" is remembered by Notchboard.
+            // Copilot's permissionRequest output; "always" is remembered by Visor.
             let body: [String: Any] = decision == .deny
-                ? ["behavior": "deny", "message": "Denied from Notchboard."] : ["behavior": "allow"]
+                ? ["behavior": "deny", "message": "Denied from Visor."] : ["behavior": "allow"]
             var data = (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
             data.append(0x0A)
             return data
@@ -333,7 +333,7 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         switch decision {
         case .allow: body = ["behavior": "allow"]
         case .allowAlways: body = ["behavior": "allow", "updatedPermissions": suggestions]
-        case .deny: body = ["behavior": "deny", "message": "Denied from Notchboard."]
+        case .deny: body = ["behavior": "deny", "message": "Denied from Visor."]
         }
         let output: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": body]]
         var data = (try? JSONSerialization.data(withJSONObject: output)) ?? Data()
@@ -401,7 +401,7 @@ public struct NotchMarks: Equatable, Sendable {
 
 
 /// Copilot CLI "always allow" rules. Copilot's hooks can't save rules, so
-/// Notchboard keeps them, per project, like Claude Code's own rules.
+/// Visor keeps them, per project, like Claude Code's own rules.
 public struct CopilotRules: Codable, Equatable, Sendable {
     public struct Rule: Codable, Equatable, Sendable {
         public var project: String
