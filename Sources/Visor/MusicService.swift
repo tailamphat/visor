@@ -23,6 +23,8 @@ final class MusicService {
     private var native: NowPlaying?
     private var browser: NowPlaying?
     private var browserBusy = false
+    /// Play or pause pressed in the notch for a browser track (see PlaybackIntent).
+    private var browserIntent = PlaybackIntent()
     private var lastBrowserCheck = Date.distantPast
     private var audible: Set<String> = []
 
@@ -218,6 +220,10 @@ final class MusicService {
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.browserBusy = false
+                    var found = found
+                    if let playing = found?.isPlaying {
+                        found?.isPlaying = self.browserIntent.resolve(observed: playing, now: Date())
+                    }
                     self.browser = found
                     self.show()
                 }
@@ -438,7 +444,13 @@ final class MusicService {
             next.position = now.position(at: Date())
             next.positionAt = Date()
             next.isPlaying.toggle()
-            if case .browser = now.source { browser = next } else { native = next }
+            if case .browser = now.source {
+                browser = next
+                // The browser's audio lingers after a pause; trust the press until it confirms.
+                browserIntent.pressed(playing: next.isPlaying, at: Date())
+            } else {
+                native = next
+            }
             show()
         }
         switch now.source {

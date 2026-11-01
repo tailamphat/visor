@@ -110,3 +110,31 @@ public struct BrowserMedia: Equatable, Sendable {
         return host.replacingOccurrences(of: "www.", with: "")
     }
 }
+
+/// Play or pause pressed in the notch, trusted until the player confirms it.
+/// Browsers keep their audio stream open for a few seconds after pausing, so
+/// "still making sound" right after a pause doesn't mean it's still playing.
+public struct PlaybackIntent: Sendable {
+    public static let window: TimeInterval = 8
+
+    private var expected: Bool?
+    private var since = Date.distantPast
+
+    public init() {}
+
+    public mutating func pressed(playing: Bool, at date: Date) {
+        expected = playing
+        since = date
+    }
+
+    /// The state to show, given what the player looks like right now.
+    public mutating func resolve(observed: Bool, now: Date) -> Bool {
+        guard let expected, now.timeIntervalSince(since) < Self.window else {
+            self.expected = nil
+            return observed
+        }
+        // Confirmed: from here on, what the player says goes.
+        if observed == expected { self.expected = nil }
+        return expected
+    }
+}
