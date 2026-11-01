@@ -86,25 +86,45 @@ final class UsageService {
     private func refreshCopilot() {
         guard !fetchingCopilot, let gh = Self.ghPath else { return }
         fetchingCopilot = true
+        // Signed-in hosts are re-read every 30 minutes, tokens only when GitHub
+        // rejects one; both stay in memory only. Saves launching gh three
+        // times on every refresh.
+        let knownHosts = Date().timeIntervalSince(copilotHostsRead) < 1800 ? copilotHosts : nil
+        let knownTokens = copilotTokens
         work.async {
-            let status = Self.run(gh, ["auth", "status"]) ?? ""
+            let hosts = knownHosts ?? CopilotUsage.signedInHosts(fromStatus: Self.run(gh, ["auth", "status"]) ?? "")
+            var tokens = knownTokens
             var found: [CopilotUsage] = []
-            for host in CopilotUsage.signedInHosts(fromStatus: status) {
-                guard let base = CopilotUsage.apiBase(for: host),
-                      let token = Self.run(gh, ["auth", "token", "--hostname", host])?
-                        .trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else { continue }
-                var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
-                request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
-                request.setValue("application/json", forHTTPHeaderField: "Accept")
-                request.setValue("Visor", forHTTPHeaderField: "User-Agent")
-                request.timeoutInterval = 15
-                if case .ok(let data) = Self.send(request), let usage = CopilotUsage.parse(data, host: host), usage.isTracked {
-                    found.append(usage)
+            for host in hosts {
+                guard let base = CopilotUsage.apiBase(for: host) else { continue }
+                // One retry with a fresh token if the remembered one is refused.
+                for attempt in 0..<2 {
+                    if attempt == 1 || tokens[host] == nil {
+                        tokens[host] = Self.run(gh, ["auth", "token", "--hostname", host])?
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    guard let token = tokens[host], !token.isEmpty else { break }
+                    var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
+                    request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
+                    request.setValue("application/json", forHTTPHeaderField: "Accept")
+                    request.setValue("Visor", forHTTPHeaderField: "User-Agent")
+                    request.timeoutInterval = 15
+                    let response = Self.send(request)
+                    if case .status(let code) = response, code == 401, attempt == 0 { continue }
+                    if case .ok(let data) = response, let usage = CopilotUsage.parse(data, host: host), usage.isTracked {
+                        found.append(usage)
+                    }
+                    break
                 }
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.fetchingCopilot = false
+                    if knownHosts == nil {
+                        self.copilotHosts = hosts
+                        self.copilotHostsRead = Date()
+                    }
+                    self.copilotTokens = tokens
                     // Company plans first.
                     let sorted = found.sorted { ($0.host == "github.com" ? 1 : 0) < ($1.host == "github.com" ? 1 : 0) }
                     if sorted != self.model.copilot { self.model.copilot = sorted }
@@ -112,6 +132,10 @@ final class UsageService {
             }
         }
     }
+
+    private var copilotHosts: [String] = []
+    private var copilotHostsRead = Date.distantPast
+    private var copilotTokens: [String: String] = [:]
 
     private nonisolated static let ghPath: String? = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
         .first { FileManager.default.isExecutableFile(atPath: $0) }
