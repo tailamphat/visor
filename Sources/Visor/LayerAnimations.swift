@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 // Looping animations as Core Animation layers. The window server runs them, so
-// the app does no work per frame. SwiftUI's symbolEffect and repeatForever
+// the app does no work per frame, and each asks for a low frame rate so the
+// GPU composites 20-30 frames a second instead of up to 120 on ProMotion. SwiftUI's symbolEffect and repeatForever
 // animations re-render the whole notch every frame instead (~10% CPU idle).
 
 /// An SF Symbol that gently pulses while `active`.
@@ -39,6 +40,8 @@ struct PulsingSymbol: NSViewRepresentable {
             pulse.autoreverses = true
             pulse.repeatCount = .infinity
             pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            // A slow fade looks the same at 20 fps as at 120: far fewer frames to composite.
+            pulse.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 24, preferred: 20)
             layer.add(pulse, forKey: "pulse")
         } else if !active {
             layer.removeAnimation(forKey: "pulse")
@@ -91,6 +94,7 @@ struct EqualizerBars: NSViewRepresentable {
                 bounce.autoreverses = true
                 bounce.repeatCount = .infinity
                 bounce.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                bounce.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
                 bar.add(bounce, forKey: "bounce")
             } else if !active {
                 bar.removeAnimation(forKey: "bounce")
