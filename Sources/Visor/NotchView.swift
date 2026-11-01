@@ -16,6 +16,7 @@ struct NotchLayout {
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
     static let musicSize = CGSize(width: 580, height: 196)
+    static let clipboardSize = CGSize(width: 580, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: 580, height: 272)
     /// The window is a little larger than the biggest panel, room for the shadow.
@@ -27,6 +28,7 @@ struct NotchLayout {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.tab == .usage && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
+            if model.tab == .clipboard { return Self.clipboardSize }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
                 let groups = Set(model.board.sessions.map(\.agent)).count
@@ -236,6 +238,7 @@ struct ExpandedView: View {
                     case .usage: UsageView(model: model)
                     case .music: MusicView(model: model)
                     case .bar: BarView(model: model)
+                    case .clipboard: ClipboardView(model: model)
                     }
                 }
             }

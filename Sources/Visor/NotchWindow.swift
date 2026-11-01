@@ -35,6 +35,8 @@ final class NotchController {
     private var dragWatch: Timer?
     private var dragBase = 0
     private(set) var dragging = false
+    /// Opened from the keyboard (⌘⇧V): stays open until Esc, a paste, or a click elsewhere.
+    private(set) var keyboardOpen = false
     private var expandWork: DispatchWorkItem?
 
     var onExpand: ((Tab) -> Void)?
@@ -195,7 +197,7 @@ final class NotchController {
                         guard let self else { return }
                         self.collapseWork = nil
                         // An approval stays open until it's answered.
-                        guard self.model.approvals.isEmpty, !self.model.pinned, !self.dragging else { return }
+                        guard self.model.approvals.isEmpty, !self.model.pinned, !self.dragging, !self.keyboardOpen else { return }
                         self.model.expanded = false
                     }
                 }
@@ -226,6 +228,27 @@ final class NotchController {
                 expandWork = nil
             }
         }
+    }
+
+    /// Opens on a tab and takes the keyboard, without taking focus from your app
+    /// (the panel is non-activating, so paste still lands where you were).
+    func openWithKeyboard(_ tab: Tab) {
+        model.tab = tab
+        expand()
+        keyboardOpen = true
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func close() {
+        keyboardOpen = false
+        panel.resignKey()
+        model.expanded = false
+    }
+
+    /// A click outside closes a keyboard-opened panel.
+    func clickedAt(_ point: NSPoint) {
+        guard keyboardOpen, !notchRect().insetBy(dx: -6, dy: -6).contains(point) else { return }
+        close()
     }
 
     func expand() {

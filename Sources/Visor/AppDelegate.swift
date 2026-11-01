@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var usage = UsageService(model: model)
     private lazy var music = MusicService(model: model)
     private lazy var bar = BarService(model: model)
+    private lazy var clipboard = ClipboardService(model: model)
+    private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
     private var statusItem: NSStatusItem?
     private var pruneTimer: Timer?
@@ -70,6 +72,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         model.barActions = bar
         bar.start()
+        model.clipboardActions = clipboard
+        model.pasteClip = { [weak self] item, plain in
+            guard let self else { return }
+            self.clipboard.paste(item, plain: plain) { self.closeClipboard() }
+        }
+        clipboard.start()
+        clipboardHotKey = HotKey.clipboard { [weak self] in
+            MainActor.assumeIsolated { self?.openClipboard() }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            nonisolated(unsafe) let key = event
+            let handled = MainActor.assumeIsolated { self?.clipboardKey(key) == true }
+            return handled ? nil : event
+        }
+        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.notch.clickedAt(NSEvent.mouseLocation) }
+        }
         watchBarVisibility()
         notch.start()
         usage.start()
@@ -96,6 +115,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: Clipboard
+
+    private func openClipboard() {
+        if model.expanded && model.tab == .clipboard && notch.keyboardOpen {
+            closeClipboard()
+            return
+        }
+        model.clipQuery = ""
+        model.clipSelection = model.clips.items.first?.id
+        notch.openWithKeyboard(.clipboard)
+    }
+
+    private func closeClipboard() {
+        model.clipQuery = ""
+        model.clipSelection = nil
+        notch.close()
+    }
+
+    /// Keys while the clipboard tab has the keyboard. Returns true when handled.
+    private func clipboardKey(_ event: NSEvent) -> Bool {
+        guard model.expanded, model.tab == .clipboard else { return false }
+        let shown = model.clips.search(model.clipQuery)
+        let index = shown.firstIndex { $0.id == model.clipSelection }
+        let selected = index.map { shown[$0] }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        switch event.keyCode {
+        case 53: // Esc
+            if model.clipQuery.isEmpty { closeClipboard() } else { model.clipQuery = ""; model.clipSelection = model.clips.items.first?.id }
+        case 125: // ↓
+            if !shown.isEmpty { model.clipSelection = shown[min((index ?? -1) + 1, shown.count - 1)].id }
+        case 126: // ↑
+            if !shown.isEmpty { model.clipSelection = shown[max((index ?? 1) - 1, 0)].id }
+        case 36, 76: // Return: paste; ⌥Return: as plain text
+            if let selected { model.pasteClip?(selected, flags.contains(.option)) }
+        case 51, 117: // Delete: edit the search, or delete the selected item
+            if !model.clipQuery.isEmpty {
+                model.clipQuery.removeLast()
+                model.clipSelection = model.clips.search(model.clipQuery).first?.id
+            } else if let selected, let i = index {
+                let next = shown.indices.contains(i + 1) ? shown[i + 1].id : (i > 0 ? shown[i - 1].id : nil)
+                clipboard.delete(selected.id)
+                model.clipSelection = next
+            }
+        default:
+            if flags.contains(.command) {
+                switch event.charactersIgnoringModifiers {
+                case "p": if let selected { clipboard.togglePin(selected.id) }
+                case "c": if let selected { clipboard.copy(selected) }
+                case "z": clipboard.undo()
+                default: return false
+                }
+            } else if let text = event.characters, !text.isEmpty, !flags.contains(.control),
+                      text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) {
+                model.clipQuery += text
+                model.clipSelection = model.clips.search(model.clipQuery).first?.id
+            } else {
+                return false
+            }
+        }
+        return true
+    }
+
     // MARK: Agents
 
     private func received(_ message: HookMessage, _ approval: ApprovalRequest?) {
@@ -120,6 +201,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.artworkTint = image.flatMap(MusicService.tint(of:))
             model.artworkBackdrop = image.flatMap(MusicService.backdrop(of:))
             if let allowed = p["mediaKeysAllowed"] as? Bool { model.mediaKeysAllowed = allowed }
+            return
+        }
+        // {"event":"_clipdelete","raw":{}} deletes the newest clipboard item.
+        if message.event == "_clipdelete", let first = model.clips.items.first {
+            clipboard.delete(first.id)
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.

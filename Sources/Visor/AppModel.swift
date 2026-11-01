@@ -3,7 +3,7 @@ import VisorCore
 import Observation
 
 enum Tab: String, CaseIterable {
-    case agents, usage, music, bar
+    case agents, usage, music, bar, clipboard
 
     var symbol: String {
         switch self {
@@ -11,6 +11,7 @@ enum Tab: String, CaseIterable {
         case .usage: return "gauge.with.dots.needle.50percent"
         case .music: return "music.note"
         case .bar: return "square.grid.2x2"
+        case .clipboard: return "doc.on.clipboard"
         }
     }
 }
@@ -75,6 +76,20 @@ final class AppModel {
     var spend: SpendSummary?
     /// Copilot plans with premium requests, company (*.ghe.com) first.
     var copilot: [CopilotUsage] = []
+
+    // Clipboard
+    var clips = ClipHistory()
+    /// Typed while the clipboard tab is open: filters the history.
+    var clipQuery = ""
+    /// The row arrows move and Return pastes.
+    var clipSelection: UUID?
+    /// The row under the pointer, which shows its delete button.
+    var clipHover: UUID?
+    /// "Deleted…" while undo is possible.
+    var clipUndo: String?
+    var clipboardActions: ClipboardService?
+    /// Pastes into the app you were using (closes the notch first).
+    var pasteClip: ((ClipItem, Bool) -> Void)?
 
     // Bar
     var bar = BarLayout()
