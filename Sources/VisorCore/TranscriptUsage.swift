@@ -9,7 +9,9 @@ import Foundation
 public final class TranscriptUsage: @unchecked Sendable {
     public private(set) var records: [TokenUsage] = []
     private var offsets: [String: UInt64] = [:]
-    private var seen = Set<String>()
+    /// Responses already counted, as hashes of "message id:request id" (8 bytes
+    /// each instead of a ~60-character string; this process only, never saved).
+    private var seen = Set<Int>()
 
     public init() {}
 
@@ -73,7 +75,7 @@ public final class TranscriptUsage: @unchecked Sendable {
 
     private func add(_ key: String?, _ usage: TokenUsage) {
         if let key {
-            guard seen.insert(key).inserted else { return }
+            guard seen.insert(key.hashValue).inserted else { return }
         }
         records.append(usage)
     }
