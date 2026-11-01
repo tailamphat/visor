@@ -17,7 +17,6 @@ import VisorCore
 final class MusicService {
     private let model: AppModel
     private let scripts = DispatchQueue(label: "visor.music", qos: .userInitiated)
-    private var timers: [Timer] = []
     private var artworkKey: String?
 
     /// The latest state from each kind of source; the notch shows one of them.
@@ -55,19 +54,55 @@ final class MusicService {
         }
         for source in [NowPlaying.Source.music, .spotify] where Self.isRunning(Self.nativeIDs[source]!) { refreshNative(source) }
 
-        // Core Audio is a microsecond-cheap check, so it can run every second.
-        timers.append(Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.audioTick() }
-        })
-        // Catch seeks and drift in native players while playing; skipped when paused.
-        timers.append(Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, let native = self.native, native.isPlaying else { return }
-                self.refreshNative(native.source)
-            }
-        })
-        timers[0].tolerance = 0.3
-        timers[1].tolerance = 2
+        // Core Audio says when anything starts or stops playing; no polling.
+        audioWatcher.onChange = { [weak self] in self?.audioChanged() }
+        audioWatcher.start()
+        audioChanged()
+    }
+
+    private let audioWatcher = AudioOutputWatcher()
+    /// Runs only while something needs watching (see updateSlowTimer).
+    private var slowTimer: Timer?
+    private var slowInterval: TimeInterval = 0
+
+    /// Something started or stopped playing.
+    private func audioChanged() {
+        let now = Self.audibleBrowsers()
+        let changed = now != audible
+        audible = now
+        if changed { refreshBrowsers(audible: now) }
+        updateSlowTimer()
+    }
+
+    /// A slow check for what notifications don't cover: a new track in a
+    /// browser, seeks in Spotify or Music, a closed tab, Accessibility being
+    /// switched on while its hint shows. Stopped when none of that applies.
+    private func updateSlowTimer() {
+        let hint = model.nowPlaying?.usesMediaKeys == true && !model.mediaKeysAllowed
+        let needed = hint || !audible.isEmpty || browser != nil || native?.isPlaying == true
+        let interval: TimeInterval = hint ? 3 : 10
+        guard needed else {
+            slowTimer?.invalidate()
+            slowTimer = nil
+            return
+        }
+        guard slowTimer == nil || slowInterval != interval else { return }
+        slowTimer?.invalidate()
+        slowInterval = interval
+        slowTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.slowTick() }
+        }
+        slowTimer?.tolerance = interval * 0.3
+    }
+
+    private func slowTick() {
+        if model.nowPlaying?.usesMediaKeys == true || !model.mediaKeysAllowed {
+            let allowed = MediaKeys.isAllowed
+            if allowed != model.mediaKeysAllowed { model.mediaKeysAllowed = allowed }
+        }
+        if !audible.isEmpty || browser != nil { refreshBrowsers(audible: audible) }
+        if let native, native.isPlaying { refreshNative(native.source) }
+        updateSlowTimer()
     }
 
     private static func isRunning(_ bundleID: String) -> Bool {
@@ -90,6 +125,7 @@ final class MusicService {
         case let (n, b): pick = n ?? b
         }
         if pick != model.nowPlaying { model.nowPlaying = pick }
+        updateSlowTimer()
         guard let pick else {
             artworkKey = nil
             model.artwork = nil
@@ -155,25 +191,6 @@ final class MusicService {
 
     // MARK: Browsers
 
-    private func audioTick() {
-        // Notice the Accessibility permission being granted while its hint shows.
-        if model.nowPlaying?.usesMediaKeys == true || !model.mediaKeysAllowed {
-            let allowed = MediaKeys.isAllowed
-            if allowed != model.mediaKeysAllowed { model.mediaKeysAllowed = allowed }
-        }
-        let now = Self.audibleBrowsers()
-        let changed = now != audible
-        audible = now
-        // Ask a browser only when it starts or stops making sound, every few
-        // seconds while it plays (new track), and now and then while a paused
-        // tab is shown (it may have been closed).
-        let since = Date().timeIntervalSince(lastBrowserCheck)
-        let showing = browser != nil
-        if changed || (!now.isEmpty && since >= 4) || (showing && since >= 15) {
-            refreshBrowsers(audible: now)
-        }
-    }
-
     private func refreshBrowsers(audible: Set<String>) {
         guard !browserBusy else { return }
         // Browsers making sound first, then the one already shown.
@@ -236,15 +253,7 @@ final class MusicService {
     }
 
     private static func audioOutputProcesses() -> [(pid: pid_t, bundleID: String)] {
-        let system = AudioObjectID(kAudioObjectSystemObject)
-        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyProcessObjectList,
-                                                 mScope: kAudioObjectPropertyScopeGlobal,
-                                                 mElement: kAudioObjectPropertyElementMain)
-        var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr, size > 0 else { return [] }
-        var processes = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
-        guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &processes) == noErr else { return [] }
-        return processes.compactMap { process in
+        AudioOutputWatcher.processes().compactMap { process in
             var running: UInt32 = 0
             var runningSize = UInt32(MemoryLayout<UInt32>.size)
             var runningAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput,
@@ -268,6 +277,10 @@ final class MusicService {
             return (pid, id)
         }
     }
+
+    /// When each browser was last found blocking page scripts. Only touched on
+    /// the scripts queue, which runs one script at a time.
+    private nonisolated(unsafe) static var blockedSince: [String: Date] = [:]
 
     /// Error AppleScript raises when the browser's "Allow JavaScript from Apple Events" is off.
     private nonisolated static func scriptsBlocked(_ error: NSDictionary?) -> Bool {
@@ -314,7 +327,12 @@ final class MusicService {
             end tell
             """
         }
-        let (list, error) = run(script)
+        // A browser that blocks page scripts would fail the same way every time;
+        // skip straight to tab titles, and try scripts again every 5 minutes.
+        let blocked = blockedSince[id].map { Date().timeIntervalSince($0) < 300 } ?? false
+        let (list, error) = blocked ? (nil, nil) : run(script)
+        if !blocked, list == nil, scriptsBlocked(error) { blockedSince[id] = Date() }
+        if list != nil { blockedSince[id] = nil }
         if let list {
             var best: BrowserMedia?
             for i in stride(from: 1, through: list.numberOfItems, by: 1) {
@@ -327,7 +345,7 @@ final class MusicService {
         // Scripts are off in this browser: fall back to the tab title, with
         // "playing" taken from whether the browser is making sound. A paused
         // tab stays shown (so it can be resumed) until its tab is closed.
-        guard scriptsBlocked(error) else { return nil }
+        guard blocked || scriptsBlocked(error) else { return nil }
         let titles = """
         tell application id "\(id)"
           set out to {}
