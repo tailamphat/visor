@@ -18,9 +18,9 @@ struct NotchLayout {
     static let musicSize = CGSize(width: 580, height: 196)
     static let clipboardSize = CGSize(width: 580, height: 240)
     /// Usage with Copilot below Claude.
-    static let usageWithCopilotSize = CGSize(width: 580, height: 272)
+    static let usageWithCopilotSize = CGSize(width: 580, height: 312)
     /// The window is a little larger than the biggest panel, room for the shadow.
-    static let windowSize = CGSize(width: 620, height: 320)
+    static let windowSize = CGSize(width: 620, height: 344)
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 

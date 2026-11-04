@@ -338,28 +338,27 @@ struct LogoShape: Shape {
 
 // MARK: Usage
 
+/// Limits on the left (Claude, then Copilot), what the usage is worth on the right.
 struct UsageView: View {
     let model: AppModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 22) {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 7) {
-                        AgentMark(agent: "Claude Code", size: 16)
-                        Text(model.planName ?? "Claude").font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        Spacer()
+        HStack(alignment: .top, spacing: 28) {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
                         if let updated = model.planUpdated {
                             (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
-                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                         }
                     }
                     if let plan = model.plan {
-                        ForEach(plan.limits.prefix(3)) { LimitMeter(limit: $0) }
+                        ForEach(plan.limits.prefix(3)) { limit in
+                            LimitMeter(title: limit.title, used: limit.percentUsed,
+                                       caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
+                        }
                         if let extra = plan.extra {
                             Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                                .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                         }
                     } else {
                         Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
@@ -372,89 +371,104 @@ struct UsageView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            SpendView(spend: model.spend).frame(width: 220)
+            SpendView(model: model).frame(width: 206)
         }
     }
 
     private func money(_ value: Double) -> String { String(format: "$%.2f", value) }
 }
 
+/// A provider's mark and name, with a muted note on the right.
+struct ProviderHeader<Note: View>: View {
+    let agent: String
+    let title: String
+    @ViewBuilder var note: Note
+
+    var body: some View {
+        HStack(spacing: 6) {
+            AgentMark(agent: agent, size: 15)
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            Spacer()
+            note.font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+        }
+    }
+}
+
 /// Copilot's premium requests for one account.
 struct CopilotBlock: View {
     let usage: CopilotUsage
 
-    static let purple = Color(hex: 0x8957E5)
-
     var body: some View {
-        let used = usage.premiumUnlimited ? 0 : 100 - usage.percentLeft
-        let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 7) {
-                AgentMark(agent: "Copilot CLI", size: 16)
-                Text(usage.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Text(usage.host).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+        VStack(alignment: .leading, spacing: 12) {
+            ProviderHeader(agent: "Copilot CLI", title: usage.title) { Text(usage.host) }
+            if usage.premiumUnlimited {
+                LimitMeter(title: "Premium requests", used: 0, caption: caption, unlimited: true)
+            } else {
+                LimitMeter(title: "Premium requests", used: 100 - usage.percentLeft, caption: caption)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Text("Premium requests").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
-                    if used >= 75 {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(fill)
-                    }
-                    Spacer()
-                    Text(usage.premiumUnlimited ? "Unlimited"
-                         : "\(usage.premiumUsed.formatted()) of \(usage.premiumEntitlement.formatted()) · \(Int(usage.percentLeft.rounded()))% left")
-                        .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textPrimary)
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.accentTrack)
-                        Capsule().fill(fill).frame(width: max(4, geo.size.width * min(used, 100) / 100))
-                    }
-                }
-                .frame(height: 6)
-                Text(subtitle).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-            }
-            if usage.chatUnlimited || usage.completionsUnlimited {
-                HStack(spacing: 6) {
-                    if usage.chatUnlimited { chip("Chat: unlimited") }
-                    if usage.completionsUnlimited { chip("Completions: unlimited") }
+            if usage.completionsUnlimited || usage.chatUnlimited || usage.overagePermitted {
+                // The overage chip goes first when the row is too narrow for all three.
+                ViewThatFits(in: .horizontal) {
+                    chips(overage: usage.overagePermitted)
+                    chips(overage: false)
                 }
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
-    private var subtitle: String {
+    private func chips(overage: Bool) -> some View {
+        HStack(spacing: 6) {
+            if usage.completionsUnlimited { chip("infinity", "Completions unlimited") }
+            if usage.chatUnlimited { chip("infinity", "Chat unlimited") }
+            if overage { chip("plus.circle", "Overage") }
+        }
+    }
+
+    /// A small fact about the plan: "∞ Chat unlimited".
+    private func chip(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(nsColor: AgentStyle.mark("Copilot CLI")))
+            Text(text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize()
+        }
+        .padding(.horizontal, 7).padding(.vertical, 3)
+        .background(Capsule().fill(Color.white.opacity(0.07)))
+        .help(symbol == "infinity" ? text : "Overage allowed: requests past the limit are billed instead of refused")
+    }
+
+    /// "83 of 15,000 · Resets 1 Dec · ~552 a day to last"
+    private var caption: String {
         var parts: [String] = []
+        if !usage.premiumUnlimited { parts.append("\(usage.premiumUsed.formatted()) of \(usage.premiumEntitlement.formatted())") }
         if let reset = usage.resetsAt { parts.append("Resets " + reset.formatted(.dateTime.day().month(.abbreviated))) }
         if let perDay = usage.perDayToLast() { parts.append("~\(perDay.formatted()) a day to last") }
-        if usage.overagePermitted { parts.append(usage.overageUsed > 0 ? "\(usage.overageUsed) over" : "overage allowed") }
+        if usage.overageUsed > 0 { parts.append("\(usage.overageUsed) over") }
         return parts.joined(separator: " · ")
-    }
-
-    private func chip(_ text: String) -> some View {
-        Text(text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(Capsule().fill(Color.white.opacity(0.07)))
     }
 }
 
+/// One limit: what's left as the headline, a bar of what's used, then when it resets.
 struct LimitMeter: View {
-    let limit: PlanLimit
+    let title: String
+    let used: Double
+    var caption: String?
+    var unlimited = false
 
     var body: some View {
-        let used = limit.percentUsed
         let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text(limit.title).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
                 if used >= 75 {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(fill)
                 }
                 Spacer()
-                Text("\(Int(used.rounded()))% used · \(Int(limit.percentLeft.rounded()))% left")
-                    .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+                if unlimited {
+                    Text("Unlimited").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                } else {
+                    (Text("\(Int((100 - used).rounded()))%").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.textPrimary)
+                     + Text(" left").font(.system(size: 11)).foregroundColor(Theme.textSecondary))
+                        .monospacedDigit()
+                }
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -463,8 +477,8 @@ struct LimitMeter: View {
                 }
             }
             .frame(height: 6)
-            if let reset = limit.resetsAt {
-                Text("Resets \(Self.resetText(reset))").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            if let caption, !caption.isEmpty {
+                Text(caption).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
             }
         }
         .accessibilityElement(children: .combine)
@@ -483,20 +497,22 @@ struct LimitMeter: View {
 
 /// API-equivalent value of Claude Code usage, from local transcripts.
 struct SpendView: View {
-    let spend: SpendSummary?
+    let model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Spend (API value)").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                .help("What your Claude Code usage would cost at API prices, from local transcripts")
-            if let spend {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text("Spend").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("API value").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            }
+            .help("What your Claude Code usage would cost at API prices, from local transcripts")
+            if let spend = model.spend {
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
                     Figure(label: "Today", value: spend.today, large: true)
                     Figure(label: "7 days", value: spend.last7Days)
                     Figure(label: "30 days", value: spend.last30Days)
                 }
-                DailyBars(values: spend.daily).frame(height: 34)
-                Text("Last 14 days").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                SpendChart(model: model, values: spend.daily)
             } else {
                 Text("Reading transcripts…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
             }
@@ -511,7 +527,8 @@ struct Figure: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(Self.compact(value)).font(.system(size: large ? 18 : 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            Text(Self.compact(value)).font(.system(size: large ? 18 : 13, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Theme.textPrimary)
             Text(label).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
         }
     }
@@ -523,34 +540,99 @@ struct Figure: View {
     }
 }
 
-/// One bar per day; today in the accent, earlier days de-emphasised. Hover a bar for its value.
-struct DailyBars: View {
+/// Spend per day as an area, oldest first, ending today, with dates underneath.
+/// Hovering picks a day and names it with its value; otherwise today is marked.
+struct SpendChart: View {
+    let model: AppModel
     let values: [Double]
 
+    /// Room at each end so the first and last date labels fit under their points.
+    private static let inset: CGFloat = 14
+
     var body: some View {
-        GeometryReader { geo in
-            let peak = max(values.max() ?? 0, 0.01)
-            let gap: CGFloat = 2
-            let width = (geo.size.width - gap * CGFloat(max(values.count - 1, 0))) / CGFloat(max(values.count, 1))
-            HStack(alignment: .bottom, spacing: gap) {
-                ForEach(values.indices, id: \.self) { i in
-                    let height = values[i] > 0 ? max(2, geo.size.height * values[i] / peak) : 1
-                    UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2, style: .continuous)
-                        .fill(i == values.count - 1 ? Theme.accent : Theme.deemphasis)
-                        .frame(width: width, height: height)
-                        .frame(height: geo.size.height, alignment: .bottom)
-                        .contentShape(Rectangle())
-                        .help("\(Self.day(i, of: values.count)): \(Figure.compact(values[i]))")
+        let focus = model.spendHover.flatMap { values.indices.contains($0) ? $0 : nil }
+        VStack(alignment: .leading, spacing: 5) {
+            GeometryReader { geo in
+                let size = geo.size
+                ZStack(alignment: .topLeading) {
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: size.height - 0.5))
+                        p.addLine(to: CGPoint(x: size.width, y: size.height - 0.5))
+                    }
+                    .stroke(Theme.deemphasis, lineWidth: 1)
+                    area(size).fill(LinearGradient(colors: [Theme.accent.opacity(0.5), Theme.accent.opacity(0.06)],
+                                                   startPoint: .top, endPoint: .bottom))
+                    line(size).stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                    if let focus {
+                        Path { p in
+                            p.move(to: CGPoint(x: point(focus, size).x, y: 0))
+                            p.addLine(to: CGPoint(x: point(focus, size).x, y: size.height))
+                        }
+                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    }
+                    if !values.isEmpty {
+                        Circle().fill(Theme.accent).frame(width: 5, height: 5)
+                            .position(point(focus ?? values.count - 1, size))
+                    }
                 }
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    var index: Int?
+                    if case .active(let location) = phase, values.count > 1 {
+                        let step = (size.width - 2 * Self.inset) / CGFloat(values.count - 1)
+                        index = min(max(Int(((location.x - Self.inset) / step).rounded()), 0), values.count - 1)
+                    }
+                    if model.spendHover != index { model.spendHover = index }
+                }
+            }
+            .frame(height: 56)
+
+            GeometryReader { geo in
+                ForEach(DayAxis.labels(days: values.count, every: 3), id: \.index) { label in
+                    Text(label.text)
+                        .font(.system(size: 9, weight: label.index == values.count - 1 ? .semibold : .regular))
+                        .foregroundStyle(label.index == values.count - 1 ? Theme.textSecondary : Theme.textMuted)
+                        .fixedSize()
+                        .position(x: point(label.index, geo.size).x, y: geo.size.height / 2)
+                }
+            }
+            .frame(height: 11)
+
+            Group {
+                if let focus {
+                    Text(DayAxis.name(focus, of: values.count)).foregroundStyle(Theme.textSecondary)
+                        + Text(" · \(Figure.compact(values[focus]))").foregroundStyle(Theme.textPrimary)
+                } else {
+                    Text("Last \(values.count) days").foregroundStyle(Theme.textMuted)
+                }
+            }
+            .font(.system(size: 10).monospacedDigit())
+        }
+    }
+
+    private func point(_ index: Int, _ size: CGSize) -> CGPoint {
+        let peak = max(values.max() ?? 0, 0.01)
+        let step = values.count > 1 ? (size.width - 2 * Self.inset) / CGFloat(values.count - 1) : 0
+        let value = values.indices.contains(index) ? values[index] : 0
+        return CGPoint(x: Self.inset + CGFloat(index) * step, y: size.height - 1 - (size.height - 5) * value / peak)
+    }
+
+    private func line(_ size: CGSize) -> Path {
+        Path { p in
+            for i in values.indices {
+                i == 0 ? p.move(to: point(i, size)) : p.addLine(to: point(i, size))
             }
         }
     }
 
-    static func day(_ index: Int, of count: Int) -> String {
-        let ago = count - 1 - index
-        if ago == 0 { return "Today" }
-        let date = Calendar.current.date(byAdding: .day, value: -ago, to: Date()) ?? Date()
-        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    private func area(_ size: CGSize) -> Path {
+        Path { p in
+            guard !values.isEmpty else { return }
+            p.move(to: CGPoint(x: point(0, size).x, y: size.height))
+            for i in values.indices { p.addLine(to: point(i, size)) }
+            p.addLine(to: CGPoint(x: point(values.count - 1, size).x, y: size.height))
+            p.closeSubpath()
+        }
     }
 }
 

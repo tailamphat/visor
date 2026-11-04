@@ -15,3 +15,36 @@ public enum AgentLogo {
         agent == "Copilot CLI" ? copilotPath : claudePath
     }
 }
+
+/// Day names for the spend chart, which has one value per day ending today.
+public enum DayAxis {
+    /// A label every `every` days, counted back from today so today always
+    /// has one: "23 Oct", "26 Oct", ..., "Today".
+    public static func labels(days: Int, every: Int, today: Date = Date(), calendar: Calendar = .current,
+                              locale: Locale = .current) -> [(index: Int, text: String)] {
+        stride(from: days - 1, through: 0, by: -max(every, 1)).reversed().map { index in
+            (index, index == days - 1 ? "Today" : format(index, of: days, "d MMM", today, calendar, locale))
+        }
+    }
+
+    /// The full name of one day, for hovering: "Today", "Yesterday", "Thu 22 Oct".
+    public static func name(_ index: Int, of days: Int, today: Date = Date(), calendar: Calendar = .current,
+                            locale: Locale = .current) -> String {
+        switch days - 1 - index {
+        case 0: return "Today"
+        case 1: return "Yesterday"
+        default: return format(index, of: days, "EEE d MMM", today, calendar, locale)
+        }
+    }
+
+    private static func format(_ index: Int, of days: Int, _ template: String, _ today: Date,
+                               _ calendar: Calendar, _ locale: Locale) -> String {
+        let date = calendar.date(byAdding: .day, value: index - (days - 1), to: today) ?? today
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = locale
+        formatter.dateFormat = template
+        return formatter.string(from: date)
+    }
+}

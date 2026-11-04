@@ -47,3 +47,26 @@ struct SVGPathTests {
         #expect(box.width > 20)
     }
 }
+
+@Suite("Spend chart days")
+struct DayAxisTests {
+    private let calendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        return c
+    }()
+    private let locale = Locale(identifier: "en_US_POSIX")
+    private var today: Date { calendar.date(from: DateComponents(year: 2026, month: 11, day: 4, hour: 15))! }
+
+    @Test func everyThirdDayEndingToday() {
+        let labels = DayAxis.labels(days: 14, every: 3, today: today, calendar: calendar, locale: locale)
+        #expect(labels.map(\.index) == [1, 4, 7, 10, 13])
+        #expect(labels.map(\.text) == ["23 Oct", "26 Oct", "29 Oct", "1 Nov", "Today"])
+    }
+
+    @Test func eachDayHasAName() {
+        #expect(DayAxis.name(13, of: 14, today: today, calendar: calendar, locale: locale) == "Today")
+        #expect(DayAxis.name(12, of: 14, today: today, calendar: calendar, locale: locale) == "Yesterday")
+        #expect(DayAxis.name(0, of: 14, today: today, calendar: calendar, locale: locale) == "Thu 22 Oct")
+    }
+}

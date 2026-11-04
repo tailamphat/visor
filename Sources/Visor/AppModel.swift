@@ -61,6 +61,9 @@ final class AppModel {
     /// Keeps the panel open regardless of the pointer (debug screenshots).
     var pinned = false
 
+    /// The spend chart's day under the pointer, if any.
+    var spendHover: Int?
+
     // Agents
     var board = AgentBoard()
     var approvals: [ApprovalRequest] = []
