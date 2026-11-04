@@ -33,6 +33,17 @@ public struct BrowserMedia: Equatable, Sendable {
 
     public static func isMediaSite(_ url: String) -> Bool { sites.contains { url.contains($0) } }
 
+    /// Page scripts off: whether the media tab is playing, judged from the
+    /// browser's sound. A browser plays every tab through one audio process,
+    /// so its sound alone can't say which tab makes it. Silence means paused.
+    /// Sound means playing, unless the browser is also using the microphone
+    /// (a call): then the sound may be the call, and what was shown before
+    /// (the last press in the notch, say) stands.
+    public static func playingFromSound(audible: Bool, inCall: Bool, shown: Bool?) -> Bool {
+        guard audible else { return false }
+        return inCall ? shown ?? false : true
+    }
+
     /// Runs in the page. Prefers the Media Session metadata sites publish for
     /// the system media controls, falling back to the page title. Single quotes
     /// only, so it can sit inside an AppleScript string.

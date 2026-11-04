@@ -27,6 +27,8 @@ final class MusicService {
     private var browserIntent = PlaybackIntent()
     private var lastBrowserCheck = Date.distantPast
     private var audible: Set<String> = []
+    /// Browsers using the microphone: in a call, so their sound may be the call.
+    private var inCall: Set<String> = []
 
     private nonisolated static let nativeIDs: [NowPlaying.Source: String] = [.spotify: "com.spotify.client", .music: "com.apple.Music"]
 
@@ -69,9 +71,10 @@ final class MusicService {
 
     /// Something started or stopped playing.
     private func audioChanged() {
-        let now = Self.audibleBrowsers()
-        let changed = now != audible
+        let (now, calls) = Self.browserAudio()
+        let changed = now != audible || calls != inCall
         audible = now
+        inCall = calls
         if changed { refreshBrowsers(audible: now) }
         updateSlowTimer()
     }
@@ -221,6 +224,13 @@ final class MusicService {
                 MainActor.assumeIsolated {
                     self.browserBusy = false
                     var found = found
+                    // Without page scripts, "playing" comes from the browser's
+                    // sound, which during a call may be the call itself.
+                    if var media = found, case .browser(let id, _, false) = media.source, self.inCall.contains(id) {
+                        let shown = self.browser.flatMap { $0.source == media.source && $0.title == media.title ? $0.isPlaying : nil }
+                        media.isPlaying = BrowserMedia.playingFromSound(audible: audible.contains(id), inCall: true, shown: shown)
+                        found = media
+                    }
                     if let playing = found?.isPlaying {
                         found?.isPlaying = self.browserIntent.resolve(observed: playing, now: Date())
                     }
@@ -231,22 +241,28 @@ final class MusicService {
         }
     }
 
-    /// Which browsers are sending sound to an output right now. Browsers play
+    /// Which browsers are sending sound to an output right now, and which are
+    /// using the microphone (a call). Browsers play
     /// from helper processes whose bundle ids don't name the browser (Arc and
     /// Dia share "company.thebrowser.browser.helper"), so each helper is traced
     /// to the app bundle it lives in. Safari plays from WebKit's system GPU
     /// process, which is attributed to Safari when Safari is running.
-    private static func audibleBrowsers() -> Set<String> {
-        var found = Set<String>()
-        for process in audioOutputProcesses() {
-            if let app = owningApp(pid: process.pid), chromium.contains(app) || app == safari {
-                found.insert(app)
+    private static func browserAudio() -> (output: Set<String>, input: Set<String>) {
+        var output = Set<String>(), input = Set<String>()
+        for process in audioProcesses() {
+            let app: String
+            if let owner = owningApp(pid: process.pid), chromium.contains(owner) || owner == safari {
+                app = owner
             } else if process.bundleID.hasPrefix("com.apple.WebKit") && isRunning(safari) {
-                found.insert(safari)
-            }
+                app = safari
+            } else { continue }
+            if process.output { output.insert(app) }
+            if process.input { input.insert(app) }
         }
-        return found
+        return (output, input)
     }
+
+    private static func audibleBrowsers() -> Set<String> { browserAudio().output }
 
     /// The bundle id of the outermost .app containing a process's executable.
     private static func owningApp(pid: pid_t) -> String? {
@@ -258,15 +274,19 @@ final class MusicService {
         return Bundle(path: String(path[..<range.lowerBound]) + ".app")?.bundleIdentifier
     }
 
-    private static func audioOutputProcesses() -> [(pid: pid_t, bundleID: String)] {
-        AudioOutputWatcher.processes().compactMap { process in
-            var running: UInt32 = 0
-            var runningSize = UInt32(MemoryLayout<UInt32>.size)
-            var runningAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput,
-                                                            mScope: kAudioObjectPropertyScopeGlobal,
-                                                            mElement: kAudioObjectPropertyElementMain)
-            guard AudioObjectGetPropertyData(process, &runningAddress, 0, nil, &runningSize, &running) == noErr,
-                  running != 0 else { return nil }
+    /// Processes playing or recording sound right now.
+    private static func audioProcesses() -> [(pid: pid_t, bundleID: String, output: Bool, input: Bool)] {
+        func flag(_ process: AudioObjectID, _ selector: AudioObjectPropertySelector) -> Bool {
+            var value: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            var address = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal,
+                                                     mElement: kAudioObjectPropertyElementMain)
+            return AudioObjectGetPropertyData(process, &address, 0, nil, &size, &value) == noErr && value != 0
+        }
+        return AudioOutputWatcher.processes().compactMap { process in
+            let output = flag(process, kAudioProcessPropertyIsRunningOutput)
+            let input = flag(process, kAudioProcessPropertyIsRunningInput)
+            guard output || input else { return nil }
             var bundleID: Unmanaged<CFString>?
             var idSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
             var idAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyBundleID,
@@ -280,7 +300,7 @@ final class MusicService {
                                                         mScope: kAudioObjectPropertyScopeGlobal,
                                                         mElement: kAudioObjectPropertyElementMain)
             _ = AudioObjectGetPropertyData(process, &pidAddress, 0, nil, &pidSize, &pid)
-            return (pid, id)
+            return (pid, id, output, input)
         }
     }
 
