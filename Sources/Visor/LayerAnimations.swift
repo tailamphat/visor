@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VisorCore
 
 // Looping animations as Core Animation layers. The window server runs them, so
 // the app does no work per frame, and each asks for a low frame rate so the
@@ -9,6 +10,8 @@ import SwiftUI
 /// An SF Symbol that gently pulses while `active`.
 struct PulsingSymbol: NSViewRepresentable {
     let name: String
+    /// An agent whose own mark to show in place of the symbol.
+    var logo: String?
     let color: NSColor
     let size: CGFloat
     var active = true
@@ -22,9 +25,14 @@ struct PulsingSymbol: NSViewRepresentable {
 
     func updateNSView(_ view: NSView, context: Context) {
         guard let layer = view.layer?.sublayers?.first else { return }
-        let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
-            .applying(.init(paletteColors: [color]))
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+        let image: NSImage?
+        if let logo {
+            image = Self.logoImage(logo, color: color, size: size)
+        } else {
+            let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
+                .applying(.init(paletteColors: [color]))
+            image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer.contents = image
@@ -50,6 +58,18 @@ struct PulsingSymbol: NSViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? {
         CGSize(width: size + 4, height: size + 4)
+    }
+
+    /// An agent's mark as an image, drawn from its vector path at any scale.
+    static func logoImage(_ agent: String, color: NSColor, size: CGFloat) -> NSImage {
+        NSImage(size: NSSize(width: size, height: size), flipped: true) { rect in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            context.scaleBy(x: rect.width / 24, y: rect.height / 24)
+            context.addPath(AgentLogo.path(for: agent))
+            context.setFillColor(color.cgColor)
+            context.fillPath()
+            return true
+        }
     }
 }
 

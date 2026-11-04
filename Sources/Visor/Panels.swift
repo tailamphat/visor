@@ -20,9 +20,7 @@ struct AgentsView: View {
                     // Grouped by agent, Claude Code first; within a group, who needs you first.
                     ForEach(Self.groups(model.board.sessions), id: \.agent) { group in
                         HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                                .fill(LinearGradient(colors: AgentStyle.tile(group.agent), startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 9, height: 9)
+                            AgentMark(agent: group.agent, size: 11)
                             Text("\(group.agent) · \(group.sessions.count)")
                                 .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
                                 .foregroundStyle(Theme.textMuted)
@@ -96,11 +94,7 @@ struct AgentRow: View {
 
     /// The agent's tile with a status dot: mint working, amber waiting, grey done or idle.
     private var tile: some View {
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(LinearGradient(colors: AgentStyle.tile(session.agent), startPoint: .topLeading, endPoint: .bottomTrailing))
-            .frame(width: 26, height: 26)
-            .overlay(Image(systemName: AgentStyle.symbol(session.agent))
-                .font(.system(size: session.agent == "Copilot CLI" ? 10 : 12, weight: .bold)).foregroundStyle(.white))
+        AgentIcon(agent: session.agent, size: 26)
             .overlay(alignment: .bottomTrailing) {
                 Circle().fill(dotColor).frame(width: 9, height: 9)
                     .overlay(Circle().strokeBorder(Theme.raised, lineWidth: 2))
@@ -306,17 +300,39 @@ struct ApprovalView: View {
     }
 }
 
-/// The agent's mark on its coloured tile: Claude's sparkle, Copilot's brackets.
+/// The agent's own mark in its brand colour, on a dark tile.
 struct AgentIcon: View {
     var agent = "Claude Code"
     var size: CGFloat
 
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-            .fill(LinearGradient(colors: AgentStyle.tile(agent), startPoint: .topLeading, endPoint: .bottomTrailing))
+            .fill(AgentStyle.tile)
             .frame(width: size, height: size)
-            .overlay(Image(systemName: AgentStyle.symbol(agent))
-                .font(.system(size: size * (agent == "Copilot CLI" ? 0.4 : 0.5), weight: .bold)).foregroundStyle(.white))
+            .overlay(AgentMark(agent: agent, size: size * 0.62))
+    }
+}
+
+/// The agent's own mark (Claude's starburst, Copilot's face), drawn from its vector artwork.
+struct AgentMark: View {
+    var agent: String
+    var size: CGFloat
+    var color: Color?
+
+    var body: some View {
+        LogoShape(agent: agent).fill(color ?? Color(nsColor: AgentStyle.mark(agent)))
+            .frame(width: size, height: size)
+            .accessibilityLabel(agent)
+    }
+}
+
+struct LogoShape: Shape {
+    let agent: String
+
+    func path(in rect: CGRect) -> Path {
+        let scale = min(rect.width, rect.height) / 24
+        return Path(AgentLogo.path(for: agent))
+            .applying(CGAffineTransform(translationX: rect.midX - 12 * scale, y: rect.midY - 12 * scale).scaledBy(x: scale, y: scale))
     }
 }
 
@@ -330,7 +346,7 @@ struct UsageView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 7) {
-                        ProviderMark(symbol: "sparkle", color: Theme.claude)
+                        AgentMark(agent: "Claude Code", size: 16)
                         Text(model.planName ?? "Claude").font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                         Spacer()
@@ -363,18 +379,6 @@ struct UsageView: View {
     private func money(_ value: Double) -> String { String(format: "$%.2f", value) }
 }
 
-/// A provider's small coloured badge beside its name.
-struct ProviderMark: View {
-    var symbol: String
-    var color: Color
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 4.5, style: .continuous).fill(color)
-            .frame(width: 16, height: 16)
-            .overlay(Image(systemName: symbol).font(.system(size: 8.5, weight: .bold)).foregroundStyle(.white))
-    }
-}
-
 /// Copilot's premium requests for one account.
 struct CopilotBlock: View {
     let usage: CopilotUsage
@@ -386,7 +390,7 @@ struct CopilotBlock: View {
         let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                ProviderMark(symbol: "chevron.left.forwardslash.chevron.right", color: Self.purple)
+                AgentMark(agent: "Copilot CLI", size: 16)
                 Text(usage.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text(usage.host).font(.system(size: 10)).foregroundStyle(Theme.textMuted)

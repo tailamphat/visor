@@ -153,17 +153,12 @@ struct CollapsedView: View {
 
 /// What each agent looks like: its mark and colour.
 enum AgentStyle {
-    static func symbol(_ agent: String) -> String {
-        agent == "Copilot CLI" ? "chevron.left.forwardslash.chevron.right" : "sparkle"
-    }
     /// Bright, for marks on black.
     static func mark(_ agent: String) -> NSColor {
         agent == "Copilot CLI" ? NSColor(hex: 0xA78BFA) : NSColor(hex: 0xD97757)
     }
     /// The tile behind the mark in lists.
-    static func tile(_ agent: String) -> [Color] {
-        agent == "Copilot CLI" ? [Color(hex: 0xA07BF0), Color(hex: 0x6E40C9)] : [Color(hex: 0xE48A6B), Color(hex: 0xB9583B)]
-    }
+    static let tile = Color.white.opacity(0.08)
 }
 
 /// The closed notch's agent marks: one per agent with its count, at most two,
@@ -178,9 +173,9 @@ struct AgentBadge: View {
         return HStack(spacing: 6) {
             ForEach(marks.shown, id: \.agent) { entry in
                 HStack(spacing: 2) {
-                    PulsingSymbol(name: entry.waiting ? "exclamationmark.bubble.fill" : AgentStyle.symbol(entry.agent),
+                    PulsingSymbol(name: "exclamationmark.bubble.fill", logo: entry.waiting ? nil : entry.agent,
                                   color: entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
-                                  size: entry.agent == "Copilot CLI" && !entry.waiting ? 11 : 13)
+                                  size: entry.waiting ? 13 : 12)
                         .id("\(entry.agent)\(entry.waiting)")
                     if entry.count > 1 {
                         Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
