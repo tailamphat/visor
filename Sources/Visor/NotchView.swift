@@ -11,22 +11,37 @@ struct NotchLayout {
     /// Both ears widen together (the notch stays centred) to fit a second agent
     /// mark and the +N chip.
     func earWidth(_ model: AppModel) -> CGFloat {
-        CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count))
+        let marks = CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count))
+        // Room for the news: "✓ [mark] visor" one side, "done · 4m 12s" the other.
+        if model.peek != nil { return max(marks, 118) }
+        if model.attentionNote != nil, !model.isPlaying { return max(marks, 76) }
+        return marks
     }
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
+
+    /// Header, question and footer, plus a row per option (two lines with a description).
+    static func questionSize(_ item: AgentQuestion.Item, answerable: Bool) -> CGSize {
+        let rows = item.options.reduce(0) { $0 + ($1.detail == nil ? 30 : 42) } + (answerable ? 35 : 0)
+        let height = 186 + rows + (item.text.count > 70 ? 18 : 0)
+        return CGSize(width: 580, height: min(windowSize.height - 28, CGFloat(height)))
+    }
     static let musicSize = CGSize(width: 580, height: 196)
     static let clipboardSize = CGSize(width: 580, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: 580, height: 312)
     /// The window is a little larger than the biggest panel, room for the shadow.
-    static let windowSize = CGSize(width: 620, height: 344)
+    static let windowSize = CGSize(width: 620, height: 430)
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
+            if let question = model.openQuestion {
+                return Self.questionSize(question.items[min(model.questionPage, question.items.count - 1)],
+                                         answerable: model.questionHolds[question.sessionID] != nil)
+            }
             if model.tab == .usage && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.tab == .agents && !model.board.sessions.isEmpty {
@@ -43,7 +58,7 @@ struct NotchLayout {
     }
 
     func showsEars(_ model: AppModel) -> Bool {
-        model.hasActivity || model.isPlaying || model.justFinished
+        model.hasActivity || model.isPlaying || model.peek != nil
     }
 }
 
@@ -69,8 +84,9 @@ struct NotchView: View {
         .frame(width: size.width, height: size.height, alignment: .top)
         .background {
             // Approvals: a soft mint glow from the top-left corner, matching the buttons.
-            if model.expanded && !model.approvals.isEmpty {
-                RadialGradient(colors: [ConsentButton.mint.opacity(0.16), .clear],
+            // Questions: the same glow in their blue.
+            if model.expanded && model.showsCard {
+                RadialGradient(colors: [(model.approvals.isEmpty ? Theme.question : ConsentButton.mint).opacity(0.16), .clear],
                                center: .topLeading, startRadius: 0, endRadius: 380)
                     .transition(.opacity)
             }
@@ -120,18 +136,43 @@ struct CollapsedView: View {
     }
 
     @ViewBuilder private var left: some View {
-        if model.hasActivity {
-            AgentBadge(board: model.board, approvals: model.approvals.count)
-        } else if model.justFinished {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.good).font(.system(size: 14))
+        if let peek = model.peek {
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.good).font(.system(size: 13))
+                switch peek {
+                case .done(let turn):
+                    AgentMark(agent: turn.agent, size: 12)
+                    Text(turn.project).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                case .answered(let agent):
+                    AgentMark(agent: agent, size: 12)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 4)
+        } else if model.hasActivity {
+            AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
         } else if model.isPlaying {
             Artwork(image: model.artwork, size: 20, corner: 5)
         }
     }
 
     @ViewBuilder private var right: some View {
-        if model.isPlaying {
-            if model.hasActivity || model.justFinished {
+        if let peek = model.peek {
+            Group {
+                switch peek {
+                case .done(let turn): Text(turn.durationText.map { "done · \($0)" } ?? "done")
+                case .answered: Text("Answered")
+                }
+            }
+            .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.trailing, 4)
+        } else if let note = model.attentionNote, !model.isPlaying {
+            Text(note.text).font(.system(size: 11, weight: .semibold)).foregroundStyle(note.color).lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 4)
+        } else if model.isPlaying {
+            if model.hasActivity || model.peek != nil {
                 // The agent has the left side: show "playing" as a bar badge on the artwork.
                 Artwork(image: model.artwork, size: 20, corner: 5)
                     .overlay(alignment: .bottomTrailing) {
@@ -166,22 +207,28 @@ enum AgentStyle {
 /// gets one of the two slots (the board lists waiting agents first).
 struct AgentBadge: View {
     let board: AgentBoard
-    let approvals: Int
+    /// Agents whose approval cards are open.
+    let approvals: Set<String>
 
     var body: some View {
-        let marks = NotchMarks.make(board, pendingApproval: approvals > 0)
+        let marks = NotchMarks.make(board, approvalsFrom: approvals)
         return HStack(spacing: 6) {
             ForEach(marks.shown, id: \.agent) { entry in
                 HStack(spacing: 2) {
-                    PulsingSymbol(name: "exclamationmark.bubble.fill", logo: entry.waiting ? nil : entry.agent,
-                                  color: entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
+                    // Amber "!" bubble: approve something. Blue "?" bubble: answer something.
+                    PulsingSymbol(name: entry.attention == .question ? "questionmark.bubble.fill" : "exclamationmark.bubble.fill",
+                                  logo: entry.waiting ? nil : entry.agent,
+                                  color: entry.attention == .question ? NSColor(hex: 0x5AA2F0)
+                                      : entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
+                                  glyph: entry.attention == .question ? .white : entry.waiting ? .black : nil,
                                   size: entry.waiting ? 13 : 12)
-                        .id("\(entry.agent)\(entry.waiting)")
+                        .id("\(entry.agent)\(String(describing: entry.attention))")
                     if entry.count > 1 {
                         Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                     }
                 }
-                .help(entry.waiting ? "\(entry.agent) needs you" : "\(entry.agent): \(entry.count) working")
+                .help(entry.attention == .question ? "\(entry.agent) asks you something"
+                      : entry.waiting ? "\(entry.agent) needs your approval" : "\(entry.agent): \(entry.count) working")
             }
             if !marks.more.isEmpty {
                 Text("+\(marks.more.count)")
@@ -227,6 +274,8 @@ struct ExpandedView: View {
             Group {
                 if let approval = model.approvals.first {
                     ApprovalView(model: model, request: approval)
+                } else if let question = model.openQuestion {
+                    QuestionView(model: model, question: question)
                 } else {
                     switch model.tab {
                     case .agents: AgentsView(model: model)
@@ -249,7 +298,7 @@ struct ExpandedView: View {
         HStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach(Tab.allCases, id: \.self) { tab in
-                    TabButton(tab: tab, selected: model.tab == tab && model.approvals.isEmpty) {
+                    TabButton(tab: tab, selected: model.tab == tab && !model.showsCard) {
                         model.tab = tab
                         if tab == .usage { model.refreshPlan?() }
                         if tab == .music { model.refreshVolume?() }
@@ -259,7 +308,7 @@ struct ExpandedView: View {
             .padding(.leading, 14)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
-                if model.hasActivity { AgentBadge(board: model.board, approvals: model.approvals.count) }
+                if model.hasActivity { AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) })) }
                 if let session = model.plan?.session {
                     Text("\(Int(session.percentLeft.rounded()))% left")
                         .font(.system(size: 11, weight: .medium).monospacedDigit())

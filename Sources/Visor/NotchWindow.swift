@@ -197,7 +197,7 @@ final class NotchController {
                         guard let self else { return }
                         self.collapseWork = nil
                         // An approval stays open until it's answered.
-                        guard self.model.approvals.isEmpty, !self.model.pinned, !self.dragging, !self.keyboardOpen else { return }
+                        guard !self.model.showsCard, !self.model.pinned, !self.dragging, !self.keyboardOpen else { return }
                         self.model.expanded = false
                     }
                 }
@@ -260,7 +260,7 @@ final class NotchController {
 
     /// Collapses unless the pointer is still over the panel.
     func collapseIfAway() {
-        guard model.expanded, model.approvals.isEmpty else { return }
+        guard model.expanded, !model.showsCard else { return }
         if !notchRect().insetBy(dx: -6, dy: -6).contains(NSEvent.mouseLocation) { model.expanded = false }
     }
 }

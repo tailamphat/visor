@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import VisorCore
 import Observation
 
@@ -67,9 +68,19 @@ final class AppModel {
     // Agents
     var board = AgentBoard()
     var approvals: [ApprovalRequest] = []
+    /// Questions agents asked, answered in the terminal; the card shows until handed off.
+    var questions: [AgentQuestion] = []
+    /// Sessions whose question was handed to the terminal, by session id: the host app's name.
+    var handedOff: [String: String] = [:]
+    /// Questions Visor can answer: their held permission step, by session id.
+    var questionHolds: [String: ApprovalRequest] = [:]
+    /// Options picked on the open card, per question index.
+    var questionPicks: [Int: Set<Int>] = [:] { didSet { if questionPicks.isEmpty { questionPage = 0 } } }
+    /// Which of the open card's questions shows.
+    var questionPage = 0
     var hooksInstalled = false
-    /// Briefly true after an agent finishes, for the check mark in the notch.
-    var justFinished = false
+    /// A few seconds of news in the closed notch: an agent finished, or a question was answered.
+    var peek: Peek?
 
     // Usage
     var plan: PlanUsage?
@@ -122,6 +133,10 @@ final class AppModel {
 
     /// Set by the hook server; answers an approval.
     var decide: ((ApprovalRequest, ApprovalRequest.Decision?) -> Void)?
+    /// Hands a question to the terminal; true also brings the terminal to the front.
+    var handOff: ((AgentQuestion, Bool) -> Void)?
+    /// Sends the picked options as the answer.
+    var answer: ((AgentQuestion) -> Void)?
     var musicCommand: ((MusicCommand) -> Void)?
     var setVolume: ((Double) -> Void)?
     var refreshVolume: (() -> Void)?
@@ -130,8 +145,31 @@ final class AppModel {
 
     var hasActivity: Bool { board.working + board.waiting > 0 || !approvals.isEmpty }
     var isPlaying: Bool { nowPlaying?.isPlaying == true }
-    /// The music panel is the one showing (an approval card takes over otherwise).
-    var showsMusic: Bool { expanded && tab == .music && approvals.isEmpty }
+    /// The question card to show, if any (one not yet handed to the terminal).
+    var openQuestion: AgentQuestion? { questions.first { handedOff[$0.sessionID] == nil } }
+    /// An approval or question card has the panel; it stays open until dealt with.
+    var showsCard: Bool { !approvals.isEmpty || openQuestion != nil }
+    /// The music panel is the one showing (a card takes over otherwise).
+    var showsMusic: Bool { expanded && tab == .music && !showsCard }
+
+    /// What the closed notch says beside the agent marks when someone needs you.
+    var attentionNote: (text: String, color: Color)? {
+        if !approvals.isEmpty || board.sessions.contains(where: { $0.state.attention == .approval }) {
+            return ("Approve", Theme.warning)
+        }
+        let asking = board.sessions.filter { $0.state.attention == .question }
+        guard !asking.isEmpty else { return nil }
+        if let host = asking.lazy.compactMap({ self.handedOff[$0.id] }).first, asking.allSatisfy({ self.handedOff[$0.id] != nil }) {
+            return ("In \(host)", Theme.question.opacity(0.75))
+        }
+        return ("Question", Theme.question)
+    }
+}
+
+/// News the closed notch shows for a few seconds.
+enum Peek: Equatable {
+    case done(FinishedTurn)
+    case answered(agent: String)
 }
 
 enum MusicCommand { case playPause, next, previous }

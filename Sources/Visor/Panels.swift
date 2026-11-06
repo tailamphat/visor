@@ -48,7 +48,7 @@ struct AgentsView: View {
     static func order(_ a: AgentSession, _ b: AgentSession) -> Bool {
         func rank(_ s: AgentSession) -> Int {
             switch s.state {
-            case .needsApproval, .needsInput: return 0
+            case .needsApproval, .asking, .needsInput: return 0
             case .working: return 1
             case .done: return 2
             case .idle: return 3
@@ -89,7 +89,7 @@ struct AgentRow: View {
     }
 
     private var needsYou: Bool {
-        switch session.state { case .needsApproval, .needsInput: return true; default: return false }
+        session.state.attention != nil
     }
 
     /// The agent's tile with a status dot: mint working, amber waiting, grey done or idle.
@@ -105,7 +105,8 @@ struct AgentRow: View {
     private var dotColor: Color {
         switch session.state {
         case .working: return ConsentButton.mint
-        case .needsApproval, .needsInput: return Theme.warning
+        case .needsApproval: return Theme.warning
+        case .asking, .needsInput: return Theme.question
         case .done, .idle: return Theme.textMuted
         }
     }
@@ -115,6 +116,7 @@ struct AgentRow: View {
         case .idle: return "Ready"
         case .working(let what): return what == "Thinking" ? session.task.map { "Thinking · \($0)" } ?? what : what
         case .needsApproval(let what): return "Needs approval · \(what)"
+        case .asking(let header): return "Asks you · \(header)"
         case .needsInput: return "Waiting for your reply"
         case .done: return "Finished"
         }
@@ -297,6 +299,154 @@ struct ApprovalView: View {
         .padding(.horizontal, 8)
         .padding(.top, 6)
         .padding(.bottom, 8)
+    }
+}
+
+// MARK: Question
+
+/// A question an agent asked (AskUserQuestion). The terminal shows it too; while
+/// Visor holds its permission step, picking options here answers it.
+struct QuestionView: View {
+    let model: AppModel
+    let question: AgentQuestion
+
+    var body: some View {
+        let session = model.board.sessions.first { $0.id == question.sessionID }
+        let host = session?.host ?? "terminal"
+        let answerable = model.questionHolds[question.sessionID] != nil
+        let page = min(model.questionPage, question.items.count - 1)
+        let item = question.items[page]
+        let picked = model.questionPicks[page] ?? []
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                AgentIcon(agent: question.agent, size: 22)
+                Text(question.agent)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(question.agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A))
+                Text(ApprovalView.place(session: session, project: question.project))
+                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Spacer()
+                if question.items.count > 1 {
+                    Text("\(page + 1) of \(question.items.count)").font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                }
+                let others = model.questions.filter { $0.id != question.id && model.handedOff[$0.sessionID] == nil }.count
+                if others > 0 {
+                    Text("+\(others) more").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if !item.header.isEmpty {
+                    Text(item.header).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.question)
+                        .padding(.horizontal, 7).padding(.vertical, 1.5)
+                        .background(Capsule().fill(Theme.question.opacity(0.15)))
+                }
+                Text(item.text).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                if item.multiSelect {
+                    Text("Pick any").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                }
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(item.options.enumerated()), id: \.offset) { index, option in
+                    let selected = picked.contains(index)
+                    Button {
+                        var picks = model.questionPicks
+                        if item.multiSelect {
+                            picks[page, default: []].formSymmetricDifference([index])
+                        } else {
+                            picks[page] = [index]
+                        }
+                        model.questionPicks = picks
+                    } label: {
+                        OptionRow(number: "\(index + 1)", label: option.label, detail: option.detail,
+                                  selected: selected, check: item.multiSelect)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!answerable)
+                }
+                if answerable {
+                    Button { model.handOff?(question, true) } label: {
+                        OptionRow(number: "\(item.options.count + 1)", label: "Other…", detail: "Type your own answer in \(host)",
+                                  selected: false, check: false, muted: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            HStack(spacing: 8) {
+                if answerable {
+                    Button { model.handOff?(question, true) } label: {
+                        Label("Answer in \(host)", systemImage: "terminal")
+                    }
+                    .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
+                    Spacer()
+                    if page > 0 {
+                        Button("Back") { model.questionPage = page - 1 }
+                            .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
+                    }
+                    let last = page == question.items.count - 1
+                    Button(last ? (question.items.count > 1 ? "Send answers" : "Send answer") : "Next") {
+                        if last { model.answer?(question) } else { model.questionPage = page + 1 }
+                    }
+                    .buttonStyle(PillButton(fill: Theme.question))
+                    .disabled(picked.isEmpty)
+                    .opacity(picked.isEmpty ? 0.45 : 1)
+                } else {
+                    Text("Pick your answer in \(host)").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                    Spacer()
+                    Button("Hide") { model.handOff?(question, false) }
+                        .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
+                        .help("Hide the card; the notch keeps a \"?\" until it's answered")
+                    Button { model.handOff?(question, true) } label: {
+                        Label("Answer in \(host)", systemImage: "terminal")
+                    }
+                    .buttonStyle(PillButton(fill: Theme.question))
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+    }
+}
+
+/// One option on a question card: its number (or checkbox), label and description.
+struct OptionRow: View {
+    let number: String
+    let label: String
+    let detail: String?
+    let selected: Bool
+    let check: Bool
+    var muted = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Group {
+                if check {
+                    Image(systemName: selected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 13)).foregroundStyle(selected ? Theme.question : Theme.textMuted)
+                } else {
+                    Text(number).font(.system(size: 10, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(selected ? .white : Theme.textSecondary)
+                        .frame(width: 17, height: 17)
+                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(selected ? Theme.question : Color.white.opacity(0.08)))
+                }
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label).font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(muted ? Theme.textSecondary : Theme.textPrimary)
+                if let detail {
+                    Text(detail).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(selected ? Theme.question.opacity(0.14) : Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(selected ? Theme.question.opacity(0.7) : .clear, lineWidth: 1))
+        .contentShape(Rectangle())
     }
 }
 

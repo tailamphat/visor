@@ -13,6 +13,8 @@ struct PulsingSymbol: NSViewRepresentable {
     /// An agent whose own mark to show in place of the symbol.
     var logo: String?
     let color: NSColor
+    /// The symbol's inner mark ("?", "!") when it differs from `color`: a bubble's own glyph.
+    var glyph: NSColor?
     let size: CGFloat
     var active = true
 
@@ -30,7 +32,7 @@ struct PulsingSymbol: NSViewRepresentable {
             image = Self.logoImage(logo, color: color, size: size)
         } else {
             let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
-                .applying(.init(paletteColors: [color]))
+                .applying(.init(paletteColors: glyph.map { [$0, color] } ?? [color]))
             image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
         }
         CATransaction.begin()

@@ -16,6 +16,8 @@ enum Theme {
 
     static let good = Color(hex: 0x0CA30C)
     static let warning = Color(hex: 0xFAB219)
+    /// An agent asking you something: blue, apart from an approval's amber.
+    static let question = Color(hex: 0x5AA2F0)
     static let serious = Color(hex: 0xEC835A)
     static let critical = Color(hex: 0xD03B3B)
 

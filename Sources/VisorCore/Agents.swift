@@ -79,8 +79,26 @@ public enum AgentState: Equatable, Sendable {
     case idle
     case working(String)
     case needsApproval(String)
+    /// Asked you a multiple-choice question (AskUserQuestion); its header.
+    case asking(String)
     case needsInput
     case done
+
+    /// What the agent needs from you, if anything.
+    public var attention: Attention? {
+        switch self {
+        case .needsApproval: return .approval
+        case .asking, .needsInput: return .question
+        case .idle, .working, .done: return nil
+        }
+    }
+}
+
+/// Why an agent is waiting for you: an approval blocks it, a question wants an answer.
+public enum Attention: Int, Comparable, Sendable {
+    case approval, question
+
+    public static func < (a: Attention, b: Attention) -> Bool { a.rawValue < b.rawValue }
 }
 
 public struct AgentSession: Equatable, Sendable, Identifiable {
@@ -97,6 +115,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable {
     public var host: String?
     /// The last thing the user asked it, to tell sessions in one project apart.
     public var task: String?
+    /// When the user last sent it a prompt: the start of the current turn.
+    public var turnStart: Date?
 
     public var project: String {
         let name = (cwd as NSString).lastPathComponent
@@ -105,7 +125,7 @@ public struct AgentSession: Equatable, Sendable, Identifiable {
 
     public var isActive: Bool {
         switch state {
-        case .working, .needsApproval, .needsInput: return true
+        case .working, .needsApproval, .asking, .needsInput: return true
         case .idle, .done: return false
         }
     }
@@ -118,11 +138,7 @@ public struct AgentBoard: Equatable, Sendable {
     public init() {}
 
     public var working: Int { sessions.filter { if case .working = $0.state { return true } else { return false } }.count }
-    public var waiting: Int {
-        sessions.filter {
-            switch $0.state { case .needsApproval, .needsInput: return true; default: return false }
-        }.count
-    }
+    public var waiting: Int { sessions.filter { $0.state.attention != nil }.count }
 
     public mutating func apply(_ message: HookMessage, now: Date = Date()) {
         guard let id = message.sessionID else { return }
@@ -149,7 +165,11 @@ public struct AgentBoard: Equatable, Sendable {
         case "SessionStart": next = .idle
         case "UserPromptSubmit":
             if let prompt = message.payload["prompt"] as? String { sessions[index].task = Self.summarize(prompt) }
+            sessions[index].turnStart = now
             next = .working("Thinking")
+        case "PreToolUse" where message.toolName == AgentQuestion.tool,
+             "PermissionRequest" where message.toolName == AgentQuestion.tool:
+            next = .asking(AgentQuestion(message)?.label ?? "Question")
         case "PreToolUse": next = .working(Self.describe(tool: message.toolName, input: message.toolInput))
         case "PostToolUse", "PostToolUseFailure", "SubagentStop": next = .working("Thinking")
         case "PermissionRequest": next = .needsApproval(Self.describe(tool: message.toolName, input: message.toolInput))
@@ -159,8 +179,11 @@ public struct AgentBoard: Equatable, Sendable {
             if kind == "idle_prompt" || text.contains("waiting for your input") {
                 next = .needsInput
             } else if kind == "permission_prompt" || text.contains("permission") {
-                // Visor's own approval card already shows this when its hook asked.
-                if case .needsApproval = sessions[index].state { next = nil } else { next = .needsApproval("Needs permission") }
+                // Visor's own card already shows this when its hook asked; a question's permission step is still the question.
+                switch sessions[index].state {
+                case .needsApproval, .asking: next = nil
+                default: next = .needsApproval("Needs permission")
+                }
             } else {
                 next = nil
             }
@@ -195,22 +218,30 @@ public struct AgentBoard: Equatable, Sendable {
 
     /// Agents with something going on, in the order the closed notch shows them:
     /// anyone waiting for you first, then Claude Code before Copilot CLI.
-    public var activeAgents: [(agent: String, count: Int, waiting: Bool)] {
-        var groups: [String: (count: Int, waiting: Bool)] = [:]
+    /// Approvals before questions: an approval blocks the agent.
+    public var activeAgents: [(agent: String, count: Int, attention: Attention?)] {
+        var groups: [String: (count: Int, attention: Attention?)] = [:]
         for session in sessions where session.isActive {
-            var group = groups[session.agent] ?? (0, false)
+            var group = groups[session.agent] ?? (0, nil)
             group.count += 1
-            switch session.state {
-            case .needsApproval, .needsInput: group.waiting = true
-            default: break
-            }
+            if let attention = session.state.attention { group.attention = min(group.attention ?? attention, attention) }
             groups[session.agent] = group
         }
         let order = ["Claude Code": 0, "Copilot CLI": 1]
-        return groups.map { ($0.key, $0.value.count, $0.value.waiting) }
+        let rank = { (a: Attention?) in a?.rawValue ?? 9 }
+        return groups.map { ($0.key, $0.value.count, $0.value.attention) }
             .sorted { a, b in
-                a.waiting != b.waiting ? a.waiting : (order[a.agent] ?? 9, a.agent) < (order[b.agent] ?? 9, b.agent)
+                rank(a.attention) != rank(b.attention) ? rank(a.attention) < rank(b.attention)
+                    : (order[a.agent] ?? 9, a.agent) < (order[b.agent] ?? 9, b.agent)
             }
+    }
+
+    /// The turn a Stop event ends: which agent, which project, and how long it took.
+    public func finished(_ message: HookMessage, now: Date = Date()) -> FinishedTurn? {
+        guard message.event == "Stop", let id = message.sessionID,
+              let session = sessions.first(where: { $0.id == id }) else { return nil }
+        return FinishedTurn(agent: session.agent, project: session.project,
+                            duration: session.turnStart.map { now.timeIntervalSince($0) })
     }
 
     /// The first line of a prompt, short enough for one row.
@@ -265,6 +296,12 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
 
     /// The session's working directory: which project an always-allow rule belongs to.
     public var cwd: String
+    /// The tool's input as the agent sent it; a question's answers are added to it.
+    public var input: [String: Any] = [:]
+
+    /// A question (AskUserQuestion) rather than an action: the notch answers it
+    /// instead of showing Allow and Deny.
+    public var isQuestion: Bool { tool == AgentQuestion.tool }
 
     public init?(_ message: HookMessage) {
         guard message.event == "PermissionRequest", let session = message.sessionID else { return nil }
@@ -274,6 +311,7 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         project = ((message.cwd ?? "") as NSString).lastPathComponent
         tool = message.toolName ?? "Tool"
         let input = message.toolInput
+        self.input = input
         let keys = ["command", "file_path", "url", "pattern", "query", "description", "prompt"]
         if let value = keys.lazy.compactMap({ input[$0] as? String }).first {
             preview = value
@@ -317,14 +355,18 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         return tool
     }
 
-    public enum Decision: Sendable { case allow, allowAlways, deny }
+    public enum Decision: Equatable, Sendable {
+        case allow, allowAlways, deny
+        /// A question's answers, by question text.
+        case answer([String: String])
+    }
 
     /// The JSON line the hook prints back to Claude Code.
     public func reply(_ decision: Decision) -> Data {
         if provider == "copilot" {
             // Copilot's permissionRequest output; "always" is remembered by Visor.
-            let body: [String: Any] = decision == .deny
-                ? ["behavior": "deny", "message": "Denied from Visor."] : ["behavior": "allow"]
+            let body: [String: Any]
+            if case .deny = decision { body = ["behavior": "deny", "message": "Denied from Visor."] } else { body = ["behavior": "allow"] }
             var data = (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
             data.append(0x0A)
             return data
@@ -334,6 +376,11 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         case .allow: body = ["behavior": "allow"]
         case .allowAlways: body = ["behavior": "allow", "updatedPermissions": suggestions]
         case .deny: body = ["behavior": "deny", "message": "Denied from Visor."]
+        case .answer(let answers):
+            // As if picked in the terminal: the same input, with the answers filled in.
+            var updated = input
+            updated["answers"] = answers
+            body = ["behavior": "allow", "updatedInput": updated]
         }
         let output: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": body]]
         var data = (try? JSONSerialization.data(withJSONObject: output)) ?? Data()
@@ -369,12 +416,13 @@ public struct NotchMarks: Equatable, Sendable {
     public struct Mark: Equatable, Sendable {
         public var agent: String
         public var count: Int
-        public var waiting: Bool
+        public var attention: Attention?
+        public var waiting: Bool { attention != nil }
 
-        public init(agent: String, count: Int, waiting: Bool) {
+        public init(agent: String, count: Int, attention: Attention?) {
             self.agent = agent
             self.count = count
-            self.waiting = waiting
+            self.attention = attention
         }
     }
     public var shown: [Mark]
@@ -383,12 +431,17 @@ public struct NotchMarks: Equatable, Sendable {
 
     /// Waiting agents come first in `activeAgents`, so they always get a slot.
     public static func make(_ board: AgentBoard, pendingApproval: Bool) -> NotchMarks {
-        var agents = board.activeAgents.map { Mark(agent: $0.agent, count: $0.count, waiting: $0.waiting) }
-        // An open approval card is Claude Code waiting for you.
-        if pendingApproval, let i = agents.firstIndex(where: { $0.agent == "Claude Code" }), !agents[i].waiting {
-            var claude = agents.remove(at: i)
-            claude.waiting = true
-            agents.insert(claude, at: 0)
+        make(board, approvalsFrom: pendingApproval ? ["Claude Code"] : [])
+    }
+
+    /// `approvalsFrom`: the agents whose approval cards are open; each is waiting for you.
+    public static func make(_ board: AgentBoard, approvalsFrom: Set<String>) -> NotchMarks {
+        var agents = board.activeAgents.map { Mark(agent: $0.agent, count: $0.count, attention: $0.attention) }
+        for agent in approvalsFrom.sorted().reversed() {
+            guard let i = agents.firstIndex(where: { $0.agent == agent }), agents[i].attention != .approval else { continue }
+            var mark = agents.remove(at: i)
+            mark.attention = .approval
+            agents.insert(mark, at: 0)
         }
         return NotchMarks(shown: Array(agents.prefix(2)), more: agents.dropFirst(2).map(\.agent))
     }

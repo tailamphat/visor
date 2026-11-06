@@ -61,6 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.setVolume = { [weak self] in self?.music.setVolume($0) }
         model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
+        model.handOff = { [weak self] question, activate in self?.handOff(question, activate: activate) }
+        model.answer = { [weak self] question in self?.answer(question) }
 
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
@@ -109,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The bar's live widgets sample only while the Bar tab is on screen.
     private func watchBarVisibility() {
         withObservationTracking {
-            bar.setVisible(model.expanded && model.tab == .bar && model.approvals.isEmpty)
+            bar.setVisible(model.expanded && model.tab == .bar && !model.showsCard)
         } onChange: { [weak self] in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.watchBarVisibility() } }
         }
@@ -187,6 +189,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             decide(first, answer == "deny" ? .deny : answer == "always" ? .allowAlways : .allow)
             return
         }
+        // {"event":"_handoff","raw":{}} hides the first question card, as "Hide" does.
+        if message.event == "_handoff", let first = model.openQuestion {
+            handOff(first, activate: false)
+            return
+        }
+        // {"event":"_pick","raw":{"option":1}} picks an option on the open question; _send sends it.
+        if message.event == "_pick", let option = message.payload["option"] as? Int {
+            model.questionPicks[model.questionPage, default: []].insert(option)
+            return
+        }
+        if message.event == "_send", let first = model.openQuestion {
+            answer(first)
+            return
+        }
         // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true}} fakes a song.
         if message.event == "_music" {
             let p = message.payload
@@ -229,7 +245,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .tool(let tool): hooks.releaseApprovals(session: session, tool: tool)
             }
         }
-        if let approval {
+        noteQuestion(message)
+        if let approval, approval.isQuestion {
+            // Held so the card can answer it; the terminal shows the question meanwhile.
+            model.questionHolds[approval.sessionID] = approval
+        } else if let approval {
             if approval.provider == "copilot" && !Self.copilotApprovalsOn {
                 // Off: Copilot asks in its own terminal.
                 hooks.reply(approval, nil)
@@ -243,13 +263,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         publishAgents()
-        if message.event == "Stop" {
-            model.justFinished = true
-            finishedWork?.cancel()
-            let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.model.justFinished = false } }
-            finishedWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: work)
+        if let done = agents.finished(message) { show(.done(done), for: 5) }
+    }
+
+    /// Questions come and go with the session's events: asked (PreToolUse), answered
+    /// in the terminal (PostToolUse), or made moot (a new prompt, a stop).
+    private func noteQuestion(_ message: HookMessage) {
+        guard let session = message.sessionID else { return }
+        if message.event == "PreToolUse" || message.event == "PermissionRequest", let question = AgentQuestion(message) {
+            guard !model.questions.contains(question) else { return }
+            model.questions.removeAll { $0.sessionID == session }
+            model.handedOff[session] = nil
+            model.questions.append(question)
+            if model.openQuestion == question { model.questionPicks = [:] }
+            notch.expand()
+            return
         }
+        let asked = model.questions.first { $0.sessionID == session }
+        switch message.event {
+        case "PostToolUse" where message.toolName == AgentQuestion.tool,
+             "PostToolUseFailure" where message.toolName == AgentQuestion.tool:
+            if let asked { show(.answered(agent: asked.agent), for: 2.5) }
+            dropQuestion(session: session)
+        case "UserPromptSubmit", "Stop", "SessionEnd":
+            dropQuestion(session: session)
+        default:
+            break
+        }
+    }
+
+    private func dropQuestion(session: String) {
+        guard model.questions.contains(where: { $0.sessionID == session }) || model.handedOff[session] != nil else { return }
+        model.questions.removeAll { $0.sessionID == session }
+        model.handedOff[session] = nil
+        notch.collapseIfAway()
+    }
+
+    /// "Answer in Ghostty": the terminal already shows the question; hide the card,
+    /// keep the "?" until it's answered, and bring the terminal forward if asked.
+    private func handOff(_ question: AgentQuestion, activate: Bool) {
+        let host = agents.sessions.first { $0.id == question.sessionID }?.host ?? "terminal"
+        model.handedOff[question.sessionID] = host
+        model.questionPicks = [:]
+        // Let go of the held step: the terminal's own prompt answers it.
+        if let held = model.questionHolds.removeValue(forKey: question.sessionID) { hooks.reply(held, nil) }
+        if activate, let id = ProcessTree.hostBundleID(of: question.pid) {
+            NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate()
+        }
+        notch.collapseIfAway()
+    }
+
+    /// Answers from the card: allow the question with the picked options filled in.
+    private func answer(_ question: AgentQuestion) {
+        let answers = question.answers(picks: model.questionPicks)
+        guard !answers.isEmpty, let held = model.questionHolds.removeValue(forKey: question.sessionID) else { return }
+        hooks.reply(held, .answer(answers))
+        model.questionPicks = [:]
+        model.questions.removeAll { $0.id == question.id }
+        show(.answered(agent: question.agent), for: 2.5)
+        notch.collapseIfAway()
+    }
+
+    private func show(_ peek: Peek, for seconds: TimeInterval) {
+        model.peek = peek
+        finishedWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.model.peek = nil } }
+        finishedWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
     private func decide(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
@@ -267,6 +347,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The hook gave up (timed out, or Claude Code was interrupted).
     private func approvalGone(_ id: UUID) {
         model.approvals.removeAll { $0.id == id }
+        // A question's hook gave up: the card can only point to the terminal now.
+        if let session = model.questionHolds.first(where: { $0.value.id == id })?.key { model.questionHolds[session] = nil }
         notch.collapseIfAway()
     }
 
@@ -356,6 +438,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 enum ProcessTree {
     /// The app a process runs under (the terminal or editor hosting Claude
     /// Code), found by walking up its parents to the first one inside a .app.
+    /// The bundle id of that app, to bring it to the front.
+    static func hostBundleID(of pid: Int32) -> String? {
+        var current = pid
+        for _ in 0..<12 where current > 1 {
+            var buffer = [CChar](repeating: 0, count: 4096)
+            if proc_pidpath(current, &buffer, UInt32(buffer.count)) > 0 {
+                let path = String(cString: buffer)
+                if let range = path.range(of: ".app/") {
+                    return Bundle(path: String(path[..<range.lowerBound]) + ".app")?.bundleIdentifier
+                }
+            }
+            guard let parent = parent(of: current) else { return nil }
+            current = parent
+        }
+        return nil
+    }
+
     static func hostApp(of pid: Int32) -> String? {
         var current = pid
         for _ in 0..<12 where current > 1 {

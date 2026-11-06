@@ -98,7 +98,7 @@ struct CopilotHookTests {
         board.apply(hook("userPromptSubmitted", provider: "copilot", "{\(base)}"))
         #expect(board.activeAgents.map(\.agent) == ["Claude Code", "Copilot CLI"])
         board.apply(hook("notification", provider: "copilot", #"{\#(base),"notification_type":"agent_idle"}"#))
-        #expect(board.activeAgents.first?.agent == "Copilot CLI" && board.activeAgents.first?.waiting == true)
+        #expect(board.activeAgents.first?.agent == "Copilot CLI" && board.activeAgents.first?.attention == .question)
     }
 }
 
@@ -121,7 +121,7 @@ struct NotchMarksTests {
         var board = AgentBoard()
         (start("claude", "a") + start("claude", "b")).forEach { board.apply($0) }
         var marks = NotchMarks.make(board, pendingApproval: false)
-        #expect(marks.shown == [.init(agent: "Claude Code", count: 2, waiting: false)] && marks.more.isEmpty)
+        #expect(marks.shown == [.init(agent: "Claude Code", count: 2, attention: nil)] && marks.more.isEmpty)
 
         (start("copilot", "c") + start("codex", "d")).forEach { board.apply($0) }
         marks = NotchMarks.make(board, pendingApproval: false)
@@ -129,7 +129,7 @@ struct NotchMarksTests {
 
         start("codex", "d", waiting: true).forEach { board.apply($0) }
         marks = NotchMarks.make(board, pendingApproval: false)
-        #expect(marks.shown.first == .init(agent: "Codex", count: 1, waiting: true) && marks.more == ["Copilot CLI"])
+        #expect(marks.shown.first == .init(agent: "Codex", count: 1, attention: .question) && marks.more == ["Copilot CLI"])
     }
 
     @Test func openApprovalCountsAsWaiting() {
