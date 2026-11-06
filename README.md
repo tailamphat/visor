@@ -5,6 +5,7 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 - **Usage**: your Copilot premium requests (used, left, reset date) for every GitHub account `gh` is signed in to, including company `*.ghe.com` accounts; and your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
 - **Agents**: every running Claude Code and Copilot CLI session, grouped by agent, and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.
 - **Approvals**: when Claude Code asks for permission, the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow (naming the rule, e.g. `git push`).
+- **Questions**: when Claude Code asks you a multiple-choice question, the notch shows it with its options; pick one (or several, page by page) and send, or hand it to the terminal. The closed notch tells an approval (amber "!") from a question (blue "?"), and shows which project finished and how long it took.
 - **Bar**: your own row of things in the notch. Drag apps, files, folders and web links onto the notch to add them; add live widgets (clock, CPU, battery, timer) and your Shortcuts from the + tile. Drag tiles to reorder, right-click to remove, drop a file on an app to open it with that app.
 - **Clipboard**: everything you copy, newest first, one line each (a swatch for colours). ⌘⇧V opens it from anywhere: type to search, ↑/↓ and Return to paste into the app you were in (⌥Return as plain text), ⌘P to pin, ⌫ to delete. Deleting the item that's on the clipboard clears it from the macOS clipboard too, with Undo. Copies password managers mark as secret are never kept; history stays on this Mac (200 items or 30 days, pins always).
 - **Music**: what Spotify, Apple Music, or a browser (YouTube, YouTube Music, SoundCloud, ...) is playing, with artwork, progress and play/pause/skip.
@@ -43,6 +44,8 @@ Then choose **Connect Claude Code** in the notch (or the menu bar icon).
 
 `PermissionRequest` hooks run *before* Claude Code shows its own prompt. Visor holds the request for up to ~110 seconds. If you don't answer in that time, or you answer in the terminal, or interrupt Claude Code, the card closes and the terminal prompt takes over.
 
+Questions (`AskUserQuestion`) go through the same hook: Visor answers by allowing the tool with its input plus the picked `answers`, exactly as the terminal would. Choosing **Other…** or **Answer in terminal** lets go of the hook so the terminal prompt answers it.
+
 If another app (for example Notchy) also registers a `PermissionRequest` hook, both will ask you. Use one at a time.
 
 ## Development
@@ -57,7 +60,7 @@ If another app (for example Notchy) also registers a `PermissionRequest` hook, b
 - `Sources/Visor`: the app: notch window and hover, SwiftUI views, hook socket server, usage and music services.
 - `Tests/VisorCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools). `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. Use `scripts/test.sh` rather than plain `swift test`: with the Command Line Tools, incremental test builds can lose Swift Testing's macro plugin, and the script passes its location.
 
-Debug builds accept two extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it) and `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval.
+Debug builds accept extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it), `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval, and `_handoff`, `_pick` (`{"option":1}`) and `_send` work the open question card. See CLAUDE.md for more.
 
 ## License
 
