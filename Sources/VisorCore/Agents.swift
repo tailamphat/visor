@@ -203,6 +203,21 @@ public struct AgentBoard: Equatable, Sendable {
         sessions[i].since = now
     }
 
+    /// The user answered a question; the agent carries on.
+    public mutating func resolveQuestion(session id: String, now: Date = Date()) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }), case .asking = sessions[i].state else { return }
+        sessions[i].state = .working("Thinking")
+        sessions[i].since = now
+    }
+
+    /// Whether a question still belongs on screen: its session exists and is
+    /// waiting on it. A finished, moved-on or exited session leaves no card.
+    public func stillAsking(_ question: AgentQuestion) -> Bool {
+        guard let session = sessions.first(where: { $0.id == question.sessionID }) else { return false }
+        if case .asking = session.state { return true }
+        return false
+    }
+
     /// Drops sessions whose Claude Code process has exited.
     public mutating func prune(isAlive: (Int32) -> Bool) {
         sessions.removeAll { $0.pid > 0 && !isAlive($0.pid) }

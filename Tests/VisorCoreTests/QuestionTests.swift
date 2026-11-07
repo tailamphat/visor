@@ -64,6 +64,39 @@ struct QuestionTests {
         #expect(board.sessions[0].state == .working("Thinking"))
     }
 
+    /// A card only belongs on screen while the session still waits on the question:
+    /// answered elsewhere, finished or gone means it must not linger.
+    @Test func aQuestionOnlyCountsWhileTheSessionIsAsking() throws {
+        let question = try #require(AgentQuestion(hook("PreToolUse", "{\(base),\(ask)}")))
+        var board = AgentBoard()
+        board.apply(hook("PreToolUse", "{\(base),\(ask)}"))
+        #expect(board.stillAsking(question))
+        board.apply(hook("PostToolUse", #"{\#(base),"tool_name":"AskUserQuestion"}"#))
+        #expect(!board.stillAsking(question))
+    }
+
+    @Test func aQuestionStopsCountingWhenTheSessionFinishesOrGoesAway() throws {
+        let question = try #require(AgentQuestion(hook("PreToolUse", "{\(base),\(ask)}")))
+        var board = AgentBoard()
+        board.apply(hook("PreToolUse", "{\(base),\(ask)}"))
+        board.apply(hook("Stop", "{\(base)}"))
+        #expect(!board.stillAsking(question), "a finished turn is not asking")
+
+        board = AgentBoard()
+        board.apply(hook("PreToolUse", "{\(base),\(ask)}"))
+        board.prune { _ in false }
+        #expect(!board.stillAsking(question), "a session that exited is not asking")
+    }
+
+    /// Answering from the card moves the session on at once, so the closed notch
+    /// stops showing the "?" before the next hook event arrives.
+    @Test func answeringMovesTheSessionOn() {
+        var board = AgentBoard()
+        board.apply(hook("PreToolUse", "{\(base),\(ask)}"))
+        board.resolveQuestion(session: "s1")
+        #expect(board.sessions[0].state == .working("Thinking"))
+    }
+
     @Test func closedNotchTellsApprovalsFromQuestions() {
         var board = AgentBoard()
         board.apply(hook("PreToolUse", "{\(base),\(ask)}"))

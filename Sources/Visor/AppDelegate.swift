@@ -101,8 +101,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.agents.prune { kill($0, 0) == 0 || errno == EPERM }
+                let alive = { (pid: Int32) in kill(pid, 0) == 0 || errno == EPERM }
+                let gone = self.agents.sessions.filter { $0.pid > 0 && !alive($0.pid) }.map(\.id)
+                self.agents.prune(isAlive: alive)
                 self.publishAgents()
+                self.dropStaleQuestions()
+                for session in gone {
+                    self.model.questionHolds[session] = nil
+                    self.hooks.releaseApprovals(session: session)
+                }
             }
         }
         pruneTimer?.tolerance = 1
@@ -246,6 +253,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         noteQuestion(message)
+        // A question's card only belongs on screen while its session waits on it.
+        dropStaleQuestions()
         if let approval, approval.isQuestion {
             // Held so the card can answer it; the terminal shows the question meanwhile.
             model.questionHolds[approval.sessionID] = approval
@@ -299,6 +308,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         notch.collapseIfAway()
     }
 
+    /// Drops cards for questions whose session answered elsewhere, finished, or
+    /// went away; without this an old card stays in the notch for good.
+    private func dropStaleQuestions() {
+        for question in model.questions where !agents.stillAsking(question) {
+            dropQuestion(session: question.sessionID)
+        }
+    }
+
     /// "Answer in Ghostty": the terminal already shows the question; hide the card,
     /// keep the "?" until it's answered, and bring the terminal forward if asked.
     private func handOff(_ question: AgentQuestion, activate: Bool) {
@@ -318,6 +335,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let answers = question.answers(picks: model.questionPicks)
         guard !answers.isEmpty, let held = model.questionHolds.removeValue(forKey: question.sessionID) else { return }
         hooks.reply(held, .answer(answers))
+        agents.resolveQuestion(session: question.sessionID)
+        publishAgents()
         model.questionPicks = [:]
         model.questions.removeAll { $0.id == question.id }
         show(.answered(agent: question.agent), for: 2.5)
