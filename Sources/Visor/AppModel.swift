@@ -120,6 +120,9 @@ final class AppModel {
     var timerPaused: TimeInterval?
     var barActions: BarService?
 
+    /// Host app icons by name ("Ghostty"), for the closed notch.
+    var hostIcons: [String: NSImage] = [:]
+
     // Music
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
@@ -149,17 +152,23 @@ final class AppModel {
     /// The music panel is the one showing (a card takes over otherwise).
     var showsMusic: Bool { expanded && tab == .music && !showsCard }
 
-    /// What the closed notch says beside the agent marks when someone needs you.
-    var attentionNote: (text: String, color: Color)? {
-        if !approvals.isEmpty || board.sessions.contains(where: { $0.state.attention == .approval }) {
-            return ("Approve", Theme.warning)
+    /// What the closed notch's right side shows when someone needs you: the
+    /// app to go to, badged "!" (approve) or "?" (answer). An approval outranks a question.
+    var attentionNote: (kind: Attention, help: String, icon: NSImage?)? {
+        let approving = board.sessions.filter { session in
+            session.state.attention == .approval || approvals.contains { $0.sessionID == session.id }
+        }
+        if !approvals.isEmpty || !approving.isEmpty {
+            let host = approving.lazy.compactMap(\.host).first
+            return (.approval, host.map { "Approve: \($0)" } ?? "Approve", host.flatMap { hostIcons[$0] })
         }
         let asking = board.sessions.filter { $0.state.attention == .question }
         guard !asking.isEmpty else { return nil }
+        // Only point at an app when every asking session is in a known one.
         if let host = asking.lazy.compactMap(\.host).first, asking.allSatisfy({ $0.host != nil }) {
-            return ("In \(host)", Theme.question.opacity(0.75))
+            return (.question, "In \(host)", hostIcons[host])
         }
-        return ("Question", Theme.question)
+        return (.question, "Question", nil)
     }
 }
 

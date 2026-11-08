@@ -224,7 +224,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         message.pid = ProcessTree.agentAncestor(of: message.pid)
         agents.apply(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
-            agents.setHost(ProcessTree.hostApp(of: message.pid), session: session)
+            if let app = ProcessTree.hostAppPath(of: message.pid) {
+                let host = ProcessTree.appName(at: app)
+                if model.hostIcons[host] == nil { model.hostIcons[host] = NSWorkspace.shared.icon(forFile: app) }
+                agents.setHost(host, session: session)
+            }
         }
         // The session moved on (answered in the terminal, interrupted, new prompt): its approvals are moot.
         if let session = message.sessionID, let release = ApprovalRelease.after(message) {
@@ -400,16 +404,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 enum ProcessTree {
     /// The app a process runs under (the terminal or editor hosting Claude
     /// Code), found by walking up its parents to the first one inside a .app.
-    /// The bundle id of that app, to bring it to the front.
-    static func hostBundleID(of pid: Int32) -> String? {
+    static func hostAppPath(of pid: Int32) -> String? {
         var current = pid
         for _ in 0..<12 where current > 1 {
             var buffer = [CChar](repeating: 0, count: 4096)
             if proc_pidpath(current, &buffer, UInt32(buffer.count)) > 0 {
                 let path = String(cString: buffer)
-                if let range = path.range(of: ".app/") {
-                    return Bundle(path: String(path[..<range.lowerBound]) + ".app")?.bundleIdentifier
-                }
+                if let range = path.range(of: ".app/") { return String(path[..<range.lowerBound]) + ".app" }
             }
             guard let parent = parent(of: current) else { return nil }
             current = parent
@@ -417,24 +418,17 @@ enum ProcessTree {
         return nil
     }
 
-    static func hostApp(of pid: Int32) -> String? {
-        var current = pid
-        for _ in 0..<12 where current > 1 {
-            var buffer = [CChar](repeating: 0, count: 4096)
-            if proc_pidpath(current, &buffer, UInt32(buffer.count)) > 0 {
-                let path = String(cString: buffer)
-                if let range = path.range(of: ".app/") {
-                    let app = String(path[..<range.lowerBound]) + ".app"
-                    let bundle = Bundle(path: app)
-                    return (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-                        ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
-                        ?? (app as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
-                }
-            }
-            guard let parent = parent(of: current) else { return nil }
-            current = parent
-        }
-        return nil
+    /// The bundle id of that app, to bring it to the front.
+    static func hostBundleID(of pid: Int32) -> String? {
+        hostAppPath(of: pid).flatMap { Bundle(path: $0)?.bundleIdentifier }
+    }
+
+    /// The name that app shows, e.g. "Ghostty".
+    static func appName(at app: String) -> String {
+        let bundle = Bundle(path: app)
+        return (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? (app as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
     }
 
     /// Works for processes of any user (proc_pidinfo can't read root's, such as /usr/bin/login).

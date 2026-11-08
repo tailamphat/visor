@@ -14,7 +14,6 @@ struct NotchLayout {
         let marks = CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count))
         // Room for the news: "✓ [mark] visor" one side, "done · 4m 12s" the other.
         if model.peek != nil { return max(marks, 118) }
-        if model.attentionNote != nil, !model.isPlaying { return max(marks, 76) }
         let quotas = (!model.isPlaying && !model.quotas.isEmpty)
             ? CGFloat(NotchQuotaSummary.earWidth(count: model.quotas.count))
             : CGFloat(NotchMarks.earWidth(agents: 1))
@@ -127,9 +126,10 @@ struct CollapsedView: View {
     var body: some View {
         HStack(spacing: 0) {
             if layout.showsEars(model) {
-                left.frame(width: layout.earWidth(model))
+                // Same inset from the outer edge on both sides, whatever each ear holds.
+                left.padding(.leading, 8).frame(width: layout.earWidth(model), alignment: .leading)
                 Spacer(minLength: layout.notch.width)
-                right.frame(width: layout.earWidth(model))
+                right.padding(.trailing, 8).frame(width: layout.earWidth(model), alignment: .trailing)
             }
         }
         .frame(height: layout.notch.height)
@@ -148,8 +148,6 @@ struct CollapsedView: View {
                     AgentMark(agent: agent, size: 12)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 4)
         } else if model.hasActivity {
             AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
         } else if model.isPlaying {
@@ -161,12 +159,20 @@ struct CollapsedView: View {
         if let peek = model.peek, case .answered = peek {
             Text("Answered")
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 4)
-        } else if let note = model.attentionNote, !model.isPlaying {
-            Text(note.text).font(.system(size: 11, weight: .semibold)).foregroundStyle(note.color).lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 4)
+        } else if let note = model.attentionNote {
+            // Takes the right side over the artwork until it's dealt with.
+            let bubble = AttentionBubble(kind: note.kind, size: note.icon == nil ? 13 : 9)
+            Group {
+                if let icon = note.icon {
+                    Image(nsImage: icon).resizable().frame(width: 18, height: 18)
+                        .overlay(alignment: .bottomTrailing) {
+                            bubble.background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black)).offset(x: 5, y: 4)
+                        }
+                } else {
+                    bubble
+                }
+            }
+            .help(note.help)
         } else if model.isPlaying {
             if model.hasActivity || model.peek != nil {
                 // The agent has the left side: show "playing" as a bar badge on the artwork.
@@ -218,6 +224,20 @@ enum AgentStyle {
     static let tile = Color.white.opacity(0.08)
 }
 
+/// Amber "!" bubble: approve something. Blue "?" bubble: answer something.
+struct AttentionBubble: View {
+    let kind: Attention
+    let size: CGFloat
+
+    var body: some View {
+        PulsingSymbol(name: kind == .question ? "questionmark.bubble.fill" : "exclamationmark.bubble.fill",
+                      color: kind == .question ? NSColor(hex: 0x5AA2F0) : NSColor(hex: 0xFAB219),
+                      glyph: kind == .question ? .white : .black,
+                      size: size)
+            .id(kind)
+    }
+}
+
 /// The closed notch's agent marks: one per agent with its count, at most two,
 /// then "+N". An agent waiting for you shows as an amber bubble and always
 /// gets one of the two slots (the board lists waiting agents first).
@@ -231,14 +251,9 @@ struct AgentBadge: View {
         return HStack(spacing: 6) {
             ForEach(marks.shown, id: \.agent) { entry in
                 HStack(spacing: 2) {
-                    // Amber "!" bubble: approve something. Blue "?" bubble: answer something.
-                    PulsingSymbol(name: entry.attention == .question ? "questionmark.bubble.fill" : "exclamationmark.bubble.fill",
-                                  logo: entry.waiting ? nil : entry.agent,
-                                  color: entry.attention == .question ? NSColor(hex: 0x5AA2F0)
-                                      : entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
-                                  glyph: entry.attention == .question ? .white : entry.waiting ? .black : nil,
-                                  size: entry.waiting ? 13 : 12,
-                                  active: !entry.waiting)
+                    // A waiting agent's mark holds still; its "!" or "?" shows on the right side.
+                    PulsingSymbol(name: "", logo: entry.agent, color: AgentStyle.mark(entry.agent),
+                                  size: 12, active: !entry.waiting)
                         .id("\(entry.agent)\(String(describing: entry.attention))")
                     if entry.count > 1 {
                         Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
