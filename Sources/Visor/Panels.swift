@@ -7,13 +7,13 @@ struct AgentsView: View {
     let model: AppModel
 
     var body: some View {
-        if !model.hooksInstalled && model.board.sessions.isEmpty {
-            EmptyState(symbol: "link", title: "Connect Claude Code",
-                       detail: "Adds Visor hooks to ~/.claude/settings.json so the notch can see your agents and ask you for approvals.",
+        if !model.hooksInstalled && !model.antigravityHooksInstalled && model.board.sessions.isEmpty {
+            EmptyState(symbol: "link", title: "Connect your agents",
+                       detail: "Adds Visor hooks so the notch can see Claude Code, Copilot CLI and Antigravity sessions, and ask you for approvals.",
                        button: "Connect") { model.installHooks?() }
         } else if model.board.sessions.isEmpty {
             EmptyState(symbol: "sparkles", title: "No agents running",
-                       detail: "Start claude or copilot in a terminal and it shows up here.")
+                       detail: "Start claude, copilot or agy in a terminal and it shows up here.")
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -26,7 +26,7 @@ struct AgentsView: View {
                                 .foregroundStyle(Theme.textMuted)
                         }
                         .padding(.top, 2)
-                        ForEach(group.sessions) { AgentRow(session: $0) }
+                        ForEach(group.sessions) { AgentRow(session: $0, focus: model.focusAgent) }
                     }
                     if !model.hooksInstalled {
                         Button("Connect Claude Code for approvals") { model.installHooks?() }
@@ -38,7 +38,7 @@ struct AgentsView: View {
     }
 
     static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
-        let rank = ["Claude Code": 0, "Copilot CLI": 1]
+        let rank = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2]
         return Dictionary(grouping: sessions, by: \.agent)
             .map { ($0.key, $0.value.sorted(by: Self.order)) }
             .sorted { (rank[$0.agent] ?? 9, $0.agent) < (rank[$1.agent] ?? 9, $1.agent) }
@@ -60,25 +60,20 @@ struct AgentsView: View {
 
 struct AgentRow: View {
     let session: AgentSession
+    var focus: ((AgentSession) -> Void)?
 
     var body: some View {
         HStack(spacing: 10) {
             tile
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
                         .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    Spacer(minLength: 8)
+                    time
                 }
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            if session.isActive {
-                Text(session.since, style: .timer)
-                    .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textMuted)
-            } else {
-                Text(session.since, style: .relative)
-                    .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
             }
         }
         .padding(.horizontal, 10)
@@ -86,10 +81,24 @@ struct AgentRow: View {
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
             .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : .clear, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onTapGesture { focus?(session) }
+        .help(session.host.map { "Open \($0)" } ?? "")
     }
 
     private var needsYou: Bool {
         session.state.attention != nil
+    }
+
+    /// Elapsed or relative time, sitting on the project line so it lines up with it.
+    @ViewBuilder private var time: some View {
+        if session.isActive {
+            Text(session.since, style: .timer)
+                .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textMuted)
+        } else {
+            Text(session.since, style: .relative)
+                .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+        }
     }
 
     /// The agent's tile with a status dot: mint working, amber waiting, grey done or idle.
@@ -302,154 +311,6 @@ struct ApprovalView: View {
     }
 }
 
-// MARK: Question
-
-/// A question an agent asked (AskUserQuestion). The terminal shows it too; while
-/// Visor holds its permission step, picking options here answers it.
-struct QuestionView: View {
-    let model: AppModel
-    let question: AgentQuestion
-
-    var body: some View {
-        let session = model.board.sessions.first { $0.id == question.sessionID }
-        let host = session?.host ?? "terminal"
-        let answerable = model.questionHolds[question.sessionID] != nil
-        let page = min(model.questionPage, question.items.count - 1)
-        let item = question.items[page]
-        let picked = model.questionPicks[page] ?? []
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                AgentIcon(agent: question.agent, size: 22)
-                Text(question.agent)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(question.agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A))
-                Text(ApprovalView.place(session: session, project: question.project))
-                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                Spacer()
-                if question.items.count > 1 {
-                    Text("\(page + 1) of \(question.items.count)").font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textMuted)
-                }
-                let others = model.questions.filter { $0.id != question.id && model.handedOff[$0.sessionID] == nil }.count
-                if others > 0 {
-                    Text("+\(others) more").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-                }
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if !item.header.isEmpty {
-                    Text(item.header).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.question)
-                        .padding(.horizontal, 7).padding(.vertical, 1.5)
-                        .background(Capsule().fill(Theme.question.opacity(0.15)))
-                }
-                Text(item.text).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                if item.multiSelect {
-                    Text("Pick any").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
-                }
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(Array(item.options.enumerated()), id: \.offset) { index, option in
-                    let selected = picked.contains(index)
-                    Button {
-                        var picks = model.questionPicks
-                        if item.multiSelect {
-                            picks[page, default: []].formSymmetricDifference([index])
-                        } else {
-                            picks[page] = [index]
-                        }
-                        model.questionPicks = picks
-                    } label: {
-                        OptionRow(number: "\(index + 1)", label: option.label, detail: option.detail,
-                                  selected: selected, check: item.multiSelect)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!answerable)
-                }
-                if answerable {
-                    Button { model.handOff?(question, true) } label: {
-                        OptionRow(number: "\(item.options.count + 1)", label: "Other…", detail: "Type your own answer in \(host)",
-                                  selected: false, check: false, muted: true)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            HStack(spacing: 8) {
-                if answerable {
-                    Button { model.handOff?(question, true) } label: {
-                        Label("Answer in \(host)", systemImage: "terminal")
-                    }
-                    .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
-                    Spacer()
-                    if page > 0 {
-                        Button("Back") { model.questionPage = page - 1 }
-                            .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
-                    }
-                    let last = page == question.items.count - 1
-                    Button(last ? (question.items.count > 1 ? "Send answers" : "Send answer") : "Next") {
-                        if last { model.answer?(question) } else { model.questionPage = page + 1 }
-                    }
-                    .buttonStyle(PillButton(fill: Theme.question))
-                    .disabled(picked.isEmpty)
-                    .opacity(picked.isEmpty ? 0.45 : 1)
-                } else {
-                    Text("Pick your answer in \(host)").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
-                    Spacer()
-                    Button("Hide") { model.handOff?(question, false) }
-                        .buttonStyle(PillButton(fill: Color.white.opacity(0.1), foreground: Theme.textSecondary))
-                        .help("Hide the card; the notch keeps a \"?\" until it's answered")
-                    Button { model.handOff?(question, true) } label: {
-                        Label("Answer in \(host)", systemImage: "terminal")
-                    }
-                    .buttonStyle(PillButton(fill: Theme.question))
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
-    }
-}
-
-/// One option on a question card: its number (or checkbox), label and description.
-struct OptionRow: View {
-    let number: String
-    let label: String
-    let detail: String?
-    let selected: Bool
-    let check: Bool
-    var muted = false
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
-            Group {
-                if check {
-                    Image(systemName: selected ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 13)).foregroundStyle(selected ? Theme.question : Theme.textMuted)
-                } else {
-                    Text(number).font(.system(size: 10, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(selected ? .white : Theme.textSecondary)
-                        .frame(width: 17, height: 17)
-                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(selected ? Theme.question : Color.white.opacity(0.08)))
-                }
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label).font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(muted ? Theme.textSecondary : Theme.textPrimary)
-                if let detail {
-                    Text(detail).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .fill(selected ? Theme.question.opacity(0.14) : Theme.raised))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .strokeBorder(selected ? Theme.question.opacity(0.7) : .clear, lineWidth: 1))
-        .contentShape(Rectangle())
-    }
-}
-
 /// The agent's own mark in its brand colour, on a dark tile.
 struct AgentIcon: View {
     var agent = "Claude Code"
@@ -488,36 +349,40 @@ struct LogoShape: Shape {
 
 // MARK: Usage
 
-/// Limits on the left (Claude, then Copilot), what the usage is worth on the right.
+/// Limits on the left (Claude, then Copilot, then Antigravity), what the usage is worth on the right.
 struct UsageView: View {
     let model: AppModel
 
     var body: some View {
         HStack(alignment: .top, spacing: 28) {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
-                        if let updated = model.planUpdated {
-                            (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
+                            if let updated = model.planUpdated {
+                                (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                            }
+                        }
+                        if let plan = model.plan {
+                            ForEach(plan.limits.prefix(3)) { limit in
+                                LimitMeter(title: limit.title, used: limit.percentUsed,
+                                           caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
+                            }
+                            if let extra = plan.extra {
+                                Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
+                                    .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                            }
+                        } else {
+                            Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        }
+                        if let error = model.planError, model.plan != nil {
+                            Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                         }
                     }
-                    if let plan = model.plan {
-                        ForEach(plan.limits.prefix(3)) { limit in
-                            LimitMeter(title: limit.title, used: limit.percentUsed,
-                                       caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
-                        }
-                        if let extra = plan.extra {
-                            Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                        }
-                    } else {
-                        Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    }
-                    if let error = model.planError, model.plan != nil {
-                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                    }
+                    ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) }
+                    AntigravityBlock(model: model)
                 }
-                ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -596,6 +461,38 @@ struct CopilotBlock: View {
     }
 }
 
+/// Antigravity's weekly quotas, read from its CLI only while this tab is open.
+struct AntigravityBlock: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading {
+            VStack(alignment: .leading, spacing: 12) {
+                ProviderHeader(agent: "Antigravity", title: "Antigravity") {
+                    if model.antigravityLoading {
+                        Text("Checking…")
+                    } else if let updated = model.antigravityUpdated {
+                        (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                    }
+                }
+                if let usage = model.antigravity {
+                    ForEach(usage.limits) { limit in
+                        LimitMeter(title: limit.title, used: limit.percentUsed,
+                                   caption: limit.resetsAt.map { "Resets " + $0.formatted(.dateTime.day().month(.abbreviated)) })
+                    }
+                    if let error = model.antigravityError {
+                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                    }
+                } else if let error = model.antigravityError {
+                    Text(error).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                } else {
+                    Text("Checking…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                }
+            }
+        }
+    }
+}
+
 /// One limit: what's left as the headline, a bar of what's used, then when it resets.
 struct LimitMeter: View {
     let title: String
@@ -652,7 +549,7 @@ struct SpendView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("Spend").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("Claude spend").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 Text("API value").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
             }
             .help("What your Claude Code usage would cost at API prices, from local transcripts")

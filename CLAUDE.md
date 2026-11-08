@@ -15,13 +15,14 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 - Build and launch: `./scripts/bundle.sh --open`. Tests: `scripts/test.sh` (Swift Testing). The script passes the Swift Testing macro plugin path; without it, incremental test builds lose `TestingMacros`.
 - Package uses tools-version 6.0 with `swiftLanguageModes [.v5]`. XCTest isn't available.
-- SwiftUI `@State` doesn't compile with the Command Line Tools (no SwiftUIMacros plugin). Keep view state on the `@Observable` `AppModel` instead (e.g. `spendHover`, `questionPicks`).
+- SwiftUI `@State` doesn't compile with the Command Line Tools (no SwiftUIMacros plugin). Keep view state on the `@Observable` `AppModel` instead (e.g. `spendHover`, `clipHover`).
 - Signing: `scripts/bundle.sh` signs with a local self-signed certificate if present, so macOS keeps Accessibility and Automation permissions across rebuilds. On a new Mac run `scripts/make-signing-identity.sh` once first.
 
 ## Performance rules
 
 - Looping animations must be Core Animation layer animations (`LayerAnimations.swift`), never SwiftUI `symbolEffect` or `repeatForever` (those cost ~10% CPU).
 - Wrap background parsing loops in `autoreleasepool`.
+- Antigravity's `agy -p /usage` takes about 4 s and 200 MB; run it only when the Usage tab opens, off the main thread, with a two-minute cache.
 - Measure with `ps -o %cpu`, `sample` and `footprint`.
 - Publish to the model only when something visible changes (see `AgentBoard.differsVisibly`).
 
@@ -32,7 +33,6 @@ Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) accept ex
 - `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it)
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
-- `{"event":"_handoff","raw":{}}` hides the open question card; `_pick` `{"option":1}` and `_send` answer it
 
 Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
 
@@ -40,7 +40,8 @@ Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Vis
 
 - Hooks: `HookInstaller` writes `agent-hook.sh`; only `PermissionRequest` connections stay open (nc `-w 110`), everything else is fire-and-forget. macOS `/usr/bin/nc` half-closes after stdin EOF, so EOF does not mean the hook is gone; `HookServer` checks the hook's pid instead.
 - The terminal shows its own prompt while Visor holds a hook; answering there makes Claude Code drop the hook.
-- Questions (Claude Code's `AskUserQuestion`): `PreToolUse` arrives first (card shows), then `PermissionRequest` (held, so the card can answer). Reply `allow` with `updatedInput` = the original input plus `"answers": {"<question text>": "<label>"}` (several picks joined with ", "). Verified live: Claude Code takes it as the user's answer. Closing the hook with no output leaves the terminal prompt.
+- Questions (Claude Code's `AskUserQuestion`): `PreToolUse` sets the session to asking; the notch shows a blue "?" but no card, and does not open. On `PermissionRequest`, reply with no output at once so the terminal's own prompt answers it. The Agents row (click) brings the host app forward; `AgentQuestion` only parses the label. A `PostToolUse` for the tool shows the "Answered" peek.
+- Antigravity CLI (`agy`): hooks live in `~/.gemini/config/hooks.json` (top-level named hooks; tool events use the nested `matcher`/`hooks` shape, lifecycle events the flat shape). `agent-hook.sh` takes the provider first (`antigravity <Event>`). `PreInvocation` with `invocationNum == 0` starts a turn; later invocations are just "Thinking". `PreToolUse` prints `{"decision":"allow"}` to defer to agy's own permissions, so the notch shows sessions and activity but approvals stay in the terminal. Set `VISOR_USAGE_PROBE=1` on `agy -p /usage` runs so the quota check never shows up as a session.
 - Closed notch: amber "!" bubble = approval, blue "?" bubble = question or waiting for a reply, green check = done or answered.
 
 ## Music

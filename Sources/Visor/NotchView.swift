@@ -15,41 +15,42 @@ struct NotchLayout {
         // Room for the news: "✓ [mark] visor" one side, "done · 4m 12s" the other.
         if model.peek != nil { return max(marks, 118) }
         if model.attentionNote != nil, !model.isPlaying { return max(marks, 76) }
-        return marks
+        let quotas = (!model.isPlaying && !model.quotas.isEmpty)
+            ? CGFloat(NotchQuotaSummary.earWidth(count: model.quotas.count))
+            : CGFloat(NotchMarks.earWidth(agents: 1))
+        return max(marks, quotas)
     }
     static let expandedSize = CGSize(width: 580, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
-
-    /// Header, question and footer, plus a row per option (two lines with a description).
-    static func questionSize(_ item: AgentQuestion.Item, answerable: Bool) -> CGSize {
-        let rows = item.options.reduce(0) { $0 + ($1.detail == nil ? 30 : 42) } + (answerable ? 35 : 0)
-        let height = 186 + rows + (item.text.count > 70 ? 18 : 0)
-        return CGSize(width: 580, height: min(windowSize.height - 28, CGFloat(height)))
-    }
     static let musicSize = CGSize(width: 580, height: 196)
     static let clipboardSize = CGSize(width: 580, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: 580, height: 312)
+    /// Usage with Copilot and Antigravity in the provider column; the tallest panel.
+    static let usageWithAntigravitySize = CGSize(width: 580, height: 450)
+    /// The longest the Agents list grows before it scrolls.
+    static let listMaxHeight: CGFloat = 402
     /// The window is a little larger than the biggest panel, room for the shadow.
-    static let windowSize = CGSize(width: 620, height: 430)
+    static let windowSize = CGSize(width: 620, height: 480)
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
-            if let question = model.openQuestion {
-                return Self.questionSize(question.items[min(model.questionPage, question.items.count - 1)],
-                                         answerable: model.questionHolds[question.sessionID] != nil)
+            if model.tab == .usage {
+                if model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading {
+                    return Self.usageWithAntigravitySize
+                }
+                if !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             }
-            if model.tab == .usage && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
                 let groups = Set(model.board.sessions.map(\.agent)).count
                 let content = CGFloat(groups) * 24 + CGFloat(model.board.sessions.count) * 52 + 30
                 return CGSize(width: Self.expandedSize.width,
-                              height: min(NotchLayout.windowSize.height - 28, max(Self.expandedSize.height, notch.height + content)))
+                              height: min(Self.listMaxHeight, max(Self.expandedSize.height, notch.height + content)))
             }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
@@ -84,9 +85,8 @@ struct NotchView: View {
         .frame(width: size.width, height: size.height, alignment: .top)
         .background {
             // Approvals: a soft mint glow from the top-left corner, matching the buttons.
-            // Questions: the same glow in their blue.
             if model.expanded && model.showsCard {
-                RadialGradient(colors: [(model.approvals.isEmpty ? Theme.question : ConsentButton.mint).opacity(0.16), .clear],
+                RadialGradient(colors: [ConsentButton.mint.opacity(0.16), .clear],
                                center: .topLeading, startRadius: 0, endRadius: 380)
                     .transition(.opacity)
             }
@@ -142,7 +142,8 @@ struct CollapsedView: View {
                 switch peek {
                 case .done(let turn):
                     AgentMark(agent: turn.agent, size: 12)
-                    Text(turn.project).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    Text([turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 case .answered(let agent):
                     AgentMark(agent: agent, size: 12)
                 }
@@ -157,16 +158,11 @@ struct CollapsedView: View {
     }
 
     @ViewBuilder private var right: some View {
-        if let peek = model.peek {
-            Group {
-                switch peek {
-                case .done(let turn): Text(turn.durationText.map { "done · \($0)" } ?? "done")
-                case .answered: Text("Answered")
-                }
-            }
-            .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 4)
+        if let peek = model.peek, case .answered = peek {
+            Text("Answered")
+                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 4)
         } else if let note = model.attentionNote, !model.isPlaying {
             Text(note.text).font(.system(size: 11, weight: .semibold)).foregroundStyle(note.color).lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -184,10 +180,26 @@ struct CollapsedView: View {
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
-        } else if let left = model.plan?.session?.percentLeft {
-            Text("\(Int(left.rounded()))%")
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                .foregroundStyle(left <= 10 ? Theme.critical : left <= 25 ? Theme.warning : Theme.textSecondary)
+        } else if !model.quotas.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(model.quotas) { quota in
+                    // Mark on top, percent below, so each agent is one narrow column.
+                    VStack(spacing: 1.5) {
+                        AgentMark(agent: quota.agent, size: 10,
+                                  color: quota.percentLeft <= 10 ? Theme.critical
+                                      : quota.percentLeft <= 25 ? Theme.warning
+                                      : Color(nsColor: AgentStyle.mark(quota.agent)))
+                        Text("\(Int(quota.percentLeft.rounded()))%")
+                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .lineLimit(1)
+                            .fixedSize()
+                            .foregroundStyle(quota.percentLeft <= 10 ? Theme.critical
+                                : quota.percentLeft <= 25 ? Theme.warning
+                                : Theme.textSecondary)
+                    }
+                    .help(quota.label)
+                }
+            }
         }
     }
 }
@@ -196,7 +208,11 @@ struct CollapsedView: View {
 enum AgentStyle {
     /// Bright, for marks on black.
     static func mark(_ agent: String) -> NSColor {
-        agent == "Copilot CLI" ? NSColor(hex: 0xA78BFA) : NSColor(hex: 0xD97757)
+        switch agent {
+        case "Copilot CLI": return NSColor(hex: 0xA78BFA)
+        case "Antigravity": return NSColor(hex: 0x3186FF)
+        default: return NSColor(hex: 0xD97757)
+        }
     }
     /// The tile behind the mark in lists.
     static let tile = Color.white.opacity(0.08)
@@ -221,7 +237,8 @@ struct AgentBadge: View {
                                   color: entry.attention == .question ? NSColor(hex: 0x5AA2F0)
                                       : entry.waiting ? NSColor(hex: 0xFAB219) : AgentStyle.mark(entry.agent),
                                   glyph: entry.attention == .question ? .white : entry.waiting ? .black : nil,
-                                  size: entry.waiting ? 13 : 12)
+                                  size: entry.waiting ? 13 : 12,
+                                  active: !entry.waiting)
                         .id("\(entry.agent)\(String(describing: entry.attention))")
                     if entry.count > 1 {
                         Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
@@ -274,8 +291,6 @@ struct ExpandedView: View {
             Group {
                 if let approval = model.approvals.first {
                     ApprovalView(model: model, request: approval)
-                } else if let question = model.openQuestion {
-                    QuestionView(model: model, question: question)
                 } else {
                     switch model.tab {
                     case .agents: AgentsView(model: model)

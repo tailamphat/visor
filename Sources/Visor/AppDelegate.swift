@@ -50,19 +50,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         HookServer.migrateFromNotchboard()
         model.hooksInstalled = HookInstaller.isInstalled
-        if model.hooksInstalled {
-            // Keep the script current with this version of the app.
-            try? HookInstaller.install()
-            if HookInstaller.copilotInstalled { try? HookInstaller.installCopilot() }
-        }
+        model.antigravityHooksInstalled = HookInstaller.antigravityInstalled
+        // Keep the script current with this version of the app.
+        if model.hooksInstalled { try? HookInstaller.install() }
+        if HookInstaller.copilotInstalled { try? HookInstaller.installCopilot() }
+        if model.antigravityHooksInstalled { try? HookInstaller.installAntigravity() }
         model.installHooks = { [weak self] in self?.installHooks() }
         model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
         model.musicCommand = { [weak self] in self?.music.perform($0) }
         model.setVolume = { [weak self] in self?.music.setVolume($0) }
         model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
-        model.handOff = { [weak self] question, activate in self?.handOff(question, activate: activate) }
-        model.answer = { [weak self] question in self?.answer(question) }
+        model.focusAgent = { [weak self] session in self?.focus(session) }
 
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
@@ -105,11 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let gone = self.agents.sessions.filter { $0.pid > 0 && !alive($0.pid) }.map(\.id)
                 self.agents.prune(isAlive: alive)
                 self.publishAgents()
-                self.dropStaleQuestions()
-                for session in gone {
-                    self.model.questionHolds[session] = nil
-                    self.hooks.releaseApprovals(session: session)
-                }
+                for session in gone { self.hooks.releaseApprovals(session: session) }
             }
         }
         pruneTimer?.tolerance = 1
@@ -196,20 +191,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             decide(first, answer == "deny" ? .deny : answer == "always" ? .allowAlways : .allow)
             return
         }
-        // {"event":"_handoff","raw":{}} hides the first question card, as "Hide" does.
-        if message.event == "_handoff", let first = model.openQuestion {
-            handOff(first, activate: false)
-            return
-        }
-        // {"event":"_pick","raw":{"option":1}} picks an option on the open question; _send sends it.
-        if message.event == "_pick", let option = message.payload["option"] as? Int {
-            model.questionPicks[model.questionPage, default: []].insert(option)
-            return
-        }
-        if message.event == "_send", let first = model.openQuestion {
-            answer(first)
-            return
-        }
         // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true}} fakes a song.
         if message.event == "_music" {
             let p = message.payload
@@ -252,12 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .tool(let tool): hooks.releaseApprovals(session: session, tool: tool)
             }
         }
-        noteQuestion(message)
-        // A question's card only belongs on screen while its session waits on it.
-        dropStaleQuestions()
+        noteAnsweredQuestion(message)
         if let approval, approval.isQuestion {
-            // Held so the card can answer it; the terminal shows the question meanwhile.
-            model.questionHolds[approval.sessionID] = approval
+            // The terminal shows the question and answers it; let its prompt through.
+            hooks.reply(approval, nil)
         } else if let approval {
             if approval.provider == "copilot" && !Self.copilotApprovalsOn {
                 // Off: Copilot asks in its own terminal.
@@ -275,72 +254,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let done = agents.finished(message) { show(.done(done), for: 5) }
     }
 
-    /// Questions come and go with the session's events: asked (PreToolUse), answered
-    /// in the terminal (PostToolUse), or made moot (a new prompt, a stop).
-    private func noteQuestion(_ message: HookMessage) {
-        guard let session = message.sessionID else { return }
-        if message.event == "PreToolUse" || message.event == "PermissionRequest", let question = AgentQuestion(message) {
-            guard !model.questions.contains(question) else { return }
-            model.questions.removeAll { $0.sessionID == session }
-            model.handedOff[session] = nil
-            model.questions.append(question)
-            if model.openQuestion == question { model.questionPicks = [:] }
-            notch.expand()
-            return
-        }
-        let asked = model.questions.first { $0.sessionID == session }
-        switch message.event {
-        case "PostToolUse" where message.toolName == AgentQuestion.tool,
-             "PostToolUseFailure" where message.toolName == AgentQuestion.tool:
-            if let asked { show(.answered(agent: asked.agent), for: 2.5) }
-            dropQuestion(session: session)
-        case "UserPromptSubmit", "Stop", "SessionEnd":
-            dropQuestion(session: session)
-        default:
-            break
-        }
+    /// A question answered in the terminal shows "Answered" in the closed notch.
+    private func noteAnsweredQuestion(_ message: HookMessage) {
+        guard message.toolName == AgentQuestion.tool,
+              message.event == "PostToolUse" || message.event == "PostToolUseFailure",
+              let session = message.sessionID,
+              let agent = agents.sessions.first(where: { $0.id == session })?.agent else { return }
+        show(.answered(agent: agent), for: 2.5)
     }
 
-    private func dropQuestion(session: String) {
-        guard model.questions.contains(where: { $0.sessionID == session }) || model.handedOff[session] != nil else { return }
-        model.questions.removeAll { $0.sessionID == session }
-        model.handedOff[session] = nil
-        notch.collapseIfAway()
-    }
-
-    /// Drops cards for questions whose session answered elsewhere, finished, or
-    /// went away; without this an old card stays in the notch for good.
-    private func dropStaleQuestions() {
-        for question in model.questions where !agents.stillAsking(question) {
-            dropQuestion(session: question.sessionID)
-        }
-    }
-
-    /// "Answer in Ghostty": the terminal already shows the question; hide the card,
-    /// keep the "?" until it's answered, and bring the terminal forward if asked.
-    private func handOff(_ question: AgentQuestion, activate: Bool) {
-        let host = agents.sessions.first { $0.id == question.sessionID }?.host ?? "terminal"
-        model.handedOff[question.sessionID] = host
-        model.questionPicks = [:]
-        // Let go of the held step: the terminal's own prompt answers it.
-        if let held = model.questionHolds.removeValue(forKey: question.sessionID) { hooks.reply(held, nil) }
-        if activate, let id = ProcessTree.hostBundleID(of: question.pid) {
-            NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate()
-        }
-        notch.collapseIfAway()
-    }
-
-    /// Answers from the card: allow the question with the picked options filled in.
-    private func answer(_ question: AgentQuestion) {
-        let answers = question.answers(picks: model.questionPicks)
-        guard !answers.isEmpty, let held = model.questionHolds.removeValue(forKey: question.sessionID) else { return }
-        hooks.reply(held, .answer(answers))
-        agents.resolveQuestion(session: question.sessionID)
-        publishAgents()
-        model.questionPicks = [:]
-        model.questions.removeAll { $0.id == question.id }
-        show(.answered(agent: question.agent), for: 2.5)
-        notch.collapseIfAway()
+    /// Brings the app an agent runs in to the front, where its prompt is.
+    private func focus(_ session: AgentSession) {
+        guard let id = ProcessTree.hostBundleID(of: session.pid) else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate()
     }
 
     private func show(_ peek: Peek, for seconds: TimeInterval) {
@@ -366,8 +292,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The hook gave up (timed out, or Claude Code was interrupted).
     private func approvalGone(_ id: UUID) {
         model.approvals.removeAll { $0.id == id }
-        // A question's hook gave up: the card can only point to the terminal now.
-        if let session = model.questionHolds.first(where: { $0.value.id == id })?.key { model.questionHolds[session] = nil }
         notch.collapseIfAway()
     }
 
@@ -375,7 +299,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             try HookInstaller.install()
             try? HookInstaller.installCopilot()
+            try? HookInstaller.installAntigravity()
             model.hooksInstalled = true
+            model.antigravityHooksInstalled = HookInstaller.antigravityInstalled
         } catch {
             let alert = NSAlert()
             alert.messageText = "Couldn't connect Claude Code"
@@ -409,6 +335,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if installed {
             menu.addItem(withTitle: "Disconnect Claude Code", action: #selector(disconnect), keyEquivalent: "").target = self
         }
+        let antigravity = HookInstaller.antigravityInstalled
+        model.antigravityHooksInstalled = antigravity
+        if HookInstaller.hasAntigravityCLI {
+            menu.addItem(withTitle: antigravity ? "Disconnect Antigravity" : "Connect Antigravity",
+                         action: #selector(toggleAntigravity), keyEquivalent: "").target = self
+        }
         if HookInstaller.hasCopilotCLI {
             let copilot = HookInstaller.copilotInstalled
             menu.addItem(withTitle: copilot ? "Disconnect Copilot CLI" : "Connect Copilot CLI",
@@ -433,7 +365,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func disconnect() {
         try? HookInstaller.uninstall()
         try? HookInstaller.uninstallCopilot()
+        try? HookInstaller.uninstallAntigravity()
         model.hooksInstalled = false
+        model.antigravityHooksInstalled = false
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
@@ -442,6 +376,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleCopilot() {
         if HookInstaller.copilotInstalled { try? HookInstaller.uninstallCopilot() } else { try? HookInstaller.installCopilot() }
+    }
+
+    @objc private func toggleAntigravity() {
+        if HookInstaller.antigravityInstalled {
+            try? HookInstaller.uninstallAntigravity()
+        } else {
+            try? HookInstaller.installAntigravity()
+        }
+        model.antigravityHooksInstalled = HookInstaller.antigravityInstalled
     }
 
     @objc private func toggleLogin() {
@@ -504,7 +447,7 @@ enum ProcessTree {
     }
 
     /// Hooks may run under an intermediate shell; walk up to the agent's process
-    /// (claude or copilot) so its exit can be noticed. Falls back to the pid given.
+    /// (claude, copilot or agy) so its exit can be noticed. Falls back to the pid given.
     static func agentAncestor(of pid: Int32) -> Int32 {
         var current = pid
         for _ in 0..<4 where current > 1 {
@@ -513,7 +456,9 @@ enum ProcessTree {
             guard proc_pidinfo(current, PROC_PIDTBSDINFO, 0, &info, size) == size else { break }
             let name = withUnsafeBytes(of: info.pbi_comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
             let lower = name.lowercased()
-            if lower.contains("claude") || lower.contains("copilot") { return current }
+            if lower.contains("claude") || lower.contains("copilot") || lower == "agy" || lower.contains("antigravity") {
+                return current
+            }
             current = Int32(info.pbi_ppid)
         }
         return pid

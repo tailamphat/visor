@@ -40,7 +40,7 @@ struct SVGPathTests {
         #expect(close(box.maxY, 7.5) && close(box.maxX, 10))
     }
 
-    @Test("Agent logos fill their 24-unit box", arguments: ["Claude Code", "Copilot CLI"])
+    @Test("Agent logos fill their 24-unit box", arguments: ["Claude Code", "Copilot CLI", "Antigravity"])
     func logos(agent: String) {
         let box = AgentLogo.path(for: agent).boundingBoxOfPath
         #expect(box.minX >= -0.01 && box.minY >= -0.01 && box.maxX <= 24.01 && box.maxY <= 24.01)

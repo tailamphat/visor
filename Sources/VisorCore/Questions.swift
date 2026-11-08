@@ -1,71 +1,26 @@
 import Foundation
 
-/// A multiple-choice question an agent asked (Claude Code's AskUserQuestion),
-/// read from its hook input so the notch can show it.
-public struct AgentQuestion: Identifiable, Equatable, Sendable {
+/// A question an agent asked (Claude Code's AskUserQuestion), read from its hook
+/// input. The terminal answers it; the notch only shows that it was asked.
+public struct AgentQuestion: Equatable, Sendable {
     public static let tool = "AskUserQuestion"
 
-    public struct Option: Equatable, Sendable {
-        public var label: String
-        public var detail: String?
-    }
-
-    public struct Item: Equatable, Sendable {
-        /// A short tag, at most 12 characters: "Spend chart".
-        public var header: String
-        public var text: String
-        public var options: [Option]
-        public var multiSelect: Bool
-    }
-
-    public let id = UUID()
-    public var sessionID: String
-    public var agent: String
-    public var project: String
-    /// The agent's process, to find the terminal it runs in.
-    public var pid: Int32
-    public var items: [Item]
+    /// What the notch and the agent list call it: the question's header, else a trimmed question.
+    public let label: String
 
     public init?(_ message: HookMessage) {
-        guard message.toolName == Self.tool, let session = message.sessionID,
+        guard message.toolName == Self.tool,
               let questions = message.toolInput["questions"] as? [[String: Any]] else { return nil }
-        items = questions.compactMap { q in
+        guard let first = questions.lazy.compactMap({ q -> (header: String, text: String)? in
             guard let text = q["question"] as? String, !text.isEmpty else { return nil }
-            let options = (q["options"] as? [[String: Any]] ?? []).compactMap { o -> Option? in
-                guard let label = o["label"] as? String else { return nil }
-                let detail = (o["description"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                return Option(label: label, detail: detail)
-            }
-            return Item(header: q["header"] as? String ?? "", text: text, options: options,
-                        multiSelect: q["multiSelect"] as? Bool ?? false)
-        }
-        guard !items.isEmpty else { return nil }
-        sessionID = session
-        agent = AgentBoard.agentName(message.provider)
-        project = ((message.cwd ?? "") as NSString).lastPathComponent
-        pid = message.pid
+            return (q["header"] as? String ?? "", text)
+        }).first else { return nil }
+        label = Self.label(header: first.header, text: first.text)
     }
 
-    /// The answers to send, by question text, from the options picked per question
-    /// (indexes into each question's options). Several picks join with ", ".
-    public func answers(picks: [Int: Set<Int>]) -> [String: String] {
-        var out: [String: String] = [:]
-        for (index, item) in items.enumerated() {
-            let labels = (picks[index] ?? []).sorted().compactMap { item.options.indices.contains($0) ? item.options[$0].label : nil }
-            if !labels.isEmpty { out[item.text] = labels.joined(separator: ", ") }
-        }
-        return out
-    }
-
-    /// What the closed notch and the agent list call it: the first header, else the question.
-    public var label: String {
-        let first = items[0]
-        if !first.header.isEmpty { return first.header }
-        return first.text.count > 40 ? String(first.text.prefix(39)) + "…" : first.text
-    }
-
-    public static func == (a: AgentQuestion, b: AgentQuestion) -> Bool {
-        a.sessionID == b.sessionID && a.items == b.items
+    public static func label(header: String, text: String) -> String {
+        if !header.isEmpty { return header }
+        return text.count > 40 ? String(text.prefix(39)) + "…" : text
     }
 }
 

@@ -7,6 +7,8 @@ public enum HookSettings {
                                       "PostToolUseFailure", "PermissionRequest", "Notification", "Stop"]
     public static let copilotEvents = ["sessionStart", "sessionEnd", "userPromptSubmitted", "preToolUse", "postToolUse",
                                        "postToolUseFailure", "agentStop", "notification", "permissionRequest"]
+    public static let antigravityEvents = ["SessionStart", "PreInvocation", "PostInvocation",
+                                           "PreToolUse", "PostToolUse", "Stop"]
 
     /// Copilot tools that ask: commands, file changes and web fetches. Reading
     /// and searching never ask.
@@ -17,6 +19,50 @@ public enum HookSettings {
     static let markers = ["Visor/agent-hook.sh", "Notchboard/agent-hook.sh"]
 
     public static func command(script: String, event: String) -> String { "\"\(script)\" \(event)" }
+
+    /// Antigravity passes the provider first, then the event name.
+    public static func antigravityCommand(script: String, event: String) -> String {
+        "\"\(script)\" antigravity \(event)"
+    }
+
+    /// The `"visor"` entry in ~/.gemini/config/hooks.json. Tool events use the
+    /// nested matcher shape; lifecycle events take the flat handler shape.
+    public static func antigravityEntry(script: String) -> [String: Any] {
+        var entry: [String: Any] = [:]
+        for event in antigravityEvents {
+            let hook: [String: Any] = ["type": "command", "command": antigravityCommand(script: script, event: event),
+                                       "timeout": 5]
+            switch event {
+            case "PreToolUse", "PostToolUse":
+                entry[event] = [["matcher": "*", "hooks": [hook]]]
+            default:
+                entry[event] = [hook]
+            }
+        }
+        return entry
+    }
+
+    public static func antigravityFile(script: String) -> [String: Any] {
+        ["visor": antigravityEntry(script: script)]
+    }
+
+    public static func installAntigravity(into hooks: [String: Any], script: String) -> [String: Any] {
+        var hooks = hooks
+        hooks["visor"] = antigravityEntry(script: script)
+        return hooks
+    }
+
+    public static func uninstallAntigravity(from hooks: [String: Any]) -> [String: Any] {
+        guard let entry = hooks["visor"], isOursAntigravity(entry) else { return hooks }
+        var hooks = hooks
+        hooks["visor"] = nil
+        return hooks
+    }
+
+    public static func isAntigravityInstalled(_ hooks: [String: Any]) -> Bool {
+        guard let entry = hooks["visor"] else { return false }
+        return isOursAntigravity(entry)
+    }
 
     /// Claude Code settings with Visor's hooks added once per event, after any others.
     public static func install(into settings: [String: Any], script: String) -> [String: Any] {
@@ -73,5 +119,23 @@ public enum HookSettings {
             guard let command = hook["command"] as? String else { return false }
             return markers.contains { command.contains($0) }
         }
+    }
+
+    /// Antigravity's named hook entries nest commands inside matcher groups.
+    static func isOursAntigravity(_ entry: Any) -> Bool {
+        hookCommands(in: entry).contains { command in
+            markers.contains { command.contains($0) } && command.contains("antigravity")
+        }
+    }
+
+    static func hookCommands(in value: Any) -> [String] {
+        if let object = value as? [String: Any] {
+            var commands: [String] = []
+            for (key, nested) in object where key != "command" { commands += hookCommands(in: nested) }
+            if let command = object["command"] as? String { commands.append(command) }
+            return commands
+        }
+        if let list = value as? [Any] { return list.flatMap(hookCommands(in:)) }
+        return []
     }
 }

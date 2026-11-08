@@ -3,6 +3,8 @@ import VisorCore
 
 /// Keeps the model's usage numbers fresh, all off the main thread:
 /// - plan limits (5-hour session, weekly) from the Claude account Claude Code signed in with
+/// - Copilot allowances from `gh`
+/// - Antigravity quotas from `agy`, only while the Usage tab is looked at
 /// - API-equivalent spend from Claude Code's local transcripts
 @MainActor
 final class UsageService {
@@ -33,6 +35,7 @@ final class UsageService {
     /// Called when the usage tab opens, so numbers are never stale when looked at.
     func refreshIfStale() {
         if Date().timeIntervalSince(model.planUpdated ?? .distantPast) > 45 { refreshPlan() }
+        refreshAntigravity()
     }
 
     private func scanTranscripts() {
@@ -136,6 +139,78 @@ final class UsageService {
     private var copilotHosts: [String] = []
     private var copilotHostsRead = Date.distantPast
     private var copilotTokens: [String: String] = [:]
+
+    // MARK: Antigravity
+
+    private var fetchingAntigravity = false
+    private var antigravityAttempt: Date?
+
+    /// Antigravity's weekly quotas, from its own CLI. Print mode takes a few
+    /// seconds and a couple of hundred MB, so it runs only when the Usage tab
+    /// opens and the last reading is over two minutes old.
+    func refreshAntigravity() {
+        guard let agy = Self.agyPath, !fetchingAntigravity else { return }
+        if let attempt = antigravityAttempt, Date().timeIntervalSince(attempt) < 120 { return }
+        antigravityAttempt = Date()
+        fetchingAntigravity = true
+        model.antigravityLoading = true
+        work.async {
+            let result = Self.fetchAntigravity(agy)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self.fetchingAntigravity = false
+                    self.model.antigravityLoading = false
+                    switch result {
+                    case .success(let usage):
+                        if self.model.antigravity != usage { self.model.antigravity = usage }
+                        self.model.antigravityError = nil
+                        self.model.antigravityUpdated = Date()
+                    case .failure(let error):
+                        self.model.antigravityError = error.message
+                    }
+                }
+            }
+        }
+    }
+
+    private nonisolated static let agyPath: String? = {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return [home + "/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }()
+
+    struct AntigravityError: Error { var message: String }
+
+    private nonisolated static func fetchAntigravity(_ agy: String) -> Result<AntigravityUsage, AntigravityError> {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: agy)
+        process.arguments = ["-p", "/usage", "--output-format", "json"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true"
+        environment["VISOR_USAGE_PROBE"] = "1"
+        process.environment = environment
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else {
+            return .failure(AntigravityError(message: "Antigravity isn't available."))
+        }
+        // Stop a stuck CLI from holding the usage queue.
+        let timeout = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        timeout.schedule(deadline: .now() + 30)
+        timeout.setEventHandler { process.terminate() }
+        timeout.resume()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        timeout.cancel()
+        guard process.terminationStatus == 0 else {
+            return .failure(AntigravityError(message: "Run agy and sign in to see Antigravity limits."))
+        }
+        guard let usage = AntigravityUsage.parse(data) else {
+            return .failure(AntigravityError(message: "Couldn't read Antigravity usage."))
+        }
+        return .success(usage)
+    }
 
     private nonisolated static let ghPath: String? = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
         .first { FileManager.default.isExecutableFile(atPath: $0) }

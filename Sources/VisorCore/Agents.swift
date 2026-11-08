@@ -15,7 +15,7 @@ public struct HookMessage: @unchecked Sendable {
         self.payload = payload
     }
 
-    /// The agent that sent it: "claude" or "copilot".
+    /// The agent that sent it: "claude", "copilot" or "antigravity".
     public var provider = "claude"
 
     /// Parses one line written by agent-hook.sh: {"event":..,"provider":..,"pid":..,"raw":{...}}.
@@ -25,9 +25,15 @@ public struct HookMessage: @unchecked Sendable {
         let pid = (object["pid"] as? NSNumber)?.int32Value ?? 0
         let raw = object["raw"] as? [String: Any] ?? [:]
         let provider = object["provider"] as? String ?? "claude"
-        var message = provider == "copilot"
-            ? HookMessage(event: copilotEvents[event] ?? event, pid: pid, payload: copilotPayload(raw))
-            : HookMessage(event: event, pid: pid, payload: raw)
+        var message: HookMessage
+        switch provider {
+        case "copilot":
+            message = HookMessage(event: copilotEvents[event] ?? event, pid: pid, payload: copilotPayload(raw))
+        case "antigravity":
+            message = HookMessage(event: antigravityEvent(event, raw), pid: pid, payload: antigravityPayload(raw))
+        default:
+            message = HookMessage(event: event, pid: pid, payload: raw)
+        }
         message.provider = provider
         message.hookPID = (object["hpid"] as? NSNumber)?.int32Value ?? 0
         return message
@@ -65,6 +71,56 @@ public struct HookMessage: @unchecked Sendable {
         if var input = out["tool_input"] as? [String: Any], input["file_path"] == nil, let path = input["path"] {
             input["file_path"] = path
             out["tool_input"] = input
+        }
+        return out
+    }
+
+    /// Antigravity calls PreInvocation before every model call; only the first
+    /// call of a turn starts from a new prompt.
+    static func antigravityEvent(_ event: String, _ raw: [String: Any]) -> String {
+        guard event == "PreInvocation" else { return event }
+        let invocation = (raw["invocationNum"] as? NSNumber)?.intValue ?? 0
+        return invocation == 0 ? "UserPromptSubmit" : "PreInvocation"
+    }
+
+    static let antigravityTools = [
+        "run_command": "Bash", "read_file": "Read", "view_file": "Read", "write_file": "Write",
+        "replace_file_content": "Edit", "multi_replace_file_content": "MultiEdit",
+        "grep_search": "Grep", "find_by_name": "Glob", "list_directory": "LS",
+    ]
+
+    /// Antigravity's payload fields as Claude Code's, and its tools under the
+    /// names the board already describes.
+    static func antigravityPayload(_ raw: [String: Any]) -> [String: Any] {
+        var out = raw
+        if out["session_id"] == nil { out["session_id"] = raw["conversationId"] }
+        if out["cwd"] == nil, let paths = raw["workspacePaths"] as? [String], let first = paths.first {
+            out["cwd"] = first
+        }
+        if out["prompt"] == nil { out["prompt"] = raw["lastUserInput"] }
+        guard let call = raw["toolCall"] as? [String: Any] else { return out }
+        let name = call["name"] as? String ?? ""
+        let args = call["args"] as? [String: Any] ?? [:]
+        out["tool_name"] = antigravityTools[name] ?? name
+        func string(_ keys: String...) -> String {
+            for key in keys { if let value = args[key] as? String { return value } }
+            return ""
+        }
+        switch name {
+        case "run_command":
+            out["tool_input"] = ["command": string("CommandLine", "command"), "description": string("toolSummary", "description")]
+        case "read_file", "view_file":
+            out["tool_input"] = ["file_path": string("Path", "AbsolutePath", "path")]
+        case "write_file":
+            out["tool_input"] = ["file_path": string("Path", "path"), "content": string("Content", "content")]
+        case "replace_file_content", "multi_replace_file_content":
+            out["tool_input"] = ["file_path": string("Path", "TargetFile", "path")]
+        case "grep_search":
+            out["tool_input"] = ["pattern": string("Query", "query", "Pattern", "pattern")]
+        case "find_by_name":
+            out["tool_input"] = ["pattern": string("Pattern", "pattern", "Name", "name")]
+        default:
+            out["tool_input"] = args
         }
         return out
     }
@@ -120,7 +176,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable {
 
     public var project: String {
         let name = (cwd as NSString).lastPathComponent
-        return name.isEmpty ? "Claude" : name
+        if !name.isEmpty { return name }
+        return agent == "Claude Code" ? "Claude" : agent
     }
 
     public var isActive: Bool {
@@ -167,6 +224,7 @@ public struct AgentBoard: Equatable, Sendable {
             if let prompt = message.payload["prompt"] as? String { sessions[index].task = Self.summarize(prompt) }
             sessions[index].turnStart = now
             next = .working("Thinking")
+        case "PreInvocation": next = .working("Thinking")
         case "PreToolUse" where message.toolName == AgentQuestion.tool,
              "PermissionRequest" where message.toolName == AgentQuestion.tool:
             next = .asking(AgentQuestion(message)?.label ?? "Question")
@@ -203,21 +261,6 @@ public struct AgentBoard: Equatable, Sendable {
         sessions[i].since = now
     }
 
-    /// The user answered a question; the agent carries on.
-    public mutating func resolveQuestion(session id: String, now: Date = Date()) {
-        guard let i = sessions.firstIndex(where: { $0.id == id }), case .asking = sessions[i].state else { return }
-        sessions[i].state = .working("Thinking")
-        sessions[i].since = now
-    }
-
-    /// Whether a question still belongs on screen: its session exists and is
-    /// waiting on it. A finished, moved-on or exited session leaves no card.
-    public func stillAsking(_ question: AgentQuestion) -> Bool {
-        guard let session = sessions.first(where: { $0.id == question.sessionID }) else { return false }
-        if case .asking = session.state { return true }
-        return false
-    }
-
     /// Drops sessions whose Claude Code process has exited.
     public mutating func prune(isAlive: (Int32) -> Bool) {
         sessions.removeAll { $0.pid > 0 && !isAlive($0.pid) }
@@ -227,12 +270,13 @@ public struct AgentBoard: Equatable, Sendable {
         switch provider {
         case "claude": return "Claude Code"
         case "copilot": return "Copilot CLI"
+        case "antigravity": return "Antigravity"
         default: return provider.prefix(1).uppercased() + provider.dropFirst()
         }
     }
 
     /// Agents with something going on, in the order the closed notch shows them:
-    /// anyone waiting for you first, then Claude Code before Copilot CLI.
+    /// anyone waiting for you first, then Claude Code, Copilot CLI, Antigravity.
     /// Approvals before questions: an approval blocks the agent.
     public var activeAgents: [(agent: String, count: Int, attention: Attention?)] {
         var groups: [String: (count: Int, attention: Attention?)] = [:]
@@ -242,7 +286,7 @@ public struct AgentBoard: Equatable, Sendable {
             if let attention = session.state.attention { group.attention = min(group.attention ?? attention, attention) }
             groups[session.agent] = group
         }
-        let order = ["Claude Code": 0, "Copilot CLI": 1]
+        let order = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2]
         let rank = { (a: Attention?) in a?.rawValue ?? 9 }
         return groups.map { ($0.key, $0.value.count, $0.value.attention) }
             .sorted { a, b in
@@ -311,11 +355,9 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
 
     /// The session's working directory: which project an always-allow rule belongs to.
     public var cwd: String
-    /// The tool's input as the agent sent it; a question's answers are added to it.
-    public var input: [String: Any] = [:]
 
-    /// A question (AskUserQuestion) rather than an action: the notch answers it
-    /// instead of showing Allow and Deny.
+    /// A question (AskUserQuestion) rather than an action: the terminal answers
+    /// it, so Visor only needs to tell it apart from an approval.
     public var isQuestion: Bool { tool == AgentQuestion.tool }
 
     public init?(_ message: HookMessage) {
@@ -326,7 +368,6 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         project = ((message.cwd ?? "") as NSString).lastPathComponent
         tool = message.toolName ?? "Tool"
         let input = message.toolInput
-        self.input = input
         let keys = ["command", "file_path", "url", "pattern", "query", "description", "prompt"]
         if let value = keys.lazy.compactMap({ input[$0] as? String }).first {
             preview = value
@@ -372,8 +413,6 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
 
     public enum Decision: Equatable, Sendable {
         case allow, allowAlways, deny
-        /// A question's answers, by question text.
-        case answer([String: String])
     }
 
     /// The JSON line the hook prints back to Claude Code.
@@ -391,11 +430,6 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
         case .allow: body = ["behavior": "allow"]
         case .allowAlways: body = ["behavior": "allow", "updatedPermissions": suggestions]
         case .deny: body = ["behavior": "deny", "message": "Denied from Visor."]
-        case .answer(let answers):
-            // As if picked in the terminal: the same input, with the answers filled in.
-            var updated = input
-            updated["answers"] = answers
-            body = ["behavior": "allow", "updatedInput": updated]
         }
         let output: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": body]]
         var data = (try? JSONSerialization.data(withJSONObject: output)) ?? Data()

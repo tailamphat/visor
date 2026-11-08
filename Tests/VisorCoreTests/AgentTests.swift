@@ -255,3 +255,103 @@ struct VisibleChangeTests {
         #expect(after.differsVisibly(from: before))
     }
 }
+
+@Suite("Antigravity hooks")
+struct AntigravityHookTests {
+    let base = #""conversationId":"a1","workspacePaths":["/Users/me/work"],"lastUserInput":"Fix the build""#
+
+    @Test func eventsAndPayload() {
+        let start = hook("SessionStart", provider: "antigravity", "{\(base)}")
+        #expect(start.event == "SessionStart" && start.sessionID == "a1" && start.cwd == "/Users/me/work")
+        #expect(start.provider == "antigravity")
+
+        let first = hook("PreInvocation", provider: "antigravity", #"{\#(base),"invocationNum":0}"#)
+        #expect(first.event == "UserPromptSubmit" && first.payload["prompt"] as? String == "Fix the build")
+        let later = hook("PreInvocation", provider: "antigravity", #"{\#(base),"invocationNum":1}"#)
+        #expect(later.event == "PreInvocation")
+        #expect(hook("PostInvocation", provider: "antigravity", "{\(base)}").event == "PostInvocation")
+    }
+
+    @Test func toolsBecomeClaudeTools() {
+        let command = hook("PreToolUse", provider: "antigravity",
+                           #"{\#(base),"toolCall":{"name":"run_command","args":{"CommandLine":"npm test","toolSummary":"Run tests"}}}"#)
+        #expect(command.toolName == "Bash" && command.toolInput["command"] as? String == "npm test")
+        #expect(command.toolInput["description"] as? String == "Run tests")
+
+        let read = hook("PreToolUse", provider: "antigravity",
+                        #"{\#(base),"toolCall":{"name":"read_file","args":{"Path":"/Users/me/work/Main.swift"}}}"#)
+        #expect(read.toolName == "Read" && read.toolInput["file_path"] as? String == "/Users/me/work/Main.swift")
+
+        let write = hook("PreToolUse", provider: "antigravity",
+                         #"{\#(base),"toolCall":{"name":"write_file","args":{"Path":"/Users/me/work/README.md"}}}"#)
+        #expect(write.toolName == "Write" && write.toolInput["file_path"] as? String == "/Users/me/work/README.md")
+    }
+
+    @Test func sessionLifecycle() {
+        var board = AgentBoard()
+        board.apply(hook("SessionStart", provider: "antigravity", "{\(base)}"))
+        #expect(board.sessions.first?.agent == "Antigravity" && board.sessions.first?.project == "work")
+
+        board.apply(hook("PreInvocation", provider: "antigravity", #"{\#(base),"invocationNum":0}"#))
+        #expect(board.sessions[0].state == .working("Thinking") && board.sessions[0].task == "Fix the build")
+
+        board.apply(hook("PreToolUse", provider: "antigravity",
+                         #"{\#(base),"toolCall":{"name":"run_command","args":{"CommandLine":"npm test","toolSummary":"Run tests"}}}"#))
+        #expect(board.sessions[0].state == .working("Bash: Run tests"))
+
+        board.apply(hook("PostToolUse", provider: "antigravity",
+                         #"{\#(base),"toolCall":{"name":"run_command","args":{"CommandLine":"npm test","toolSummary":"Run tests"}}}"#))
+        #expect(board.sessions[0].state == .working("Thinking"))
+
+        board.apply(hook("Stop", provider: "antigravity", "{\(base)}"))
+        #expect(board.sessions[0].state == .done && board.activeAgents.isEmpty)
+    }
+
+    @Test func antigravityComesAfterCopilot() {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", pid: 8, #"{"session_id":"k1","cwd":"/x/notchboard"}"#))
+        board.apply(hook("userPromptSubmitted", provider: "copilot", pid: 8, #"{"sessionId":"c1","cwd":"/x/shop"}"#))
+        board.apply(hook("PreInvocation", provider: "antigravity", pid: 8,
+                         #"{"conversationId":"a1","workspacePaths":["/x/work"],"lastUserInput":"Go","invocationNum":0}"#))
+        #expect(board.activeAgents.map(\.agent) == ["Claude Code", "Copilot CLI", "Antigravity"])
+        #expect(AgentBoard.agentName("antigravity") == "Antigravity")
+    }
+}
+
+@Suite("Antigravity hook settings")
+struct AntigravitySettingsTests {
+    @Test func fileShape() throws {
+        let file = HookSettings.antigravityFile(script: "/Users/me/Library/Application Support/Visor/agent-hook.sh")
+        let entry = try #require(file["visor"] as? [String: Any])
+        #expect(Set(entry.keys) == Set(HookSettings.antigravityEvents))
+
+        let groups = try #require(entry["PreToolUse"] as? [[String: Any]])
+        let group = try #require(groups.first)
+        #expect(group["matcher"] as? String == "*")
+        let hooks = try #require(group["hooks"] as? [[String: Any]])
+        let hook = try #require(hooks.first)
+        #expect((hook["command"] as? String)?.hasSuffix("antigravity PreToolUse") == true)
+        #expect(hook["timeout"] as? Int == 5)
+
+        let stop = try #require(entry["Stop"] as? [[String: Any]])
+        #expect((stop.first?["command"] as? String)?.hasSuffix("antigravity Stop") == true)
+        #expect(stop.first?["hooks"] == nil)
+    }
+
+    @Test func installKeepsOtherHooks() {
+        let existing: [String: Any] = ["mine": ["Stop": [["command": "echo hi"]]]]
+        let script = "/Users/me/Library/Application Support/Visor/agent-hook.sh"
+        let merged = HookSettings.installAntigravity(into: existing, script: script)
+        #expect(merged["mine"] != nil && merged["visor"] != nil)
+        #expect(HookSettings.isAntigravityInstalled(merged))
+
+        let removed = HookSettings.uninstallAntigravity(from: merged)
+        #expect(removed["mine"] != nil && removed["visor"] == nil)
+    }
+
+    @Test func doesNotTouchAUsersVisorKey() {
+        let existing: [String: Any] = ["visor": ["Stop": [["command": "echo mine"]]]]
+        #expect(!HookSettings.isAntigravityInstalled(existing))
+        #expect(HookSettings.uninstallAntigravity(from: existing)["visor"] != nil)
+    }
+}

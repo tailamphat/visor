@@ -272,3 +272,44 @@ struct CopilotUsageMoreTests {
         #expect(c.resetsAt == ISO8601DateFormatter().date(from: "2026-11-01T00:00:00Z"), "date-only reset is midnight UTC")
     }
 }
+
+@Suite("Antigravity")
+struct AntigravityUsageTests {
+    static let json = #"{"conversation_id":"","status":"SUCCESS","response":"...","command":{"name":"usage","data":{"description":"...","groups":[{"name":"Gemini Models","description":"Models within this group: Gemini Flash, Gemini Pro","buckets":[{"id":"gemini-weekly","name":"Weekly Limit Remaining","description":"You have used some of your weekly limit, it will fully refresh in 6 days, 23 hours.","window":"weekly","remaining_fraction":0.952888011932373,"reset_time":"2026-11-15T03:38:41Z"}]},{"name":"Claude and GPT models","description":"...","buckets":[{"id":"3p-weekly","name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":1,"reset_time":"2026-11-15T04:01:03Z"}]}]}}}"#
+
+    @Test func parsesLimitsAndTitles() throws {
+        let usage = try #require(AntigravityUsage.parse(Data(Self.json.utf8)))
+        #expect(usage.limits.map(\.id) == ["gemini-weekly", "3p-weekly"])
+        #expect(usage.limits.map(\.title) == ["Gemini weekly", "Claude + GPT weekly"])
+    }
+
+    @Test func percentUsedComesFromRemainingFraction() throws {
+        let usage = try #require(AntigravityUsage.parse(Data(Self.json.utf8)))
+        #expect(abs(usage.limits[0].percentUsed - 4.7112011) < 0.001)
+        #expect(usage.limits[1].percentUsed == 0)
+    }
+
+    @Test func percentLeftComplementsUsed() throws {
+        let usage = try #require(AntigravityUsage.parse(Data(Self.json.utf8)))
+        #expect(near(usage.limits[0].percentLeft, 100 - usage.limits[0].percentUsed))
+        #expect(usage.limits[1].percentLeft == 100)
+    }
+
+    @Test func resetDatesParse() throws {
+        let usage = try #require(AntigravityUsage.parse(Data(Self.json.utf8)))
+        #expect(usage.limits[0].resetsAt == ISO8601DateFormatter().date(from: "2026-11-15T03:38:41Z"))
+        #expect(usage.limits[1].resetsAt == ISO8601DateFormatter().date(from: "2026-11-15T04:01:03Z"))
+    }
+
+    @Test func unusableDataReturnsNil() {
+        #expect(AntigravityUsage.parse(Data("not json".utf8)) == nil)
+        let noBuckets = #"{"command":{"data":{"groups":[{"name":"Gemini Models","buckets":[]}]}}}"#
+        #expect(AntigravityUsage.parse(Data(noBuckets.utf8)) == nil)
+    }
+
+    @Test func bucketsMissingRequiredFieldsAreSkipped() throws {
+        let mixed = #"{"command":{"data":{"groups":[{"name":"Gemini Models","buckets":[{"id":"broken","window":"weekly","reset_time":"2026-11-15T03:38:41Z"},{"id":"ok","window":"weekly","remaining_fraction":0.5}]}]}}}"#
+        let usage = try #require(AntigravityUsage.parse(Data(mixed.utf8)))
+        #expect(usage.limits.map(\.id) == ["ok"])
+    }
+}
