@@ -18,13 +18,11 @@ Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and lo
 brew install --cask tailamphat/tap/visor
 ```
 
-Visor is signed ad hoc, not notarized. If macOS says "Visor is damaged" or blocks it, clear the quarantine flag and open it again:
+Visor is signed ad hoc, not notarized. The cask clears the quarantine flag on install and upgrade for you. If you install it another way and macOS says "Visor is damaged", run:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Visor.app
 ```
-
-Some Homebrew versions also accept `--no-quarantine` on the install line. If yours rejects the flag, use the `xattr` command above.
 
 Then launch Visor and choose **Connect your agents**. macOS asks for Accessibility (pasting and some shortcuts) and Automation (music controls) the first time you use those features.
 
