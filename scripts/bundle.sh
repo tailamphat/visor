@@ -28,6 +28,13 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Visor"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# The release version comes from the nearest git tag (v0.1.0 -> 0.1.0), or
+# VISOR_VERSION when set. The build number is the commit count.
+VERSION="${VISOR_VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo 0.1.0)}"
+VERSION="${VERSION#v}"
+BUILD="${VISOR_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 # Icons come from scripts/make-icon.swift.
 cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
 # Sign with a stable local identity when there is one, so macOS keeps the

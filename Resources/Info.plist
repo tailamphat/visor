@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.visor.Visor</string>
+	<string>io.github.tailamphat.visor</string>
 	<key>CFBundleName</key>
 	<string>Visor</string>
 	<key>CFBundlePackageType</key>

@@ -12,6 +12,26 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 
 Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers in the window server, so the app uses ~0% CPU and ~50 MB at rest.
 
+## Install
+
+```sh
+brew install --cask tailamphat/tap/visor
+```
+
+Visor is signed ad hoc, not notarized. If macOS says "Visor is damaged" or blocks it, clear the quarantine flag and open it again:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Visor.app
+```
+
+Some Homebrew versions also accept `--no-quarantine` on the install line. If yours rejects the flag, use the `xattr` command above.
+
+Then launch Visor and choose **Connect your agents**. macOS asks for Accessibility (pasting and some shortcuts) and Automation (music controls) the first time you use those features.
+
+```sh
+brew uninstall --cask visor
+```
+
 ## Build
 
 Visor was called Notchboard; on first launch it moves Notchboard's files and re-points its Claude Code and Copilot CLI hooks.
@@ -23,6 +43,7 @@ Needs macOS 14+ and the Command Line Tools (Xcode not required).
 ./scripts/bundle.sh --open     # builds build/Visor.app and launches it
 scripts/test.sh                # unit tests (Swift Testing)
 swift scripts/make-icon.swift  # redraws the app and menu bar icons
+scripts/release.sh 0.1.0       # universal zip and sha256 for a GitHub release
 ```
 
 Then choose **Connect your agents** in the notch (or the menu bar icon).
