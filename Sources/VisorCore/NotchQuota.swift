@@ -53,16 +53,47 @@ public enum NotchQuotaSummary {
                                      label: "Copilot: \(Int(left.rounded()))% premium requests"))
         }
 
+        // 4. OpenCode Go
+        if let lowest = openCode?.lowest {
+            let left = lowest.percentLeft
+            result.append(NotchQuota(agent: "OpenCode",
+                                     percentLeft: left,
+                                     label: "OpenCode: \(Int(left.rounded()))% \(lowest.title.lowercased())"))
+        }
+
         return result
     }
+}
 
-    /// The ear width required to display the quotas comfortably without truncation.
-    public static func earWidth(count: Int) -> Double {
-        switch count {
-        case 0: return 38
-        case 1: return 38
-        case 2: return 74
-        default: return min(118, 74 + Double(count - 2) * 30)
-        }
+/// Each side of the closed notch is as wide as what it shows, within bounds,
+/// so a single mark doesn't sit in an ear sized for four quotas.
+public enum NotchEars {
+    public static let minWidth = 38.0
+    /// Longer content (a project name) truncates instead of stretching the notch.
+    public static let maxWidth = 140.0
+    /// Room between the content and the hardware notch, the same on both sides.
+    public static let inset = 8.0
+
+    public static func width(content: Double) -> Double {
+        min(maxWidth, max(minWidth, (content + 2 * inset).rounded(.up)))
+    }
+
+    /// Quota columns side by side, 6 apart.
+    public static func quotas(columns: [Double]) -> Double {
+        columns.reduce(0, +) + Double(max(columns.count - 1, 0)) * 6
+    }
+
+    /// How far right to move the shape so the hardware notch stays covered
+    /// when one ear is wider than the other.
+    public static func shift(left: Double, right: Double) -> Double {
+        (right - left) / 2
+    }
+
+    /// Now Playing opened from the notch: 30% wider than the closed notch while
+    /// music plays (two minimum ears and a 6 pt flare each side), but never
+    /// too narrow for two tab buttons (70) and the open flare (12) each side.
+    public static func musicWidth(notch: Double) -> Double {
+        let closed = notch + 2 * minWidth + 2 * 6
+        return max((closed * 1.3).rounded(.up), notch + 2 * (70 + 12))
     }
 }

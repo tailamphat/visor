@@ -91,14 +91,8 @@ final class NotchController {
             return
         }
         guard NSPasteboard(name: .drag).changeCount != dragBase else { return }
+        // Dragging onto the notch used to open the Bar tab; Bar is hidden for now.
         dragging = true
-        guard !model.expanded else { return }
-        var zone = notchRect().insetBy(dx: -10, dy: 0)
-        zone.size.height += 6
-        if zone.contains(NSEvent.mouseLocation) {
-            model.tab = .bar
-            expand()
-        }
     }
 
     /// Re-applies window state whenever `expanded` changes, wherever it changed.
@@ -182,7 +176,7 @@ final class NotchController {
     private func notchRect() -> NSRect {
         let size = layout.size(for: model)
         let frame = panel.frame
-        return NSRect(x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
+        return NSRect(x: frame.midX - size.width / 2 + layout.shift(model), y: frame.maxY - size.height, width: size.width, height: size.height)
     }
 
     private func pointerMoved() {

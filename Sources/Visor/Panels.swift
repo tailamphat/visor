@@ -796,7 +796,7 @@ struct MusicView: View {
         if let now = model.nowPlaying {
             let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
             HStack(alignment: .center, spacing: 18) {
-                Artwork(image: model.artwork, size: 120, corner: 14)
+                Artwork(image: model.artwork, size: 96, corner: 12)
                     .shadow(color: .black.opacity(0.45), radius: 14, y: 6)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
@@ -831,7 +831,7 @@ struct MusicView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 124)
+                .frame(height: 100)
             }
             // Fill the panel below the tabs so the artwork sits in its vertical centre.
             .frame(maxHeight: .infinity)
@@ -859,6 +859,56 @@ struct MusicView: View {
         Button { model.musicCommand?(command) } label: {
             Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(Theme.textPrimary)
                 .frame(width: 30, height: 30).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Now Playing in a panel not much wider than the notch: small artwork, title
+/// and artist, the controls underneath. No volume or progress.
+struct CompactMusicView: View {
+    let model: AppModel
+
+    var body: some View {
+        if let now = model.nowPlaying {
+            let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
+            HStack(alignment: .center, spacing: 12) {
+                Artwork(image: model.artwork, size: 64, corner: 10)
+                    .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(now.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1).help(now.title)
+                        EqualizerBars(color: tint, active: now.isPlaying)
+                    }
+                    Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Spacer(minLength: 2)
+                    HStack(spacing: 14) {
+                        control("backward.fill", .previous)
+                        Button { model.musicCommand?(.playPause) } label: {
+                            Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 13)).foregroundStyle(.black)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(Color(nsColor: tint)))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        control("forward.fill", .next)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 70)
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private func control(_ symbol: String, _ command: MusicCommand) -> some View {
+        Button { model.musicCommand?(command) } label: {
+            Image(systemName: symbol).font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
+                .frame(width: 26, height: 26).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

@@ -15,6 +15,9 @@ enum Tab: String, CaseIterable {
         case .clipboard: return "doc.on.clipboard"
         }
     }
+
+    /// The tabs in the top bar. Bar is hidden for now; its code stays so it can come back.
+    static let shown: [Tab] = [.agents, .usage, .music, .clipboard]
 }
 
 struct NowPlaying: Equatable {
@@ -163,6 +166,12 @@ final class AppModel {
     var showsCard: Bool { !approvals.isEmpty }
     /// The music panel is the one showing (a card takes over otherwise).
     var showsMusic: Bool { expanded && tab == .music && !showsCard }
+    /// Now Playing in its compact panel. The full one stays while the media keys
+    /// still need permission, so the hint has room.
+    var compactMusic: Bool {
+        guard tab == .music, approvals.isEmpty, let now = nowPlaying else { return false }
+        return !(now.usesMediaKeys && !mediaKeysAllowed)
+    }
 
     /// What the closed notch's right side shows when someone needs you: the
     /// app to go to, badged "!" (approve) or "?" (answer). An approval outranks a question.

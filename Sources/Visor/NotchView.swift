@@ -6,27 +6,56 @@ import SwiftUI
 struct NotchLayout {
     var notch: CGSize
 
-    static let earWidth: CGFloat = 38
-
-    /// Both ears widen together (the notch stays centred) to fit a second agent
-    /// mark and the +N chip.
-    func earWidth(_ model: AppModel) -> CGFloat {
-        let marks = CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count))
-        // Room for the news: "✓ [mark] visor" one side, "done · 4m 12s" the other.
-        if model.peek != nil { return max(marks, 118) }
-        let quotas = (!model.isPlaying && !model.quotas.isEmpty)
-            ? CGFloat(NotchQuotaSummary.earWidth(count: model.quotas.count))
-            : CGFloat(NotchMarks.earWidth(agents: 1))
-        return max(marks, quotas)
+    /// The left ear: the working agents' marks, the "done" news, or the artwork.
+    func leftEar(_ model: AppModel) -> CGFloat {
+        if let peek = model.peek {
+            // ✓ (13) + mark (12), 5 apart, then the project and duration.
+            var content: Double = 13 + 5 + 12
+            if case .done(let turn) = peek {
+                let text = [turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · ")
+                content += 5 + Self.textWidth(text, .systemFont(ofSize: 11, weight: .semibold))
+            }
+            return CGFloat(NotchEars.width(content: content))
+        }
+        if model.hasActivity { return CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count)) }
+        return CGFloat(NotchEars.minWidth)
     }
-    static let expandedSize = CGSize(width: 580, height: 200)
+
+    /// The right ear: "Answered", the attention bubble, music, or the quota columns.
+    func rightEar(_ model: AppModel) -> CGFloat {
+        if let peek = model.peek, case .answered = peek {
+            return CGFloat(NotchEars.width(content: Self.textWidth("Answered", .monospacedDigitSystemFont(ofSize: 11, weight: .medium))))
+        }
+        if model.attentionNote != nil || model.isPlaying || model.quotas.isEmpty { return CGFloat(NotchEars.minWidth) }
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
+        // Each column is its mark (10) over its percent, as wide as the wider one.
+        let columns = model.quotas.map { max(10, Self.textWidth("\(Int($0.percentLeft.rounded()))%", font)) }
+        return CGFloat(NotchEars.width(content: NotchEars.quotas(columns: columns)))
+    }
+
+    /// Moves the closed shape sideways when its ears differ, keeping the notch covered.
+    func shift(_ model: AppModel) -> CGFloat {
+        guard !model.expanded, showsEars(model) else { return 0 }
+        return CGFloat(NotchEars.shift(left: Double(leftEar(model)), right: Double(rightEar(model))))
+    }
+
+    private static func textWidth(_ text: String, _ font: NSFont) -> Double {
+        Double((text as NSString).size(withAttributes: [.font: font]).width)
+    }
+
+    /// The open panel's width for the tabs. Approvals keep 580 for their rule text.
+    static let width: CGFloat = 520
+    static let expandedSize = CGSize(width: width, height: 200)
     static let approvalSize = CGSize(width: 580, height: 196)
-    static let musicSize = CGSize(width: 580, height: 196)
-    static let clipboardSize = CGSize(width: 580, height: 240)
+    static let musicSize = CGSize(width: width, height: 172)
+    static let compactMusicHeight: CGFloat = 128
+    static let clipboardSize = CGSize(width: width, height: 240)
     /// Usage with Copilot below Claude.
-    static let usageWithCopilotSize = CGSize(width: 580, height: 312)
+    static let usageWithCopilotSize = CGSize(width: width, height: 312)
     /// Usage with Copilot and Antigravity in the provider column; the tallest panel.
-    static let usageWithAntigravitySize = CGSize(width: 580, height: 450)
+    static let usageWithAntigravitySize = CGSize(width: width, height: 450)
+    /// Usage with OpenCode's Go limits and local token card.
+    static let usageWithOpenCodeSize = CGSize(width: width, height: 450)
     /// The longest the Agents list grows before it scrolls.
     static let listMaxHeight: CGFloat = 402
     /// The window is a little larger than the biggest panel, room for the shadow.
@@ -37,9 +66,15 @@ struct NotchLayout {
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
+            if model.compactMusic {
+                return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: Self.compactMusicHeight)
+            }
             if model.tab == .usage {
                 if model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading {
                     return Self.usageWithAntigravitySize
+                }
+                if model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil {
+                    return Self.usageWithOpenCodeSize
                 }
                 if !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             }
@@ -53,7 +88,7 @@ struct NotchLayout {
             }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
-        let ears = showsEars(model) ? 2 * earWidth(model) : 0
+        let ears = showsEars(model) ? leftEar(model) + rightEar(model) : 0
         return CGSize(width: notch.width + ears + 2 * flare(expanded: false), height: notch.height)
     }
 
@@ -108,6 +143,7 @@ struct NotchView: View {
         .animation(.easeOut(duration: 0.4), value: model.artworkBackdrop)
         .clipShape(shape)
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
+        .offset(x: layout.shift(model))
         .animation(Theme.spring, value: model.expanded)
         .animation(Theme.spring, value: size)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -126,10 +162,12 @@ struct CollapsedView: View {
     var body: some View {
         HStack(spacing: 0) {
             if layout.showsEars(model) {
-                // Same inset from the outer edge on both sides, whatever each ear holds.
-                left.padding(.leading, 8).frame(width: layout.earWidth(model), alignment: .leading)
+                // Content hugs the hardware notch with the same gap on both sides;
+                // any spare ear width goes to the outer edge.
+                let gap = CGFloat(NotchEars.inset)
+                left.padding(.trailing, gap).frame(width: layout.leftEar(model), alignment: .trailing)
                 Spacer(minLength: layout.notch.width)
-                right.padding(.trailing, 8).frame(width: layout.earWidth(model), alignment: .trailing)
+                right.padding(.leading, gap).frame(width: layout.rightEar(model), alignment: .leading)
             }
         }
         .frame(height: layout.notch.height)
@@ -311,31 +349,48 @@ struct ExpandedView: View {
                     switch model.tab {
                     case .agents: AgentsView(model: model)
                     case .usage: UsageView(model: model)
-                    case .music: MusicView(model: model)
+                    case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
                     case .clipboard: ClipboardView(model: model)
                     }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 8)
-            .padding(.bottom, 14)
+            .padding(.horizontal, model.compactMusic ? 12 : 18)
+            .padding(.top, model.compactMusic ? 6 : 8)
+            .padding(.bottom, model.compactMusic ? 12 : 14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
-    /// Tabs left of the hardware notch, a glanceable status right of it.
-    private var header: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 4) {
-                ForEach(Tab.allCases, id: \.self) { tab in
-                    TabButton(tab: tab, selected: model.tab == tab && !model.showsCard) {
-                        model.tab = tab
-                        if tab == .usage { model.refreshPlan?() }
-                        if tab == .music { model.refreshVolume?() }
-                    }
+    /// Tabs left of the hardware notch, a glanceable status right of it. The
+    /// compact music panel has no room for the status: its tabs sit two a side.
+    @ViewBuilder private var header: some View {
+        if model.compactMusic {
+            HStack(spacing: 0) {
+                tabs(Tab.shown.prefix(2)).padding(.leading, 6)
+                Spacer(minLength: layout.notch.width)
+                tabs(Tab.shown.dropFirst(2)).padding(.trailing, 6)
+            }
+        } else {
+            fullHeader
+        }
+    }
+
+    private func tabs(_ list: ArraySlice<Tab>) -> some View {
+        HStack(spacing: 4) {
+            ForEach(Array(list), id: \.self) { tab in
+                TabButton(tab: tab, selected: model.tab == tab && !model.showsCard) {
+                    model.tab = tab
+                    if tab == .usage { model.refreshPlan?() }
+                    if tab == .music { model.refreshVolume?() }
                 }
             }
+        }
+    }
+
+    private var fullHeader: some View {
+        HStack(spacing: 0) {
+            tabs(Tab.shown[...])
             .padding(.leading, 14)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
