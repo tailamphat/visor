@@ -102,6 +102,10 @@ final class AppModel {
     var clipHover: UUID?
     /// "Deleted…" while undo is possible.
     var clipUndo: String?
+    /// The clipboard tab has the keyboard: typing goes to the search, which shows a caret.
+    var clipTyping = false
+    /// Gives the clipboard tab the keyboard (a click on the search).
+    var focusClipSearch: (() -> Void)?
     var clipboardActions: ClipboardService?
     /// Pastes into the app you were using (closes the notch first).
     var pasteClip: ((ClipItem, Bool) -> Void)?

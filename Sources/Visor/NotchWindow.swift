@@ -236,11 +236,13 @@ final class NotchController {
         model.tab = tab
         expand()
         keyboardOpen = true
+        model.clipTyping = tab == .clipboard
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
         keyboardOpen = false
+        model.clipTyping = false
         panel.resignKey()
         model.expanded = false
     }

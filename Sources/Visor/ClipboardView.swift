@@ -11,9 +11,14 @@ struct ClipboardView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-                Text(model.clipQuery.isEmpty ? "Search" : model.clipQuery)
-                    .font(.system(size: 12)).foregroundStyle(model.clipQuery.isEmpty ? Theme.textMuted : Theme.textPrimary)
-                    .lineLimit(1)
+                // Like a text field: the caret sits before the placeholder, after typed text.
+                HStack(spacing: 1) {
+                    if model.clipTyping && model.clipQuery.isEmpty { BlinkingCaret() }
+                    Text(model.clipQuery.isEmpty ? "Search" : model.clipQuery)
+                        .font(.system(size: 12)).foregroundStyle(model.clipQuery.isEmpty ? Theme.textMuted : Theme.textPrimary)
+                        .lineLimit(1)
+                    if model.clipTyping && !model.clipQuery.isEmpty { BlinkingCaret() }
+                }
                 Spacer()
                 Text("\(shown.count) item\(shown.count == 1 ? "" : "s")").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
                 if !model.clips.items.isEmpty {
@@ -24,6 +29,10 @@ struct ClipboardView: View {
             .padding(.horizontal, 10)
             .frame(height: 28)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.07)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Theme.accent.opacity(model.clipTyping ? 0.8 : 0), lineWidth: 1))
+            .contentShape(Rectangle())
+            .onTapGesture { model.focusClipSearch?() }
 
             if model.clips.items.isEmpty {
                 Text("Nothing copied yet. Copy something and it shows up here.")

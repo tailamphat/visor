@@ -78,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             self.clipboard.paste(item, plain: plain) { self.closeClipboard() }
         }
+        model.focusClipSearch = { [weak self] in self?.notch.openWithKeyboard(.clipboard) }
         clipboard.start()
         clipboardHotKey = HotKey.clipboard { [weak self] in
             MainActor.assumeIsolated { self?.openClipboard() }
@@ -212,11 +213,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clipboard.delete(first.id)
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
             if let tab = tab.flatMap(Tab.init(rawValue:)) { model.tab = tab; notch.expand() } else { model.expanded = false }
+            if message.payload["keyboard"] as? Bool == true { model.focusClipSearch?() }
             return
         }
         #endif

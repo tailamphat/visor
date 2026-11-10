@@ -75,6 +75,39 @@ struct PulsingSymbol: NSViewRepresentable {
     }
 }
 
+/// A text caret that blinks like the system's, for the clipboard search.
+struct BlinkingCaret: NSViewRepresentable {
+    var color = NSColor(hex: 0x3987E5)
+    private static let size = CGSize(width: 1.5, height: 14)
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.wantsLayer = true
+        let caret = CALayer()
+        caret.frame = CGRect(origin: .zero, size: Self.size)
+        caret.cornerRadius = 0.75
+        view.layer?.addSublayer(caret)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        guard let caret = view.layer?.sublayers?.first else { return }
+        caret.backgroundColor = color.cgColor
+        guard caret.animation(forKey: "blink") == nil else { return }
+        let blink = CAKeyframeAnimation(keyPath: "opacity")
+        // On, then off, with a hard switch: a caret doesn't fade.
+        blink.values = [1, 0]
+        blink.keyTimes = [0, 0.5, 1]
+        blink.calculationMode = .discrete
+        blink.duration = 1.06
+        blink.repeatCount = .infinity
+        blink.preferredFrameRateRange = CAFrameRateRange(minimum: 2, maximum: 10, preferred: 4)
+        caret.add(blink, forKey: "blink")
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? { Self.size }
+}
+
 /// Three bouncing bars, like a music equalizer.
 struct EqualizerBars: NSViewRepresentable {
     var color: NSColor = .white
