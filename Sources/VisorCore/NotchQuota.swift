@@ -20,7 +20,8 @@ public enum NotchQuotaSummary {
     /// Claude Code, Antigravity, Copilot CLI.
     public static func make(plan: PlanUsage?,
                             antigravity: AntigravityUsage?,
-                            copilot: [CopilotUsage]) -> [NotchQuota] {
+                            copilot: [CopilotUsage],
+                            openCode: OpenCodeGoUsage? = nil) -> [NotchQuota] {
         var result: [NotchQuota] = []
 
         // 1. Claude Code

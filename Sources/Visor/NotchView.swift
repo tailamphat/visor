@@ -217,6 +217,7 @@ enum AgentStyle {
         switch agent {
         case "Copilot CLI": return NSColor(hex: 0xA78BFA)
         case "Antigravity": return NSColor(hex: 0x3186FF)
+        case "OpenCode": return NSColor(hex: 0xEDEDED)
         default: return NSColor(hex: 0xD97757)
         }
     }

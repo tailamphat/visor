@@ -349,14 +349,15 @@ struct LogoShape: Shape {
 
 // MARK: Usage
 
-/// Limits on the left (Claude, then Copilot, then Antigravity), what the usage is worth on the right.
+/// One row per tool (Claude, OpenCode, Copilot, Antigravity): its limits on the
+/// left and, when it has one, what it used on the right.
 struct UsageView: View {
     let model: AppModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 28) {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 20) {
+                UsageRow {
                     VStack(alignment: .leading, spacing: 12) {
                         ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
                             if let updated = model.planUpdated {
@@ -379,18 +380,40 @@ struct UsageView: View {
                             Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                         }
                     }
+                } usage: {
+                    SpendView(model: model)
+                }
+                OpenCodeBlock(model: model)
+                // No usage column, but the meters line up with the rows above.
+                VStack(alignment: .leading, spacing: 20) {
                     ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) }
                     AntigravityBlock(model: model)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, UsageColumns.usageWidth + UsageColumns.spacing)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            SpendView(model: model).frame(width: 206)
         }
     }
 
     private func money(_ value: Double) -> String { String(format: "$%.2f", value) }
+}
+
+enum UsageColumns {
+    static let usageWidth: CGFloat = 190
+    static let spacing: CGFloat = 24
+}
+
+/// A tool's limits on the left and its usage in a fixed column on the right.
+struct UsageRow<Limits: View, Usage: View>: View {
+    @ViewBuilder let limits: Limits
+    @ViewBuilder let usage: Usage
+
+    var body: some View {
+        HStack(alignment: .top, spacing: UsageColumns.spacing) {
+            limits.frame(maxWidth: .infinity, alignment: .leading)
+            usage.frame(width: UsageColumns.usageWidth, alignment: .leading)
+        }
+    }
 }
 
 /// A provider's mark and name, with a muted note on the right.
@@ -422,28 +445,30 @@ struct CopilotBlock: View {
                 LimitMeter(title: "Premium requests", used: 100 - usage.percentLeft, caption: caption)
             }
             if usage.completionsUnlimited || usage.chatUnlimited || usage.overagePermitted {
-                // The overage chip goes first when the row is too narrow for all three.
+                // The overage chip goes first when the row is too narrow for all three,
+                // then "unlimited" (the ∞ says it already; hover keeps the full text).
                 ViewThatFits(in: .horizontal) {
                     chips(overage: usage.overagePermitted)
                     chips(overage: false)
+                    chips(overage: false, short: true)
                 }
             }
         }
     }
 
-    private func chips(overage: Bool) -> some View {
+    private func chips(overage: Bool, short: Bool = false) -> some View {
         HStack(spacing: 6) {
-            if usage.completionsUnlimited { chip("infinity", "Completions unlimited") }
-            if usage.chatUnlimited { chip("infinity", "Chat unlimited") }
+            if usage.completionsUnlimited { chip("infinity", "Completions unlimited", short: "Completions", if: short) }
+            if usage.chatUnlimited { chip("infinity", "Chat unlimited", short: "Chat", if: short) }
             if overage { chip("plus.circle", "Overage") }
         }
     }
 
     /// A small fact about the plan: "∞ Chat unlimited".
-    private func chip(_ symbol: String, _ text: String) -> some View {
+    private func chip(_ symbol: String, _ text: String, short: String? = nil, if useShort: Bool = false) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(nsColor: AgentStyle.mark("Copilot CLI")))
-            Text(text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize()
+            Text(useShort ? short ?? text : text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize()
         }
         .padding(.horizontal, 7).padding(.vertical, 3)
         .background(Capsule().fill(Color.white.opacity(0.07)))
@@ -489,6 +514,80 @@ struct AntigravityBlock: View {
                     Text("Checking…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                 }
             }
+        }
+    }
+}
+
+/// OpenCode Go limits (when signed in) and today's breakdown on the left; the
+/// tokens OpenCode used on this Mac, from its local database, on the right.
+struct OpenCodeBlock: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil {
+            UsageRow {
+                VStack(alignment: .leading, spacing: 12) {
+                    ProviderHeader(agent: "OpenCode", title: "OpenCode") {
+                        if let updated = model.openCodeUpdated {
+                            (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                        }
+                    }
+                    if let go = model.openCodeGo {
+                        ForEach(go.limits) { limit in
+                            LimitMeter(title: limit.title, used: limit.percentUsed,
+                                       caption: limit.resetsAt.map { "Resets " + LimitMeter.resetText($0) })
+                        }
+                    }
+                    if let usage = model.openCode {
+                        Text(Self.caption(usage.today)).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                    }
+                    if let error = model.openCodeError {
+                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                    }
+                }
+            } usage: {
+                if let usage = model.openCode {
+                    OpenCodeTokensView(model: model, usage: usage)
+                }
+            }
+        }
+    }
+
+    /// "Today: 303K in · 26K out · 7.8M cache · $0.00"
+    static func caption(_ today: OpenCodeTotals) -> String {
+        var parts: [String] = []
+        if today.input > 0 { parts.append("\(TokenCount.compact(today.input)) in") }
+        // Reasoning is billed as output.
+        let output = today.output + today.reasoning
+        if output > 0 { parts.append("\(TokenCount.compact(output)) out") }
+        if today.cacheRead + today.cacheWrite > 0 {
+            parts.append("\(TokenCount.compact(today.cacheRead + today.cacheWrite)) cache")
+        }
+        parts.append(String(format: "$%.2f", today.cost))
+        return "Today: " + parts.joined(separator: " · ")
+    }
+}
+
+/// Tokens per period and per day, laid out like Claude spend.
+struct OpenCodeTokensView: View {
+    let model: AppModel
+    let usage: OpenCodeUsage
+
+    var body: some View {
+        let tokens = { (value: Double) in TokenCount.compact(Int(value)) }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text("OpenCode tokens").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("this Mac").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            }
+            .help("Tokens OpenCode recorded in its local database")
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Figure(label: "Today", value: Double(usage.today.tokens), large: true, format: tokens)
+                Figure(label: "7 days", value: Double(usage.last7.tokens), format: tokens)
+                Figure(label: "30 days", value: Double(usage.last30.tokens), format: tokens)
+            }
+            SpendChart(model: model, values: usage.daily.map(Double.init),
+                       hover: \.openCodeHover, format: tokens)
         }
     }
 }
@@ -571,10 +670,11 @@ struct Figure: View {
     let label: String
     let value: Double
     var large = false
+    var format: (Double) -> String = Figure.compact
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(Self.compact(value)).font(.system(size: large ? 18 : 13, weight: .semibold).monospacedDigit())
+            Text(format(value)).font(.system(size: large ? 18 : 13, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.textPrimary)
             Text(label).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
         }
@@ -592,12 +692,14 @@ struct Figure: View {
 struct SpendChart: View {
     let model: AppModel
     let values: [Double]
+    var hover: ReferenceWritableKeyPath<AppModel, Int?> = \.spendHover
+    var format: (Double) -> String = Figure.compact
 
     /// Room at each end so the first and last date labels fit under their points.
     private static let inset: CGFloat = 14
 
     var body: some View {
-        let focus = model.spendHover.flatMap { values.indices.contains($0) ? $0 : nil }
+        let focus = model[keyPath: hover].flatMap { values.indices.contains($0) ? $0 : nil }
         VStack(alignment: .leading, spacing: 5) {
             GeometryReader { geo in
                 let size = geo.size
@@ -629,10 +731,10 @@ struct SpendChart: View {
                         let step = (size.width - 2 * Self.inset) / CGFloat(values.count - 1)
                         index = min(max(Int(((location.x - Self.inset) / step).rounded()), 0), values.count - 1)
                     }
-                    if model.spendHover != index { model.spendHover = index }
+                    if model[keyPath: hover] != index { model[keyPath: hover] = index }
                 }
             }
-            .frame(height: 56)
+            .frame(height: 26)
 
             GeometryReader { geo in
                 ForEach(DayAxis.labels(days: values.count, every: 3), id: \.index) { label in
@@ -648,7 +750,7 @@ struct SpendChart: View {
             Group {
                 if let focus {
                     Text(DayAxis.name(focus, of: values.count)).foregroundStyle(Theme.textSecondary)
-                        + Text(" · \(Figure.compact(values[focus]))").foregroundStyle(Theme.textPrimary)
+                        + Text(" · \(format(values[focus]))").foregroundStyle(Theme.textPrimary)
                 } else {
                     Text("Last \(values.count) days").foregroundStyle(Theme.textMuted)
                 }

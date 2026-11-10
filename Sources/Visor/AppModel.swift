@@ -64,6 +64,8 @@ final class AppModel {
 
     /// The spend chart's day under the pointer, if any.
     var spendHover: Int?
+    /// The OpenCode tokens chart's day under the pointer, if any.
+    var openCodeHover: Int?
 
     // Agents
     var board = AgentBoard()
@@ -86,10 +88,16 @@ final class AppModel {
     var antigravityError: String?
     var antigravityUpdated: Date?
     var antigravityLoading = false
+    /// OpenCode's local token usage and cost, from its SQLite database.
+    var openCode: OpenCodeUsage?
+    var openCodeError: String?
+    var openCodeUpdated: Date?
+    /// OpenCode Go limits, when the user signed in with a Go key.
+    var openCodeGo: OpenCodeGoUsage?
 
     /// Connected agent quotas displayed side-by-side in the closed notch's right ear.
     var quotas: [NotchQuota] {
-        NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot)
+        NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo)
     }
 
     // Clipboard
