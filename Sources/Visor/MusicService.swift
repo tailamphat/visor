@@ -225,13 +225,16 @@ final class MusicService {
                     self.browserBusy = false
                     var found = found
                     // Without page scripts, "playing" comes from the browser's
-                    // sound, which during a call may be the call itself.
+                    // sound, which during a call may be the call itself: then
+                    // it's unknown, and the notch says so rather than guess.
                     if var media = found, case .browser(let id, _, false) = media.source, self.inCall.contains(id) {
+                        let sound = BrowserMedia.playingFromSound(audible: audible.contains(id), inCall: true)
                         let shown = self.browser.flatMap { $0.source == media.source && $0.title == media.title ? $0.isPlaying : nil }
-                        media.isPlaying = BrowserMedia.playingFromSound(audible: audible.contains(id), inCall: true, shown: shown)
+                        media.isPlaying = sound ?? shown ?? false
+                        media.stateKnown = sound != nil
                         found = media
                     }
-                    if let playing = found?.isPlaying {
+                    if let playing = found?.isPlaying, found?.stateKnown == true {
                         found?.isPlaying = self.browserIntent.resolve(observed: playing, now: Date())
                     }
                     self.browser = found
@@ -474,7 +477,8 @@ final class MusicService {
             if case .browser = now.source {
                 browser = next
                 // The browser's audio lingers after a pause; trust the press until it confirms.
-                browserIntent.pressed(playing: next.isPlaying, at: Date())
+                // A press while the state is unknown says nothing about the result.
+                if now.stateKnown { browserIntent.pressed(playing: next.isPlaying, at: Date()) }
             } else {
                 native = next
             }

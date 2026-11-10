@@ -911,7 +911,7 @@ struct MusicView: View {
                     HStack(spacing: 8) {
                         Text(now.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).help(now.title)
-                        EqualizerBars(color: tint, active: now.isPlaying)
+                        EqualizerBars(color: tint, active: now.surelyPlaying)
                         Spacer(minLength: 8)
                         volume(tint: tint)
                     }
@@ -928,13 +928,14 @@ struct MusicView: View {
                     HStack(spacing: 18) {
                         control("backward.fill", .previous)
                         Button { model.musicCommand?(.playPause) } label: {
-                            Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
+                            Image(systemName: now.playPauseSymbol)
                                 .font(.system(size: 17)).foregroundStyle(.black)
                                 .frame(width: 40, height: 40)
                                 .background(Circle().fill(Color(nsColor: tint)))
                                 .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .help(now.stateKnown ? "" : "\(now.sourceName.components(separatedBy: " · ")[0]) is using the microphone, so Visor can't tell whether this is playing")
                         control("forward.fill", .next)
                     }
                     .frame(maxWidth: .infinity)
@@ -988,7 +989,7 @@ struct CompactMusicView: View {
                     HStack(spacing: 6) {
                         Text(now.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).help(now.title)
-                        EqualizerBars(color: tint, active: now.isPlaying)
+                        EqualizerBars(color: tint, active: now.surelyPlaying)
                     }
                     Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -996,13 +997,14 @@ struct CompactMusicView: View {
                     HStack(spacing: 14) {
                         control("backward.fill", .previous)
                         Button { model.musicCommand?(.playPause) } label: {
-                            Image(systemName: now.isPlaying ? "pause.fill" : "play.fill")
+                            Image(systemName: now.playPauseSymbol)
                                 .font(.system(size: 13)).foregroundStyle(.black)
                                 .frame(width: 30, height: 30)
                                 .background(Circle().fill(Color(nsColor: tint)))
                                 .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .help(now.stateKnown ? "" : "\(now.sourceName.components(separatedBy: " · ")[0]) is using the microphone, so Visor can't tell whether this is playing")
                         control("forward.fill", .next)
                     }
                     .frame(maxWidth: .infinity)

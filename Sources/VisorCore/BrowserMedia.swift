@@ -37,11 +37,12 @@ public struct BrowserMedia: Equatable, Sendable {
     /// browser's sound. A browser plays every tab through one audio process,
     /// so its sound alone can't say which tab makes it. Silence means paused.
     /// Sound means playing, unless the browser is also using the microphone
-    /// (a call): then the sound may be the call, and what was shown before
-    /// (the last press in the notch, say) stands.
-    public static func playingFromSound(audible: Bool, inCall: Bool, shown: Bool?) -> Bool {
+    /// (a call, or Teams keeping it open): then the sound may be the call, and
+    /// the answer is nil, unknown. Keeping the last shown state instead stuck
+    /// on the wrong one once the video was paused or played on the page.
+    public static func playingFromSound(audible: Bool, inCall: Bool) -> Bool? {
         guard audible else { return false }
-        return inCall ? shown ?? false : true
+        return inCall ? nil : true
     }
 
     /// Runs in the page. Prefers the Media Session metadata sites publish for

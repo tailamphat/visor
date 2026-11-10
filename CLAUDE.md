@@ -49,7 +49,7 @@ Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Vis
 - Spotify and Music announce changes with distributed notifications; browsers announce nothing.
 - Core Audio says which browser is making sound. Per-process `kAudioProcessPropertyIsRunningOutput` listeners never fire, so watch the process list and the default device's `DeviceIsRunningSomewhere`, plus a 1 s check only while the device runs.
 - Browser state and controls come from AppleScript running page JavaScript; the browser needs "Allow JavaScript from Apple Events". Dia refuses page JS unless launched with `--enable-applescript-javascript`, so for Dia "playing" comes from sound.
-- A browser plays all its tabs through one audio process, so a web call (Teams in Dia) sounds like music. While the browser uses the microphone, sound is treated as ambiguous and the last shown or pressed state stands.
+- A browser plays all its tabs through one audio process, so a web call (Teams in Dia) sounds like music. While the browser uses the microphone (a call, or Teams keeping it open), sound is ambiguous: the notch shows a neutral play/pause (`NowPlaying.stateKnown` false) instead of guessing. Keeping the last shown state got stuck inverted once the video was paused on the page.
 - Dia keeps its audio stream open a few seconds after a pause; an on-page pause shows after ~3-5 s (accepted). A pause pressed in the notch shows at once (`PlaybackIntent`).
 - Media keys posted from a shell don't reach apps (no Accessibility), so they can't be used for tests.
 - Don't use the private MediaRemote framework or adapters that load it: the user decided against it.

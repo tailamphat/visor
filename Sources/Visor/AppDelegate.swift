@@ -193,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             decide(first, answer == "deny" ? .deny : answer == "always" ? .allowAlways : .allow)
             return
         }
-        // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true}} fakes a song.
+        // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true,"known":false}} fakes a song.
         if message.event == "_music" {
             let p = message.payload
             let image = (p["art"] as? String).flatMap { NSImage(contentsOfFile: $0) }
@@ -203,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                           album: "", duration: (p["duration"] as? NSNumber)?.doubleValue ?? 0,
                                           position: (p["position"] as? NSNumber)?.doubleValue ?? 0, positionAt: Date(),
                                           isPlaying: p["playing"] as? Bool ?? true)
+            model.nowPlaying?.stateKnown = p["known"] as? Bool ?? true
             model.artwork = image
             model.artworkTint = image.flatMap(MusicService.tint(of:))
             model.artworkBackdrop = image.flatMap(MusicService.backdrop(of:))

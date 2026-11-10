@@ -39,8 +39,16 @@ struct NowPlaying: Equatable {
     /// When `position` was read, so progress can run on locally.
     var positionAt: Date
     var isPlaying: Bool
+    /// False when Visor can't tell playing from paused (a browser without page
+    /// scripts that is also in a call): the notch shows a neutral play/pause.
+    var stateKnown = true
     /// Browsers: artwork from the page (Media Session or the YouTube thumbnail).
     var artworkURL: URL? = nil
+
+    /// Pause while playing, play while paused, both when unknown.
+    var playPauseSymbol: String { !stateKnown ? "playpause.fill" : isPlaying ? "pause.fill" : "play.fill" }
+    /// Equalizer bars move only when it's surely playing.
+    var surelyPlaying: Bool { stateKnown && isPlaying }
 
     /// A browser that can't be scripted is controlled with the media keys,
     /// which go to whatever macOS considers the Now Playing app.

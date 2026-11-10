@@ -191,20 +191,19 @@ struct BrowserMediaMoreTests {
 @Suite("Browser sound with page scripts off")
 struct BrowserSoundTests {
     @Test func soundWithoutACallMeansPlaying() {
-        #expect(BrowserMedia.playingFromSound(audible: true, inCall: false, shown: false))
-        #expect(BrowserMedia.playingFromSound(audible: true, inCall: false, shown: nil))
+        #expect(BrowserMedia.playingFromSound(audible: true, inCall: false) == true)
     }
 
     @Test func silenceMeansPaused() {
-        #expect(!BrowserMedia.playingFromSound(audible: false, inCall: false, shown: true))
-        #expect(!BrowserMedia.playingFromSound(audible: false, inCall: true, shown: true))
+        #expect(BrowserMedia.playingFromSound(audible: false, inCall: false) == false)
+        #expect(BrowserMedia.playingFromSound(audible: false, inCall: true) == false)
     }
 
     /// The call's sound comes from the same browser process, so it says
-    /// nothing about the video: what was shown (the last notch press) stands.
-    @Test func soundDuringACallKeepsWhatWasShown() {
-        #expect(!BrowserMedia.playingFromSound(audible: true, inCall: true, shown: false))
-        #expect(BrowserMedia.playingFromSound(audible: true, inCall: true, shown: true))
-        #expect(!BrowserMedia.playingFromSound(audible: true, inCall: true, shown: nil))
+    /// nothing about the video. Guessing from what was shown before stuck on
+    /// the wrong state once the video was paused or played elsewhere, so the
+    /// state is unknown until the call ends or the browser goes quiet.
+    @Test func soundDuringACallCantTell() {
+        #expect(BrowserMedia.playingFromSound(audible: true, inCall: true) == nil)
     }
 }
