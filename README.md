@@ -2,6 +2,8 @@
 
 A small, fast macOS notch app for people who work with AI agents. Hover the notch to open it.
 
+**Website:** https://tailamphat.github.io/visor/ (try the notch in your browser).
+
 - **Usage**: your Copilot premium requests (used, left, reset date) for every GitHub account `gh` is signed in to, including company `*.ghe.com` accounts; your OpenCode Go limits (5-hour session, weekly, monthly) when you signed in with a Go key, plus OpenCode's token usage and cost from its local database (today, 7 days, 30 days); your Antigravity weekly limits (Gemini models, Claude and GPT models, % left and reset date); and your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days).
   The gear on the Usage tab opens **Connected accounts**: each tool's status (connected as whom, not signed in, not installed, keychain access denied, API key), a button to fix it (Allow access, Sign in… in Terminal, Refresh), and a switch to hide the tool from the Usage tab and the notch.
 - **Agents**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished.

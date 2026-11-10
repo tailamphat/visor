@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Visor turns the MacBook notch into a small control room for Claude Code, Copilot CLI, Antigravity and OpenCode.">
+<title>Visor for macOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a MacBook menu bar with a live notch opens the page; below it, plain
+     reading columns that explain what the notch says, then install. */
+  :root {
+    --bg: #EDEFF3;          /* page, a cool grey leaning to the wallpaper blue */
+    --ink: #14161B;
+    --ink-2: #4A4F5C;
+    --ink-3: #7A8090;
+    --rule: #D3D7E0;
+    --raise: #F7F8FA;
+    --wall-a: #5F6F8C;      /* desktop wallpaper behind the notch */
+    --wall-b: #8E9AB3;
+    --menubar: rgba(240,242,247,.72);
+    --accent: #2F6FD6;      /* links and buttons; Visor's own accent, darkened for paper */
+    --amber: #FAB219;       /* approval "!" */
+    --blue: #5AA2F0;        /* question "?" */
+    --green: #0CA30C;       /* done */
+    --claude: #D97757;
+    --copilot: #A78BFA;
+    --agy: #3186FF;
+    --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+    --body: "IBM Plex Sans", -apple-system, "Helvetica Neue", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sf: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;  /* the app's own face, for the notch */
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1116; --ink: #ECEEF3; --ink-2: #B4B9C6; --ink-3: #7D8392; --rule: #262A33; --raise: #171A21;
+      --wall-a: #2B3447; --wall-b: #47536B; --menubar: rgba(30,33,41,.72); --accent: #6FA4F2;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1116; --ink: #ECEEF3; --ink-2: #B4B9C6; --ink-3: #7D8392; --rule: #262A33; --raise: #171A21;
+    --wall-a: #2B3447; --wall-b: #47536B; --menubar: rgba(30,33,41,.72); --accent: #6FA4F2;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  code, .mono { font-family: var(--mono); font-size: .9em; }
+
+  /* ---------- Desk: wallpaper, menu bar and the notch ---------- */
+  .desk { background: linear-gradient(160deg, var(--wall-a), var(--wall-b)); position: relative; overflow: hidden; }
+  .menubar { height: 34px; background: var(--menubar); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: space-between; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); font: 500 13px var(--sf); color: var(--ink); }
+  .menubar .l, .menubar .r { display: flex; gap: 18px; align-items: center; }
+  .stage { height: 420px; position: relative; }
+
+  /* The notch, drawn from the app: 520 pt panels, a 6 pt flare closed, 24 pt corners open. */
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: #000; color: #fff;
+    width: var(--w, 300px); height: var(--h, 34px); border-radius: 0 0 var(--r, 10px) var(--r, 10px);
+    transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), border-radius .3s, box-shadow .3s;
+    overflow: hidden; z-index: 2; font-family: var(--sf); max-width: calc(100vw - 16px); }
+  .notch.open { --r: 24px; box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+  .ears { height: 34px; display: flex; justify-content: space-between; align-items: center; padding: 0 16px; transition: opacity .2s; }
+  .notch.open .ears { opacity: 0; pointer-events: none; position: absolute; inset: 0 0 auto; }
+  .ears .side { display: flex; align-items: center; gap: 6px; }
+  .ears .mark { width: 13px; height: 13px; }
+  .q-col { display: flex; flex-direction: column; align-items: center; gap: 1.5px; font: 600 9px/1 var(--sf); font-variant-numeric: tabular-nums; color: #C3C2B7; }
+  .q-col svg { width: 10px; height: 10px; }
+  .q-col.warn { color: #FAB219; }
+
+  .panel { opacity: 0; transition: opacity .2s .12s; padding: 6px 18px 14px 24px; font-size: 12px; line-height: 1.35; position: absolute; inset: 0; }
+  .notch.open .panel { opacity: 1; }
+  .phead { display: flex; justify-content: space-between; align-items: center; height: 32px; }
+  .tabs { display: flex; gap: 4px; align-items: center; }
+  .tab { width: 30px; height: 22px; border-radius: 7px; border: 0; background: transparent; color: #8A8980; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .tab svg { width: 13px; height: 13px; }
+  .tab[aria-selected="true"] { background: rgba(255,255,255,.14); color: #fff; }
+  .status { display: flex; align-items: center; gap: 8px; font: 500 11px var(--sf); color: #C3C2B7; font-variant-numeric: tabular-nums; padding-right: 10px; }
+  .status svg { width: 12px; height: 12px; }
+  .status .n { font-weight: 700; font-size: 10px; margin-left: -6px; }
+  .gear { width: 13px; height: 13px; color: #8A8980; }
+  .view { margin-top: 8px; }
+  .view[hidden] { display: none; }
+  .t2 { color: #C3C2B7; }
+  .t3 { color: #8A8980; }
+
+  .tabs .tg { display: flex; gap: 4px; }
+  .notch[data-view="music"] .tabs { width: 100%; justify-content: space-between; }
+  .notch[data-view="music"] .status { display: none; }
+  .notch[data-view="music"] .phead { padding-right: 0; }
+  .notch[data-view="music"] .panel { padding: 6px 12px 12px; }
+  .gear { display: none; }
+  .notch[data-view="usage"] .gear { display: block; }
+  .notch[data-view="approval"] .tab { color: #8A8980; background: transparent; }
+
+  /* Usage */
+  .ucols { display: grid; grid-template-columns: 1fr 190px; gap: 24px; }
+  .phdr { display: flex; align-items: center; gap: 6px; }
+  .phdr svg { width: 15px; height: 15px; }
+  .phdr b { font-size: 12px; font-weight: 600; }
+  .phdr .note { margin-left: auto; font-size: 10px; color: #8A8980; }
+  .meter { margin-top: 10px; }
+  .meter .top { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; }
+  .meter .top b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meter .top b small { font-weight: 400; color: #C3C2B7; font-size: 10.5px; }
+  .bar { height: 6px; border-radius: 3px; background: rgba(24,79,149,.45); margin: 5px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: #3987E5; }
+  .bar i.warn { background: #FAB219; }
+  .cap { font-size: 10px; color: #8A8980; }
+  .chips { display: flex; gap: 6px; margin-top: 8px; }
+  .chip { font-size: 10px; color: #C3C2B7; background: rgba(255,255,255,.08); border-radius: 99px; padding: 2px 8px; }
+  .figs { display: flex; gap: 14px; align-items: flex-end; margin-top: 10px; }
+  .figs .f b { display: block; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .figs .f.big b { font-size: 18px; }
+  .figs .f span { font-size: 10px; color: #C3C2B7; }
+  .spark { width: 100%; height: 40px; margin-top: 12px; display: block; }
+  .axis { display: flex; justify-content: space-between; font-size: 9px; color: #8A8980; margin-top: 4px; }
+  .axis b { color: #fff; font-weight: 600; }
+
+  /* Agents */
+  .group { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: #C3C2B7; margin: 4px 0 6px; }
+  .group svg { width: 11px; height: 11px; }
+  .sess { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #1A1A19; margin-top: 4px; }
+  .sess .t { flex: 1; min-width: 0; }
+  .sess .t div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sess .t div:first-child b { font-size: 12px; }
+  .sess .t div:first-child span { font-size: 10.5px; color: #8A8980; margin-left: 4px; }
+  .sess .t div:last-child { font-size: 11.5px; color: #C3C2B7; margin-top: 1px; }
+  .sess .time { font-size: 10.5px; color: #8A8980; font-variant-numeric: tabular-nums; align-self: flex-start; }
+  .tile { width: 26px; height: 26px; border-radius: 7px; background: rgba(255,255,255,.08); display: grid; place-items: center; flex: none; position: relative; }
+  .tile svg { width: 15px; height: 15px; }
+  .tile .live { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: #5FD35F; outline: 2px solid #1A1A19; }
+  .tile .wait { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 10px; border-radius: 3px; background: #FAB219; color: #000; font: 800 8px/10px var(--sf); text-align: center; outline: 2px solid #1A1A19; }
+
+  /* Approval */
+  .glow { position: absolute; inset: 0; background: radial-gradient(circle at 0 0, rgba(130,220,160,.16), transparent 380px); pointer-events: none; }
+  .who { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #C3C2B7; margin-top: 6px; }
+  .who .tile { width: 22px; height: 22px; border-radius: 6px; }
+  .who .tile svg { width: 13px; height: 13px; }
+  .who b { color: #E59A80; font-weight: 600; }
+  .ask { font-size: 14.5px; font-weight: 600; margin-top: 10px; }
+  .ask span { font-size: 10.5px; color: #8A8980; font-weight: 400; margin-left: 4px; }
+  .cmd { font: 12px var(--mono); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 10px; margin: 10px 0 12px; color: #fff; overflow-x: auto; white-space: nowrap; }
+  .cmd span { color: #8A8980; margin-right: 6px; }
+  .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .btn { font: 600 12px var(--sf); padding: 6px 14px; border-radius: 99px; display: inline-flex; gap: 6px; align-items: center; }
+  .btn.deny { background: #2A1714; border: 1px solid #5A2E26; color: #F09A84; }
+  .btn.always { background: #142A1C; border: 1px solid #2D5A3C; color: #E7F7EC; }
+  .btn.always code { font: 11px var(--mono); color: #B9D9C3; }
+  .btn.allow { background: #97E0A9; color: #05200F; border: 1px solid #97E0A9; }
+
+  /* Clipboard */
+  .search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.07); border-radius: 8px; height: 28px; padding: 0 10px; color: #8A8980; font-size: 12px; }
+  .search .r { margin-left: auto; font-size: 10.5px; display: flex; gap: 8px; }
+  .day { font-size: 10px; font-weight: 600; letter-spacing: .06em; color: #8A8980; margin: 10px 0 4px 8px; }
+  .clip { display: flex; gap: 10px; align-items: center; padding: 5px 12px 5px 28px; border-radius: 7px; font-size: 12px; color: #fff; }
+  .clip.mono { font-family: var(--mono); font-size: 11.5px; }
+  .clip.sel { background: rgba(57,135,229,.28); }
+  .clip .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clip .app { font-size: 10.5px; color: #8A8980; font-family: var(--sf); }
+  .clip .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; margin-left: -18px; margin-right: -3px; }
+
+  /* Music: the compact panel, lit by the artwork (blurred artwork behind a dark shade, tinted by its colour) */
+  :root { --tint: #6E72C8; }
+  .notch[data-view="music"] { background:
+      radial-gradient(circle at 15% 70%, rgba(110,114,200,.45), transparent 300px),
+      linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.8)),
+      linear-gradient(120deg, #3E5E86, #7C6A8E 45%, #2F3A55); }
+  .song { display: flex; gap: 12px; align-items: center; margin-top: 10px; padding: 0 6px; }
+  .art { width: 64px; height: 64px; border-radius: 10px; flex: none; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 70% 38%, #FFE3A8 0 9px, rgba(255,214,150,.55) 10px, transparent 24px),
+                linear-gradient(180deg, #F6B48F 0%, #E58FA6 45%, #6E72C8 46%, #3C3F86 100%); }
+  .art::after { content: ""; position: absolute; left: 0; right: 0; top: 46%; height: 2px; background: rgba(255,227,168,.6); }
+  .song .meta2 { min-width: 0; flex: 1; }
+  .song .title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .song b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .eq { display: inline-flex; gap: 1.5px; align-items: flex-end; height: 10px; flex: none; }
+  .eq i { width: 2.5px; background: var(--tint); border-radius: 1px; animation: eq 1s ease-in-out infinite alternate; transform-origin: bottom; }
+  .eq i:nth-child(1) { height: 100%; } .eq i:nth-child(2) { height: 55%; animation-delay: -.4s; } .eq i:nth-child(3) { height: 35%; animation-delay: -.7s; }
+  @keyframes eq { from { transform: scaleY(.4); } to { transform: scaleY(1); } }
+  .song .src { font-size: 12px; color: #C3C2B7; margin-top: 1px; }
+  .ctrls { display: flex; gap: 22px; align-items: center; justify-content: center; margin-top: 8px; }
+  .ctrls svg { width: 16px; height: 16px; fill: #fff; }
+  .ctrls .pp { width: 30px; height: 30px; border-radius: 50%; background: var(--tint); display: grid; place-items: center; }
+  .ctrls .pp svg { width: 12px; height: 12px; fill: #000; }
+
+  .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: calc(100% - 32px); }
+  .hint button { font: 600 12px var(--body); color: #fff; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.25); border-radius: 99px; padding: 5px 12px; cursor: pointer; }
+  .hint button[aria-pressed="true"] { background: #fff; color: #14161B; }
+
+  /* ---------- Reading part ---------- */
+  .intro { padding-block: 56px 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px; align-items: center; }
+  .intro > * { min-width: 0; }
+  h1 { font: 800 clamp(40px, 7vw, 76px)/.98 var(--display); letter-spacing: -.035em; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--ink-3); }
+  .lede { font-size: 18px; color: var(--ink-2); margin: 0 0 18px; max-width: 34em; }
+  .install { display: flex; align-items: center; gap: 10px; background: var(--raise); border: 1px solid var(--rule); border-radius: 10px; padding: 6px 6px 6px 14px; font: 14px var(--mono); max-width: 100%; }
+  .install code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 13.5px; }
+  .copy { font: 600 13px var(--body); border: 0; border-radius: 7px; padding: 8px 14px; background: var(--ink); color: var(--bg); cursor: pointer; }
+  .meta { color: var(--ink-3); font-size: 13px; margin-top: 10px; }
+
+  section { padding-block: 44px; border-top: 1px solid var(--rule); }
+  h2 { font: 700 30px/1.1 var(--display); letter-spacing: -.02em; margin: 0 0 8px; text-wrap: balance; }
+  .kicker { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  .sub { color: var(--ink-2); max-width: 40em; margin: 0 0 28px; }
+
+  .signals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .sig { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .strip { height: 56px; border-radius: 10px; background: linear-gradient(160deg, var(--wall-a), var(--wall-b)); position: relative; overflow: hidden; }
+  .strip::before { content: ""; position: absolute; inset: 0 0 auto; height: 16px; background: var(--menubar); }
+  .mini { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 28px; min-width: 150px; background: #000; border-radius: 0 0 9px 9px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px; color: #C3C2B7; font: 600 10.5px var(--sf); white-space: nowrap; z-index: 1; }
+  .mini.leftish { justify-content: flex-start; }
+  .mini svg { width: 13px; height: 13px; }
+  .sig h3 { font: 700 17px var(--display); margin: 0; }
+  .sig p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+  .bubble { width: 18px; height: 15px; border-radius: 5px; font-size: 10px !important; display: grid; place-items: center; font: 800 12px var(--body); position: relative; }
+  .bubble.a { background: var(--amber); color: #000; }
+  .bubble.q { background: var(--blue); color: #fff; }
+
+  .features { display: grid; grid-template-columns: 1fr 1fr; gap: 0 48px; margin: 0; }
+  .feat { padding: 18px 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 120px 1fr; gap: 16px; min-width: 0; }
+  .feat dt { font: 700 17px var(--display); }
+  .feat dd { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .feat dd kbd { font: 12px var(--mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--raise); color: var(--ink); }
+
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+  .tool { background: var(--raise); padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .tool svg { width: 26px; height: 26px; }
+  .tool b { font: 700 16px var(--display); }
+  .tool span { color: var(--ink-2); font-size: 13.5px; }
+
+  .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .num { font: 800 46px/1 var(--display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .num small { font-size: 18px; font-weight: 700; color: var(--ink-3); margin-left: 3px; }
+  .numbers p { margin: 6px 0 0; color: var(--ink-2); font-size: 14.5px; }
+
+  .privacy { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  .privacy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .privacy li { color: var(--ink-2); font-size: 15px; padding-left: 18px; position: relative; }
+  .privacy li::before { content: ""; position: absolute; left: 0; top: .62em; width: 7px; height: 7px; border-radius: 2px; background: var(--ink-3); }
+  .privacy li b { color: var(--ink); font-weight: 600; }
+
+  .steps { display: grid; gap: 14px; counter-reset: s; max-width: 720px; }
+  .step { display: grid; grid-template-columns: 36px 1fr; gap: 14px; counter-increment: s; }
+  .step::before { content: counter(s); font: 700 15px/34px var(--display); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--rule); text-align: center; color: var(--ink-2); }
+  .step p { margin: 5px 0 0; color: var(--ink-2); }
+  .step p:first-child { margin-top: 5px; color: var(--ink); font-weight: 500; }
+  pre.code { font: 13px/1.6 var(--mono); background: var(--raise); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 14px; overflow-x: auto; margin: 8px 0 0; color: var(--ink); }
+
+  .sys, .perm { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 6px; max-width: 40em; }
+  .sys b, .perm b { color: var(--ink); font-weight: 600; }
+  .step p + p { margin-top: 8px; }
+  footer { padding-block: 0 48px; color: var(--ink-3); font-size: 13px; }
+  .foot { border-top: 1px solid var(--rule); padding-top: 32px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  /* Bigger notch on wide screens; zoom keeps layout and centring in step. */
+  @media (min-width: 900px) {
+    .notch { zoom: 1.35; }
+    .stage { height: 560px; }
+    .strip { height: 66px; }
+    .mini { zoom: 1.25; }
+  }
+  @media (min-width: 640px) and (max-width: 899px) {
+    .notch { zoom: 1.15; }
+    .stage { height: 490px; }
+  }
+  @media (max-width: 860px) {
+    .intro, .privacy, .features { grid-template-columns: 1fr; }
+    .intro { gap: 20px; }
+    .signals, .tools { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .menubar .l span:nth-child(n+3), .menubar .r span:nth-child(-n+1) { display: none; }
+    .ucols { grid-template-columns: 1fr; }
+    .stage { height: 470px; }
+    .ucols > div:last-child { display: none; }
+    .signals, .tools, .numbers { grid-template-columns: 1fr; }
+    .feat { grid-template-columns: 1fr; gap: 4px; }
+    .panel { padding: 10px 16px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .notch, .panel, .ears { transition: none; } .eq i { animation: none; } }
+
+  /* ---------- Colour: the agents' own marks lend the page its palette ---------- */
+  :root { --c-claude: #D97757; --c-copilot: #8B6CF0; --c-agy: #2F7BF0; --c-mint: #2BA877; --c-amber: #E59A00; --c-pink: #E0518A; --c-sky: #2C9BD6;
+          --wash: 12%; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c-copilot: #A78BFA; --c-agy: #5C9BFF; --c-mint: #46C8A0; --c-amber: #FAB219; --c-pink: #F27AA8; --c-sky: #5AB8EA; --wash: 16%; } }
+  :root[data-theme="dark"] { --c-copilot: #A78BFA; --c-agy: #5C9BFF; --c-mint: #46C8A0; --c-amber: #FAB219; --c-pink: #F27AA8; --c-sky: #5AB8EA; --wash: 16%; }
+
+  .desk, .strip { background:
+      radial-gradient(ellipse at 12% 85%, rgba(242,140,100,.75), transparent 45%),
+      radial-gradient(ellipse at 88% 80%, rgba(91,155,255,.7), transparent 50%),
+      radial-gradient(ellipse at 50% 120%, rgba(224,81,138,.55), transparent 55%),
+      linear-gradient(170deg, #2E3270 0%, #5B4B9E 45%, #8A62B0 75%, #C9789A 100%); }
+
+  h1 em { background: linear-gradient(90deg, var(--c-claude), var(--c-pink) 40%, var(--c-copilot) 70%, var(--c-agy));
+          -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .06em; }
+
+  .kicker { color: var(--k, var(--ink-3)); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+  .kicker::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--k, var(--ink-3)); }
+
+  .sig { padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--c) var(--wash), transparent); }
+  .sig h3 { color: color-mix(in srgb, var(--c) 70%, var(--ink)); }
+
+  .feat dt { display: flex; align-items: center; gap: 10px; align-self: start; line-height: 1.5; }
+  .feat dt::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none;
+                     box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 20%, transparent); }
+
+  .tools { background: transparent; border: 0; gap: 14px; overflow: visible; }
+  .tool { border-radius: 14px; border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+          background: linear-gradient(160deg, color-mix(in srgb, var(--c) calc(var(--wash) + 6%), var(--raise)), var(--raise) 70%); }
+  .tool b { color: color-mix(in srgb, var(--c) 60%, var(--ink)); }
+
+  .num { background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 55%, var(--c2))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .num small { -webkit-text-fill-color: var(--ink-3); }
+
+  .privacy li::before { background: var(--c, var(--ink-3)); border-radius: 50%; }
+
+  .step::before { color: #fff; border: 0; background: var(--c); box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 35%, transparent); }
+  .steps .step:nth-child(1) { --c: var(--c-claude); }
+  .steps .step:nth-child(2) { --c: var(--c-pink); }
+  .steps .step:nth-child(3) { --c: var(--c-copilot); }
+  .steps .step:nth-child(4) { --c: var(--c-agy); }
+  .steps .step:nth-child(5) { --c: var(--c-mint); }
+
+  .install { border-color: color-mix(in srgb, var(--c-copilot) 35%, var(--rule)); box-shadow: 0 6px 20px color-mix(in srgb, var(--c-copilot) 14%, transparent); }
+  .copy { background: linear-gradient(135deg, var(--c-claude), var(--c-pink) 55%, var(--c-copilot)); color: #fff; }
+  section { border-top-color: color-mix(in srgb, var(--c-copilot) 18%, var(--rule)); }
+</style>
+<style>body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important; }</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="claude" viewBox="0 0 24 24"><path fill="#D97757" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></symbol>
+    <symbol id="copilot" viewBox="0 0 24 24"><path fill="#A78BFA" d="M23.922 16.997C23.061 18.492 18.063 22.02 12 22.02 5.937 22.02.939 18.492.078 16.997A.641.641 0 0 1 0 16.741v-2.869a.883.883 0 0 1 .053-.22c.372-.935 1.347-2.292 2.605-2.656.167-.429.414-1.055.644-1.517a10.098 10.098 0 0 1-.052-1.086c0-1.331.282-2.499 1.132-3.368.397-.406.89-.717 1.474-.952C7.255 2.937 9.248 1.98 11.978 1.98c2.731 0 4.767.957 6.166 2.093.584.235 1.077.546 1.474.952.85.869 1.132 2.037 1.132 3.368 0 .368-.014.733-.052 1.086.23.462.477 1.088.644 1.517 1.258.364 2.233 1.721 2.605 2.656a.841.841 0 0 1 .053.22v2.869a.641.641 0 0 1-.078.256Zm-11.75-5.992h-.344a4.359 4.359 0 0 1-.355.508c-.77.947-1.918 1.492-3.508 1.492-1.725 0-2.989-.359-3.782-1.259a2.137 2.137 0 0 1-.085-.104L4 11.746v6.585c1.435.779 4.514 2.179 8 2.179 3.486 0 6.565-1.4 8-2.179v-6.585l-.098-.104s-.033.045-.085.104c-.793.9-2.057 1.259-3.782 1.259-1.59 0-2.738-.545-3.508-1.492a4.359 4.359 0 0 1-.355-.508Zm2.328 3.25c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm-5 0c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm3.313-6.185c.136 1.057.403 1.913.878 2.497.442.544 1.134.938 2.344.938 1.573 0 2.292-.337 2.657-.751.384-.435.558-1.15.558-2.361 0-1.14-.243-1.847-.705-2.319-.477-.488-1.319-.862-2.824-1.025-1.487-.161-2.192.138-2.533.529-.269.307-.437.808-.438 1.578v.021c0 .265.021.562.063.893Zm-1.626 0c.042-.331.063-.628.063-.894v-.02c-.001-.77-.169-1.271-.438-1.578-.341-.391-1.046-.69-2.533-.529-1.505.163-2.347.537-2.824 1.025-.462.472-.705 1.179-.705 2.319 0 1.211.175 1.926.558 2.361.365.414 1.084.751 2.657.751 1.21 0 1.902-.394 2.344-.938.475-.584.742-1.44.878-2.497Z"/></symbol>
+    <symbol id="agy" viewBox="0 0 24 24"><path fill="#3186FF" d="M20.197 20.618C21.318 21.459 23 20.898 21.459 19.357C16.834 14.873 17.815 2.541 12.07 2.541C6.325 2.541 7.306 14.873 2.682 19.357C1 21.038 2.822 21.459 3.943 20.618C8.287 17.675 8.006 12.49 12.07 12.49C16.134 12.49 15.853 17.675 20.197 20.618Z"/></symbol>
+    <symbol id="opencode" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M22 24H2V0h20zM17 4.8H7v14.4h10z"/></symbol>
+    <symbol id="i-agents" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13 6.4 8.6 2 7l4.4-1.6zM13 11l.6 1.4L15 13l-1.4.6L13 15l-.6-1.4L11 13l1.4-.6z"/></symbol>
+    <symbol id="i-usage" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-music" viewBox="0 0 16 16"><path fill="currentColor" d="M6 2.5l7-1.5v9.2a2.2 2.2 0 1 1-1.5-2.1V4.1L7.5 5v6.7A2.2 2.2 0 1 1 6 9.6z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.8c.1.6.1 1.2 0 1.8l2 1.8-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.8a6 6 0 0 1 0-1.8l-2-1.8 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" transform="translate(0 1)"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 16 16"><rect x="4" y="3" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 11.5V3.5a2 2 0 0 1 2-2h6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  </defs>
+</svg>
+
+<header class="desk">
+  <div class="menubar" aria-hidden="true">
+    <div class="l"><span style="font-weight:700">Terminal</span><span>Shell</span><span>Edit</span><span>View</span></div>
+    <div class="r"><span>Tue 10 Nov 09:41</span></div>
+  </div>
+  <div class="stage">
+    <div class="notch open" id="notch" data-view="usage">
+      <div class="glow" id="glow" hidden></div>
+      <div class="ears" aria-hidden="true">
+        <div class="side"><svg class="mark"><use href="#claude"/></svg><svg class="mark"><use href="#copilot"/></svg></div>
+        <div class="side">
+          <div class="q-col"><svg><use href="#claude"/></svg>96%</div>
+          <div class="q-col"><svg><use href="#copilot"/></svg>25%</div>
+          <div class="q-col"><svg><use href="#agy"/></svg>61%</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="phead">
+          <div class="tabs" role="tablist" aria-label="Visor tabs">
+            <span class="tg"><button class="tab" role="tab" data-view="agents" aria-selected="false" aria-label="Agents"><svg><use href="#i-agents"/></svg></button><button class="tab" role="tab" data-view="usage" aria-selected="true" aria-label="Usage"><svg><use href="#i-usage"/></svg></button></span>
+            <span class="tg"><button class="tab" role="tab" data-view="music" aria-selected="false" aria-label="Music"><svg><use href="#i-music"/></svg></button><button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><svg><use href="#i-clip"/></svg></button></span>
+          </div>
+          <div class="status"><svg><use href="#claude"/></svg><span class="n">2</span><span>96% left</span><svg class="gear" id="gear"><use href="#i-gear"/></svg></div>
+        </div>
+
+        <div class="view" data-name="usage">
+          <div class="ucols">
+            <div>
+              <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max</b><span class="note">Updated 28 secs ago</span></div>
+              <div class="meter"><div class="top"><span>Session (5h)</span><b>96% <small>left</small></b></div><div class="bar"><i style="width:4%"></i></div><div class="cap">Resets in 4h 57m</div></div>
+              <div class="meter"><div class="top"><span>Weekly <span style="color:#FAB219">⚠︎</span></span><b>14% <small>left</small></b></div><div class="bar"><i class="warn" style="width:86%"></i></div><div class="cap">Resets Thu 15:59</div></div>
+              <div class="phdr" style="margin-top:16px"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note">acme.ghe.com</span></div>
+              <div class="meter"><div class="top"><span>Premium requests</span><b>25% <small>left</small></b></div><div class="bar"><i style="width:75%"></i></div><div class="cap">1,125 of 1,500 · Resets 1 Dec · ~56 a day to last</div></div>
+              <div class="chips"><span class="chip">∞ Completions</span><span class="chip">∞ Chat</span></div>
+            </div>
+            <div>
+              <div class="phdr"><b>Claude spend</b><span class="t2" style="font-size:10.5px">API value</span></div>
+              <div class="figs"><div class="f big"><b>$11.61</b><span>Today</span></div><div class="f"><b>$275</b><span>7 days</span></div><div class="f"><b>$825</b><span>30 days</span></div></div>
+              <svg class="spark" viewBox="0 0 190 40" preserveAspectRatio="none" aria-label="Spend over the last 14 days">
+                <path d="M4 38 L18 31 L33 30 L47 12 L62 21 L76 27 L91 31 L105 27 L120 31 L134 25 L149 14 L163 23 L178 28 L186 30 L186 40 L4 40 Z" fill="rgba(57,135,229,.22)"/>
+                <path d="M4 38 L18 31 L33 30 L47 12 L62 21 L76 27 L91 31 L105 27 L120 31 L134 25 L149 14 L163 23 L178 28 L186 30" fill="none" stroke="#3987E5" stroke-width="1.6"/>
+                <line x1="0" y1="39.5" x2="190" y2="39.5" stroke="rgba(255,255,255,.18)"/>
+                <circle cx="186" cy="30" r="2.6" fill="#3987E5"/>
+              </svg>
+              <div class="axis"><span>29 Oct</span><span>1 Nov</span><span>4 Nov</span><span>7 Nov</span><b>Today</b></div>
+              <div class="cap" style="margin-top:6px">Last 14 days</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="view" data-name="agents" hidden>
+          <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
+          <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div></div><span class="time">2:14</span></div>
+          <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div></div><span class="time">0:05</span></div>
+          <div class="group" style="margin-top:10px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
+          <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
+        </div>
+
+        <div class="view" data-name="approval" hidden>
+          <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
+          <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
+          <div class="cmd"><span>$</span>git push origin fix/checkout</div>
+          <div class="btns"><span class="btn deny">✕ Deny</span><span class="btn always">↻ Always <code>git push</code></span><span class="btn allow">✓ Allow</span></div>
+        </div>
+
+        <div class="view" data-name="clipboard" hidden>
+          <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search<span class="r"><span>38 items</span><span>Clear all…</span></span></div>
+          <div class="day">TODAY</div>
+          <div class="clip mono sel"><span class="txt">brew upgrade --cask visor</span><span class="app">Ghostty</span></div>
+          <div class="clip"><span class="sw" style="background:#3987E5"></span><span class="txt">#3987E5</span><span class="app">Figma</span></div>
+          <div class="clip"><span class="txt">https://github.com/tailamphat/visor/releases</span><span class="app">Safari</span></div>
+          <div class="clip mono"><span class="txt">SELECT id, total FROM orders WHERE total &gt; 100;</span><span class="app">TablePlus</span></div>
+        </div>
+
+        <div class="view" data-name="music" hidden>
+          <div class="song"><div class="art" role="img" aria-label="Album artwork"></div><div class="meta2">
+            <div class="title"><b>Lo-fi for Focus · 60 minutes of calm piano</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+            <div class="src">Safari · YouTube</div>
+            <div class="ctrls" aria-hidden="true">
+              <svg viewBox="0 0 16 16"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg>
+              <span class="pp"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg></span>
+              <svg viewBox="0 0 16 16"><path d="M1 3v10l7-5zM8 3v10l7-5z"/></svg>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint" role="group" aria-label="Try the notch">
+      <button type="button" data-try="closed">Closed</button>
+      <button type="button" data-try="agents">Agents</button>
+      <button type="button" data-try="approval">Approval</button>
+      <button type="button" data-try="usage" aria-pressed="true">Usage</button>
+      <button type="button" data-try="music">Music</button>
+      <button type="button" data-try="clipboard">Clipboard</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <h1>Your AI agents,<br><em>in the notch.</em></h1>
+    <div>
+      <p class="lede">Visor turns the MacBook notch into a small control room for Claude Code, Copilot CLI, Antigravity and OpenCode. See what each agent is doing, answer it when it asks, and keep an eye on your limits without opening a single window.</p>
+      <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
+      <div class="meta">Free and open source · macOS 14 or later · Apple Silicon and Intel · <a href="#install">Setup steps</a> · <a href="https://github.com/tailamphat/visor">GitHub</a></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="kicker" style="--k:var(--c-amber)">The closed notch</div>
+    <h2>Read it at a glance</h2>
+    <p class="sub">With the notch closed, Visor shows a sliver of black on each side. That's enough room to tell you who is working and whether anyone needs you.</p>
+    <div class="signals">
+      <div class="sig" style="--c:var(--c-claude)">
+        <div class="strip"><div class="mini leftish"><svg><use href="#claude"/></svg>2<svg><use href="#copilot"/></svg></div></div>
+        <h3>Working</h3><p>The left side shows each busy agent's mark with its session count, gently pulsing.</p>
+      </div>
+      <div class="sig" style="--c:var(--c-amber)">
+        <div class="strip"><div class="mini"><span class="bubble a">!</span></div></div>
+        <h3>Needs approval</h3><p>An amber "!" means an agent is waiting for your permission. Hover to open the card.</p>
+      </div>
+      <div class="sig" style="--c:var(--c-sky)">
+        <div class="strip"><div class="mini"><span class="bubble q">?</span></div></div>
+        <h3>Has a question</h3><p>A blue "?" means an agent asked you something. Click its row to jump to that terminal.</p>
+      </div>
+      <div class="sig" style="--c:var(--c-mint)">
+        <div class="strip"><div class="mini leftish" style="color:#5FD35F">✓ <span style="color:#fff">web-shop · 4m 12s</span></div></div>
+        <h3>Finished</h3><p>A green check names the project that finished and how long the turn took.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker" style="--k:var(--c-copilot)">What's inside</div>
+    <h2>Four tabs and a card</h2>
+    <p class="sub">Hover the notch to open it. Everything below is native Swift, with no web view.</p>
+    <dl class="features">
+      <div class="feat" style="--c:var(--c-copilot)"><dt>Agents</dt><dd>Every running session, grouped by agent, with what it's doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you and which have finished.</dd></div>
+      <div class="feat" style="--c:var(--c-mint)"><dt>Approvals</dt><dd>When Claude Code or Copilot CLI asks for permission, the notch opens with who is asking and Allow, Deny or Always allow, naming the rule (like <code>git push</code>).</dd></div>
+      <div class="feat" style="--c:var(--c-agy)"><dt>Usage</dt><dd>Claude plan limits and API-value spend, Copilot premium requests on every account (company <code>*.ghe.com</code> too), Antigravity weekly limits, OpenCode Go limits and tokens.</dd></div>
+      <div class="feat" style="--c:var(--c-amber)"><dt>Accounts</dt><dd>The gear on Usage lists each tool, whether it's connected and why not, with one button to fix it and a switch to hide it.</dd></div>
+      <div class="feat" style="--c:var(--c-sky)"><dt>Clipboard</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd> from anywhere: search, pin and paste back into the app you were in. Passwords are never kept; history stays on this Mac.</dd></div>
+      <div class="feat" style="--c:var(--c-pink)"><dt>Music</dt><dd>What Spotify, Apple Music or a browser tab is playing, with artwork, progress and play, pause and skip.</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <div class="kicker" style="--k:var(--c-claude)">Works with</div>
+    <h2>The agents you already use</h2>
+    <p class="sub">Visor listens to each tool's own hooks and reads its own sign-in. There's nothing new to sign in to.</p>
+    <div class="tools">
+      <div class="tool" style="--c:var(--c-claude)"><svg><use href="#claude"/></svg><b>Claude Code</b><span>Sessions, approvals, questions, plan limits and spend.</span></div>
+      <div class="tool" style="--c:var(--c-copilot)"><svg><use href="#copilot"/></svg><b>Copilot CLI</b><span>Sessions, approvals with per-project rules, premium requests.</span></div>
+      <div class="tool" style="--c:var(--c-agy)"><svg><use href="#agy"/></svg><b>Antigravity CLI</b><span>Sessions and activity, weekly model limits.</span></div>
+      <div class="tool" style="color:var(--ink); --c:var(--c-mint)"><svg><use href="#opencode"/></svg><b>OpenCode</b><span>Go plan limits, tokens and cost from its local database.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker" style="--k:var(--c-mint)">Light on your Mac</div>
+    <h2>Built to sit there quietly</h2>
+    <p class="sub">Everything is event-driven. Looping animations run as Core Animation layers in the window server, so nothing ticks while you work.</p>
+    <div class="numbers">
+      <div style="--c:var(--c-mint); --c2:var(--c-sky)"><div class="num">~0<small>% CPU</small></div><p>when idle. Nothing polls in the background.</p></div>
+      <div style="--c:var(--c-copilot); --c2:var(--c-pink)"><div class="num">~50<small>MB</small></div><p>of memory. Antigravity's slow usage check only runs when you open Usage.</p></div>
+      <div style="--c:var(--c-claude); --c2:var(--c-amber)"><div class="num">2<small>MB</small></div><p>download. One native app, universal for Apple Silicon and Intel.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="privacy">
+      <div>
+        <div class="kicker" style="--k:var(--c-sky)">Privacy</div>
+        <h2>Your data stays with you</h2>
+        <p class="sub" style="margin:0">Visor reads what's already on your Mac and talks only to the services your tools already use.</p>
+      </div>
+      <ul>
+        <li style="--c:var(--c-claude)"><b>Your own sign-ins.</b> Claude Code's keychain entry, <code>gh</code>, Copilot CLI and OpenCode, read when needed and never stored.</li>
+        <li style="--c:var(--c-copilot)"><b>Each tool's own API.</b> Usage comes from Anthropic, GitHub and OpenCode directly. Spend is worked out locally from Claude Code's logs.</li>
+        <li style="--c:var(--c-sky)"><b>Clipboard on this Mac.</b> 200 items or 30 days, pins always. Copies your password manager marks as secret are skipped.</li>
+        <li style="--c:var(--c-mint)"><b>No account, no analytics.</b> Visor has no server of its own.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="kicker" style="--k:var(--c-pink)">Install</div>
+    <h2>Up and running in a few minutes</h2>
+    <p class="sub">Visor isn't from the App Store, so macOS asks you to approve it once. These are all the prompts you'll see, in order.</p>
+    <div class="steps">
+      <div class="step"><div><p>Install with Homebrew.</p><pre class="code">brew install --cask tailamphat/tap/visor</pre><p>Already have it? Update with <code>brew update &amp;&amp; brew upgrade --cask visor</code>. Homebrew only checks for new versions about once a day, so run <code>brew update</code> first.</p></div></div>
+      <div class="step"><div><p>Let macOS open it.</p>
+        <p>Homebrew clears the download flag for you, so Visor usually just opens. If macOS says Apple could not verify Visor, or that it's from an unidentified developer:</p>
+        <ol class="sys">
+          <li>Click <b>Done</b> (not Move to Trash).</li>
+          <li>Open <b>System Settings → Privacy &amp; Security</b> and scroll down to <b>Security</b>.</li>
+          <li>Next to "Visor was blocked to protect your Mac", click <b>Open Anyway</b>, enter your password, then click <b>Open</b>.</li>
+        </ol>
+        <p>If macOS says Visor "is damaged", it still has the download flag. Remove it in Terminal, then open Visor again:</p>
+        <pre class="code">xattr -dr com.apple.quarantine /Applications/Visor.app</pre></div></div>
+      <div class="step"><div><p>Connect your agents.</p><p>Hover the notch and choose <b>Connect your agents</b> (also in the menu bar icon). This adds Visor's hook to Claude Code, Copilot CLI and Antigravity so the notch hears what they do. Disconnect from the same menu before uninstalling.</p></div></div>
+      <div class="step"><div><p>Allow the permissions it asks for, when you first use them.</p>
+        <ul class="perm">
+          <li><b>Accessibility</b>: pasting from the clipboard history and the keyboard's media keys. In <b>System Settings → Privacy &amp; Security → Accessibility</b>, turn on <b>Visor</b>.</li>
+          <li><b>Automation</b>: play, pause and skip in Spotify, Music and your browser. Click <b>Allow</b> when macOS asks if Visor may control that app.</li>
+          <li><b>Keychain</b>: reading the sign-in your AI tools already saved. If macOS asks whether <b>security</b> may use "Claude Code-credentials" or "copilot-cli", click <b>Always Allow</b>.</li>
+        </ul></div></div>
+      <div class="step"><div><p>Hover the notch.</p><p>Usage fills in from the tools you're signed in to. If something is missing, the gear on the Usage tab says why and how to fix it.</p></div></div>
+    </div>
+    <p class="meta" style="margin-top:22px">Turned something down by mistake? Every permission can be changed later in System Settings → Privacy &amp; Security. Uninstall with <code>brew uninstall --cask visor</code>.</p>
+  </section>
+</main>
+
+<footer class="wrap"><div class="foot">
+  <span>Visor · free and open source</span>
+  <span><a href="https://github.com/tailamphat/visor">Source</a> · <a href="https://github.com/tailamphat/visor/releases">Releases</a></span>
+</div></footer>
+
+<script>
+  // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
+  const sizes = { closed: [300, 34], usage: [520, 318], agents: [520, 270], approval: [580, 196], clipboard: [520, 240], music: [340, 146] };
+  const notch = document.getElementById('notch');
+  const tabs = [...document.querySelectorAll('.tab')];
+  const views = [...document.querySelectorAll('.view')];
+  const tries = [...document.querySelectorAll('[data-try]')];
+  const glow = document.getElementById('glow');
+
+  function show(name) {
+    const open = name !== 'closed';
+    notch.classList.toggle('open', open);
+    notch.dataset.view = name;
+    const [w, h] = sizes[name];
+    notch.style.setProperty('--w', w + 'px');
+    notch.style.setProperty('--h', h + 'px');
+    if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === name)));
+    tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
+    glow.hidden = name !== 'approval';
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
+  tries.forEach(b => b.addEventListener('click', () => show(b.dataset.try)));
+  notch.addEventListener('mouseenter', () => { if (!notch.classList.contains('open')) show('usage'); });
+  show('usage');
+
+  const copy = document.getElementById('copy');
+  copy.addEventListener('click', () => {
+    const text = document.getElementById('cmd').textContent;
+    const done = () => { copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1600); };
+    try {
+      navigator.clipboard.writeText(text).then(done, () => selectCmd());
+    } catch (e) { selectCmd(); }
+  });
+  function selectCmd() {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById('cmd'));
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  }
+</script>
+</body>
+</html>
