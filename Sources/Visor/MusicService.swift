@@ -453,8 +453,15 @@ final class MusicService {
 
     func perform(_ command: MusicCommand) {
         guard let now = model.nowPlaying else { return }
-        // Media keys need Accessibility; ask first, change nothing until granted.
+        // Media keys need the PostEvent permission (Accessibility); ask first,
+        // change nothing until the key can actually be posted.
         if now.usesMediaKeys, !MediaKeys.isAllowed {
+            MediaKeys.requestPermission()
+            return
+        }
+        // Post before showing the new state: a refused key must not flip the
+        // notch the wrong way while the player stays put.
+        if now.usesMediaKeys, !MediaKeys.send(command) {
             MediaKeys.requestPermission()
             return
         }
@@ -482,8 +489,8 @@ final class MusicService {
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.refreshNative(now.source) } }
             }
         case .browser(let id, _, false):
-            MediaKeys.send(command)
-            // Sound starts or stops a moment later; read the new state then.
+            // The key was posted above; sound starts or stops a moment later,
+            // so read the new state then.
             DispatchQueue.main.asyncAfter(deadline: .now() + (command == .playPause ? 0.6 : 1.5)) {
                 MainActor.assumeIsolated { self.refreshBrowsers(audible: Self.audibleBrowsers().union(command == .playPause ? [] : [id])) }
             }
