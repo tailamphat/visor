@@ -56,6 +56,8 @@ struct NotchLayout {
     static let usageWithAntigravitySize = CGSize(width: width, height: 450)
     /// Usage with OpenCode's Go limits and local token card.
     static let usageWithOpenCodeSize = CGSize(width: width, height: 450)
+    /// Connected accounts: a row per tool.
+    static let accountsSize = CGSize(width: width, height: 272)
     /// The longest the Agents list grows before it scrolls.
     static let listMaxHeight: CGFloat = 402
     /// The window is a little larger than the biggest panel, room for the shadow.
@@ -69,14 +71,15 @@ struct NotchLayout {
             if model.compactMusic {
                 return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: Self.compactMusicHeight)
             }
+            if model.tab == .usage && model.showAccounts { return Self.accountsSize }
             if model.tab == .usage {
-                if model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading {
+                if model.shows(.antigravity) && (model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading) {
                     return Self.usageWithAntigravitySize
                 }
-                if model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil {
+                if model.shows(.openCode) && (model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil) {
                     return Self.usageWithOpenCodeSize
                 }
-                if !model.copilot.isEmpty { return Self.usageWithCopilotSize }
+                if model.shows(.copilot) && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.tab == .agents && !model.board.sessions.isEmpty {
@@ -348,7 +351,7 @@ struct ExpandedView: View {
                 } else {
                     switch model.tab {
                     case .agents: AgentsView(model: model)
-                    case .usage: UsageView(model: model)
+                    case .usage: if model.showAccounts { AccountsView(model: model) } else { UsageView(model: model) }
                     case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
                     case .clipboard: ClipboardView(model: model)
@@ -380,6 +383,7 @@ struct ExpandedView: View {
         HStack(spacing: 4) {
             ForEach(Array(list), id: \.self) { tab in
                 TabButton(tab: tab, selected: model.tab == tab && !model.showsCard) {
+                    if model.tab != tab { model.showAccounts = false }
                     model.tab = tab
                     if tab == .usage { model.refreshPlan?() }
                     if tab == .music { model.refreshVolume?() }
@@ -395,10 +399,26 @@ struct ExpandedView: View {
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
                 if model.hasActivity { AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) })) }
-                if let session = model.plan?.session {
+                if let session = model.plan?.session, model.shows(.claude) {
                     Text("\(Int(session.percentLeft.rounded()))% left")
                         .font(.system(size: 11, weight: .medium).monospacedDigit())
                         .foregroundStyle(Theme.textSecondary)
+                }
+                if model.tab == .usage && !model.showsCard {
+                    Button {
+                        model.showAccounts.toggle()
+                        if model.showAccounts { model.refreshPlan?() }
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(model.showAccounts ? Theme.textPrimary : Theme.textMuted)
+                            .frame(width: 24, height: 22)
+                            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(model.showAccounts ? Color.white.opacity(0.14) : .clear))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Connected accounts")
                 }
             }
             .padding(.trailing, 16)

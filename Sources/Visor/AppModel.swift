@@ -101,6 +101,41 @@ final class AppModel {
     /// Connected agent quotas displayed side-by-side in the closed notch's right ear.
     var quotas: [NotchQuota] {
         NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo)
+            .filter { quota in !hiddenProviders.contains { $0.agent == quota.agent } }
+    }
+
+    // Connected accounts
+    /// The Usage tab shows the accounts list instead of the numbers.
+    var showAccounts = false
+    /// What the last read of Claude Code's sign-in found; nil until it finishes.
+    var claudeLookup: KeychainLookup?
+    var claudeUsesAPIKey = false
+    var copilotInstalled = false
+    var copilotAccounts = 0
+    var copilotDenied = false
+    var antigravityInstalled = false
+    var openCodeInstalled = false
+    /// Tools switched off under Connected accounts: not read, not shown.
+    var hiddenProviders = ConnectionProvider.hidden(from: UserDefaults.standard.stringArray(forKey: "hiddenProviders") ?? []) {
+        didSet { UserDefaults.standard.set(ConnectionProvider.store(hiddenProviders), forKey: "hiddenProviders") }
+    }
+    /// Connected accounts actions, wired by the app delegate.
+    var connectionAction: ((ConnectionProvider, ConnectionState.Action) -> Void)?
+
+    func shows(_ provider: ConnectionProvider) -> Bool { !hiddenProviders.contains(provider) }
+
+    func connection(_ provider: ConnectionProvider) -> ConnectionState {
+        switch provider {
+        case .claude:
+            return .claude(lookup: claudeLookup, usesAPIKey: claudeUsesAPIKey, planLoaded: plan != nil,
+                           planName: planName, error: planError)
+        case .copilot:
+            return .copilot(installed: copilotInstalled, accounts: copilotAccounts, usage: copilot, denied: copilotDenied)
+        case .antigravity:
+            return .antigravity(installed: antigravityInstalled, loaded: antigravity != nil, error: antigravityError)
+        case .openCode:
+            return .openCode(installed: openCodeInstalled, local: openCode != nil, go: openCodeGo != nil)
+        }
     }
 
     // Clipboard

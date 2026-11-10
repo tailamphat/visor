@@ -30,7 +30,7 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) accept extra messages on the hook socket `~/Library/Application Support/Visor/hook.sock`:
 
-- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it)
+- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
 

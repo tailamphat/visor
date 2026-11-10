@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if model.antigravityHooksInstalled { try? HookInstaller.installAntigravity() }
         model.installHooks = { [weak self] in self?.installHooks() }
         model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
+        model.connectionAction = { [weak self] provider, action in self?.usage.perform(action, for: provider) }
         model.musicCommand = { [weak self] in self?.music.perform($0) }
         model.setVolume = { [weak self] in self?.music.setVolume($0) }
         model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
@@ -213,12 +214,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clipboard.delete(first.id)
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
             if let tab = tab.flatMap(Tab.init(rawValue:)) { model.tab = tab; notch.expand() } else { model.expanded = false }
             if message.payload["keyboard"] as? Bool == true { model.focusClipSearch?() }
+            model.showAccounts = message.payload["accounts"] as? Bool == true
             return
         }
         #endif

@@ -357,45 +357,154 @@ struct UsageView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                UsageRow {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
-                            if let updated = model.planUpdated {
-                                (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
-                            }
-                        }
-                        if let plan = model.plan {
-                            ForEach(plan.limits.prefix(3)) { limit in
-                                LimitMeter(title: limit.title, used: limit.percentUsed,
-                                           caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
-                            }
-                            if let extra = plan.extra {
-                                Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                                    .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                            }
-                        } else {
-                            Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                        }
-                        if let error = model.planError, model.plan != nil {
-                            Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                        }
-                    }
-                } usage: {
-                    SpendView(model: model)
-                }
-                OpenCodeBlock(model: model)
+                if model.shows(.claude) { claudeRow }
+                if model.shows(.openCode) { OpenCodeBlock(model: model) }
                 // No usage column, but the meters line up with the rows above.
                 VStack(alignment: .leading, spacing: 20) {
-                    ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) }
-                    AntigravityBlock(model: model)
+                    if model.shows(.copilot) { ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) } }
+                    if model.shows(.antigravity) { AntigravityBlock(model: model) }
                 }
                 .padding(.trailing, UsageColumns.usageWidth + UsageColumns.spacing)
+                if !ConnectionProvider.allCases.contains(where: model.shows) {
+                    Text("Every tool is switched off. Turn one on under Connected accounts (the gear).")
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    private var claudeRow: some View {
+        UsageRow {
+            VStack(alignment: .leading, spacing: 12) {
+                ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
+                    if let updated = model.planUpdated {
+                        (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                    }
+                }
+                if let plan = model.plan {
+                    ForEach(plan.limits.prefix(3)) { limit in
+                        LimitMeter(title: limit.title, used: limit.percentUsed,
+                                   caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
+                    }
+                    if let extra = plan.extra {
+                        Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
+                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                    }
+                } else {
+                    Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                }
+                if let error = model.planError, model.plan != nil {
+                    Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                }
+            }
+        } usage: {
+            SpendView(model: model)
+        }
+    }
+
     private func money(_ value: Double) -> String { String(format: "$%.2f", value) }
+}
+
+/// Connected accounts: whether Visor can read each tool's usage, why not, and
+/// one button to fix it. The switch hides a tool from the Usage tab and the notch.
+struct AccountsView: View {
+    let model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Button { model.showAccounts = false } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
+                        Text("Usage").font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Text("Connected accounts").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            }
+            VStack(spacing: 4) {
+                ForEach(ConnectionProvider.allCases, id: \.self) { AccountRow(model: model, provider: $0) }
+            }
+        }
+    }
+}
+
+struct AccountRow: View {
+    let model: AppModel
+    let provider: ConnectionProvider
+
+    var body: some View {
+        let shown = model.shows(provider)
+        let state = model.connection(provider)
+        HStack(spacing: 10) {
+            AgentMark(agent: provider.agent, size: 14)
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(AgentStyle.tile))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(provider.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                HStack(spacing: 5) {
+                    Circle().fill(shown ? tone(state.tone) : Theme.textMuted).frame(width: 6, height: 6)
+                    Text(shown ? state.text : "Hidden")
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
+                }
+                .help(shown ? state.text : "Hidden")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if shown, let action = state.action {
+                Button { model.connectionAction?(provider, action) } label: {
+                    Text(label(action))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(action == .refresh ? Color.white.opacity(0.1) : Theme.accent))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            // Drawn here: a system switch in the notch panel, never the key window, looks switched off.
+            Button {
+                if shown { model.hiddenProviders.insert(provider) } else {
+                    model.hiddenProviders.remove(provider)
+                    model.connectionAction?(provider, .refresh)
+                }
+            } label: {
+                Capsule().fill(shown ? Theme.good : Theme.deemphasis)
+                    .frame(width: 28, height: 16)
+                    .overlay(alignment: shown ? .trailing : .leading) {
+                        Circle().fill(.white).frame(width: 12, height: 12).padding(2)
+                    }
+                    .animation(.easeOut(duration: 0.15), value: shown)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(shown ? "Hide \(provider.title)" : "Show \(provider.title)")
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .frame(minHeight: 44)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.05)))
+        .opacity(shown ? 1 : 0.5)
+    }
+
+    private func label(_ action: ConnectionState.Action) -> String {
+        switch action {
+        case .allowAccess: return "Allow access"
+        case .signIn: return "Sign in…"
+        case .refresh: return "Refresh"
+        }
+    }
+
+    private func tone(_ tone: ConnectionState.Tone) -> Color {
+        switch tone {
+        case .good: return Theme.good
+        case .warning: return Theme.warning
+        case .bad: return Theme.critical
+        case .neutral: return Theme.textMuted
+        }
+    }
 }
 
 enum UsageColumns {

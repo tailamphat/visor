@@ -1,9 +1,9 @@
-import Foundation
+import AppKit
 import VisorCore
 
 /// Keeps the model's usage numbers fresh, all off the main thread:
 /// - plan limits (5-hour session, weekly) from the Claude account Claude Code signed in with
-/// - Copilot allowances from `gh`
+/// - Copilot allowances from `gh` and Copilot CLI's own sign-in
 /// - Antigravity quotas from `agy`, only while the Usage tab is looked at
 /// - API-equivalent spend from Claude Code's local transcripts
 @MainActor
@@ -15,12 +15,20 @@ final class UsageService {
     private var fetching = false
     /// Read from the keychain on demand; Claude Code owns and refreshes it.
     private var token: (value: String, expires: Date)?
+    /// A refused keychain prompt isn't asked again on the timer, only from
+    /// "Allow access" under Connected accounts.
+    private var claudeKeychainDenied = false
+    private var copilotKeychainDenied = false
 
     init(model: AppModel) {
         self.model = model
     }
 
     func start() {
+        model.antigravityInstalled = Self.agyPath != nil
+        model.openCodeInstalled = Self.openCodeInstalled
+        model.copilotInstalled = Self.ghPath != nil || Self.copilotPath != nil
+            || FileManager.default.fileExists(atPath: Self.copilotConfig.path)
         scanTranscripts()
         refreshPlan()
         refreshOpenCode()
@@ -43,6 +51,43 @@ final class UsageService {
         refreshOpenCode()
     }
 
+    /// A button under Connected accounts.
+    func perform(_ action: ConnectionState.Action, for provider: ConnectionProvider) {
+        switch action {
+        case .allowAccess:
+            if provider == .claude { claudeKeychainDenied = false; token = nil }
+            if provider == .copilot { copilotKeychainDenied = false; copilotHostsRead = .distantPast }
+            refresh(provider)
+        case .refresh:
+            if provider == .copilot { copilotHostsRead = .distantPast }
+            if provider == .antigravity { antigravityAttempt = nil }
+            if provider == .openCode { openCodeAttempt = nil }
+            refresh(provider)
+        case .signIn:
+            Self.openInTerminal(provider.signInCommand(hasGH: Self.ghPath != nil))
+        }
+    }
+
+    private func refresh(_ provider: ConnectionProvider) {
+        switch provider {
+        case .claude: refreshPlan()
+        case .copilot: refreshCopilot()
+        case .antigravity: refreshAntigravity()
+        case .openCode: refreshOpenCode()
+        }
+    }
+
+    /// Runs a sign-in command in Terminal through a `.command` file, which
+    /// needs no Automation permission. The shell is a login shell, so the
+    /// user's PATH finds the tool.
+    private static func openInTerminal(_ command: String) {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("visor-sign-in.command")
+        let script = "#!/bin/zsh -l\nclear\n\(command)\n"
+        guard (try? script.write(to: file, atomically: true, encoding: .utf8)) != nil else { return }
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
+        NSWorkspace.shared.open(file)
+    }
+
     private func scanTranscripts() {
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects")
         let transcripts = transcripts
@@ -60,14 +105,22 @@ final class UsageService {
 
     func refreshPlan() {
         refreshCopilot()
-        guard !fetching else { return }
+        guard model.shows(.claude), !fetching else { return }
         fetching = true
         let cached = token
+        let allowKeychain = !claudeKeychainDenied
         work.async {
-            let result = Self.fetchPlan(cached: cached)
+            var lookup: KeychainLookup?
+            let result = Self.fetchPlan(cached: cached, allowKeychain: allowKeychain, lookup: &lookup)
+            let usesAPIKey = lookup == .missing && Self.claudeUsesAPIKey()
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.fetching = false
+                    if let lookup {
+                        if lookup == .denied { self.claudeKeychainDenied = true }
+                        self.model.claudeLookup = lookup
+                        self.model.claudeUsesAPIKey = usesAPIKey
+                    }
                     switch result {
                     case .success(let fetched):
                         self.token = fetched.token
@@ -92,24 +145,42 @@ final class UsageService {
     /// and company *.ghe.com), keeping plans with premium requests to count.
     /// The token comes from `gh` each time; Visor never stores it.
     private func refreshCopilot() {
-        guard !fetchingCopilot, let gh = Self.ghPath else { return }
+        guard model.shows(.copilot), !fetchingCopilot else { return }
+        let gh = Self.ghPath
         fetchingCopilot = true
+        let allowKeychain = !copilotKeychainDenied
         // Signed-in hosts are re-read every 30 minutes, tokens only when GitHub
         // rejects one; both stay in memory only. Saves launching gh three
         // times on every refresh.
         let knownHosts = Date().timeIntervalSince(copilotHostsRead) < 1800 ? copilotHosts : nil
         let knownTokens = copilotTokens
         work.async {
-            let hosts = knownHosts ?? CopilotUsage.signedInHosts(fromStatus: Self.run(gh, ["auth", "status"]) ?? "")
+            let hosts = knownHosts ?? gh.map { CopilotUsage.signedInHosts(fromStatus: Self.run($0, ["auth", "status"]) ?? "") } ?? []
+            // Copilot CLI signs in on its own; use it for hosts gh doesn't know.
+            let cliAccounts = (try? String(contentsOf: Self.copilotConfig, encoding: .utf8)).map(CopilotCLIAccount.parse) ?? []
+            var cliByHost: [String: CopilotCLIAccount] = [:]
+            var cliHosts: [String] = []
+            for account in cliAccounts where !hosts.contains(account.host) && cliByHost[account.host] == nil {
+                cliByHost[account.host] = account
+                cliHosts.append(account.host)
+            }
             var tokens = knownTokens
             var found: [CopilotUsage] = []
-            for host in hosts {
+            var denied = false
+            for host in hosts + cliHosts {
                 guard let base = CopilotUsage.apiBase(for: host) else { continue }
                 // One retry with a fresh token if the remembered one is refused.
                 for attempt in 0..<2 {
                     if attempt == 1 || tokens[host] == nil {
-                        tokens[host] = Self.run(gh, ["auth", "token", "--hostname", host])?
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let account = cliByHost[host] {
+                            guard allowKeychain else { break }
+                            let read = Self.keychainPassword(service: "copilot-cli", account: account.keychainAccount)
+                            if read.lookup == .denied { denied = true }
+                            tokens[host] = read.value
+                        } else if let gh {
+                            tokens[host] = Self.run(gh, ["auth", "token", "--hostname", host])?
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
                     }
                     guard let token = tokens[host], !token.isEmpty else { break }
                     var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
@@ -132,6 +203,9 @@ final class UsageService {
                         self.copilotHosts = hosts
                         self.copilotHostsRead = Date()
                     }
+                    if denied { self.copilotKeychainDenied = true }
+                    self.model.copilotDenied = denied || (self.copilotKeychainDenied && found.isEmpty)
+                    self.model.copilotAccounts = Set(hosts + cliAccounts.map(\.host)).count
                     self.copilotTokens = tokens
                     // Company plans first.
                     let sorted = found.sorted { ($0.host == "github.com" ? 1 : 0) < ($1.host == "github.com" ? 1 : 0) }
@@ -159,7 +233,7 @@ final class UsageService {
     /// user has a Go key. Only the last 30 days are queried, so sqlite3 answers
     /// in milliseconds even on a large database, so this is not the cost `agy` is.
     func refreshOpenCode() {
-        guard !fetchingOpenCode else { return }
+        guard model.shows(.openCode), !fetchingOpenCode else { return }
         if let attempt = openCodeAttempt, Date().timeIntervalSince(attempt) < 45 { return }
         openCodeAttempt = Date()
         fetchingOpenCode = true
@@ -272,7 +346,7 @@ final class UsageService {
     /// seconds and a couple of hundred MB, so it runs only when the Usage tab
     /// opens and the last reading is over two minutes old.
     func refreshAntigravity() {
-        guard let agy = Self.agyPath, !fetchingAntigravity else { return }
+        guard model.shows(.antigravity), let agy = Self.agyPath, !fetchingAntigravity else { return }
         if let attempt = antigravityAttempt, Date().timeIntervalSince(attempt) < 120 { return }
         antigravityAttempt = Date()
         fetchingAntigravity = true
@@ -335,8 +409,20 @@ final class UsageService {
         return .success(usage)
     }
 
-    private nonisolated static let ghPath: String? = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
-        .first { FileManager.default.isExecutableFile(atPath: $0) }
+    private nonisolated static let ghPath = tool("gh")
+    private nonisolated static let copilotPath = tool("copilot")
+    private nonisolated static var copilotConfig: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot/config.json")
+    }
+
+    private nonisolated static func tool(_ name: String) -> String? {
+        ToolLocator.candidates(name, home: FileManager.default.homeDirectoryForCurrentUser.path)
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    private nonisolated static var openCodeInstalled: Bool {
+        tool("opencode") != nil || FileManager.default.fileExists(atPath: openCodeDataDir().path)
+    }
 
     /// Runs a command and returns its output (stdout and stderr; `gh auth status` writes to stderr).
     private nonisolated static func run(_ path: String, _ arguments: [String]) -> String? {
@@ -359,11 +445,19 @@ final class UsageService {
         var token: (value: String, expires: Date)
     }
 
-    private nonisolated static func fetchPlan(cached: (value: String, expires: Date)?) -> Result<Fetched, PlanError> {
+    /// `lookup` is set when the sign-in was read again (not on a cached token).
+    private nonisolated static func fetchPlan(cached: (value: String, expires: Date)?, allowKeychain: Bool,
+                                              lookup: inout KeychainLookup?) -> Result<Fetched, PlanError> {
         var credentials: Credentials?
         if cached == nil || cached!.expires < Date() {
-            credentials = readCredentials()
-            guard credentials != nil else { return .failure(PlanError(message: "Sign in to Claude Code to see your plan limits.")) }
+            let read = readCredentials(allowKeychain: allowKeychain)
+            lookup = read.lookup
+            credentials = read.credentials
+            guard credentials != nil else {
+                return .failure(PlanError(message: read.lookup == .denied
+                    ? "Visor wasn't allowed to read Claude Code's sign-in. Allow it under Connected accounts."
+                    : "Sign in to Claude Code to see your plan limits."))
+            }
         }
         let token = credentials.map { ($0.token, $0.expires) } ?? cached!
         switch request(token: token.0) {
@@ -372,38 +466,51 @@ final class UsageService {
             return .success(Fetched(plan: plan, planName: credentials?.planName ?? nil, token: token))
         case .status(let status) where status == 401 && credentials == nil:
             // Claude Code may have refreshed the token since we read it.
-            return fetchPlan(cached: nil)
+            return fetchPlan(cached: nil, allowKeychain: allowKeychain, lookup: &lookup)
         case .status(let status):
             return .failure(PlanError(message: status == 401 ? "Claude Code's sign-in expired. Run claude to refresh it."
                                                              : "Plan usage unavailable (\(status))."))
         }
     }
 
-    struct Credentials {
-        var token: String
-        var expires: Date
-        var planName: String?
+    typealias Credentials = ClaudeCredentials.Parsed
+
+    /// Claude Code keeps its OAuth credentials in the login keychain, or in
+    /// `.credentials.json` when the keychain can't be used. Reading through
+    /// /usr/bin/security avoids a keychain prompt for this app.
+    private nonisolated static func readCredentials(allowKeychain: Bool) -> (credentials: Credentials?, lookup: KeychainLookup) {
+        let configDir = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]
+        var lookup = KeychainLookup.denied
+        if allowKeychain {
+            let read = keychainPassword(service: ClaudeCredentials.keychainService(configDir: configDir), account: nil)
+            lookup = read.lookup
+            if let value = read.value, let parsed = ClaudeCredentials.parse(Data(value.utf8)) { return (parsed, .found) }
+        }
+        let file = ClaudeCredentials.file(home: FileManager.default.homeDirectoryForCurrentUser.path, configDir: configDir)
+        if let data = try? Data(contentsOf: file), let parsed = ClaudeCredentials.parse(data) { return (parsed, .found) }
+        return (nil, lookup == .found ? .missing : lookup)
     }
 
-    /// Claude Code keeps its OAuth credentials in the login keychain. Reading
-    /// them through /usr/bin/security avoids a keychain prompt for this app.
-    private nonisolated static func readCredentials() -> Credentials? {
+    /// Only asked when there's no OAuth sign-in, to tell "use an API key" from "signed out".
+    private nonisolated static func claudeUsesAPIKey() -> Bool {
+        let file = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+        return (try? Data(contentsOf: file)).map(ClaudeCredentials.usesAPIKey) ?? false
+    }
+
+    private nonisolated static func keychainPassword(service: String, account: String?) -> (value: String?, lookup: KeychainLookup) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
+        process.arguments = ["find-generic-password", "-s", service] + (account.map { ["-a", $0] } ?? []) + ["-w"]
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return nil }
+        guard (try? process.run()) != nil else { return (nil, .denied) }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        guard process.terminationStatus == 0,
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let oauth = object["claudeAiOauth"] as? [String: Any],
-              let token = oauth["accessToken"] as? String else { return nil }
-        let expiresMs = (oauth["expiresAt"] as? NSNumber)?.doubleValue ?? 0
-        let plan = (oauth["subscriptionType"] as? String).map { "Claude " + $0.capitalized }
-        return Credentials(token: token, expires: Date(timeIntervalSince1970: expiresMs / 1000), planName: plan)
+        let lookup = KeychainLookup(securityExitStatus: process.terminationStatus)
+        guard lookup == .found else { return (nil, lookup) }
+        let value = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value.isEmpty ? nil : value, lookup)
     }
 
     enum Response { case ok(Data), status(Int) }
