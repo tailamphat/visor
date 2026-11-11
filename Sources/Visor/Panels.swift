@@ -923,6 +923,9 @@ struct MusicView: View {
                     } else if now.usesMediaKeys && !model.mediaKeysAllowed {
                         AccessibilityHint()
                             .padding(.bottom, 10)
+                    } else if let browser = model.exactControlBrowser {
+                        ExactControlHint(model: model, browser: browser)
+                            .padding(.bottom, 10)
                     }
                     // Centred in the text column, under the progress bar.
                     HStack(spacing: 18) {
@@ -1051,6 +1054,42 @@ struct AccessibilityHint: View {
         }
         .buttonStyle(.plain)
         .help("Visor presses the media keys to control the browser, which needs Accessibility permission.")
+    }
+}
+
+/// Shown while a browser keeps Visor out of its pages (Dia without its launch
+/// flag): play and pause go through the media keys, which can reach the wrong
+/// tab. One click reopens the browser with page access; the x hides the offer.
+struct ExactControlHint: View {
+    let model: AppModel
+    let browser: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "dot.radiowaves.left.and.right").font(.system(size: 10, weight: .semibold))
+            Text(model.exactControlBusy ? "Reopening \(browser)…" : "Controls may miss the tab").lineLimit(1)
+            Spacer(minLength: 6)
+            if !model.exactControlBusy {
+                Button { model.enableExactControl?() } label: {
+                    Text("Reopen \(browser) \u{203A}").fontWeight(.semibold).foregroundStyle(Theme.question)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Quits \(browser) and opens it again with page access, so play, pause and skip reach the right tab. \(browser) restores your tabs.")
+                Button { model.exactControlDismissed = true } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textMuted)
+                        .frame(width: 16, height: 16).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Don't offer this again")
+            }
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(Color(hex: 0xB9D6F7))
+        .padding(.horizontal, 10)
+        .frame(height: 26)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.question.opacity(0.13)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.question.opacity(0.22), lineWidth: 1))
     }
 }
 

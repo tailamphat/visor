@@ -207,3 +207,35 @@ struct BrowserSoundTests {
         #expect(BrowserMedia.playingFromSound(audible: true, inCall: true) == nil)
     }
 }
+
+@Suite("Exact control for browsers")
+struct ExactControlTests {
+    /// Dia only allows page scripts when started with a flag, so Visor can
+    /// reopen it with that flag. Other browsers use a menu setting instead.
+    @Test func diaReopensWithPageAccess() {
+        #expect(BrowserMedia.exactControlArguments(for: "company.thebrowser.dia") == ["--enable-applescript-javascript"])
+    }
+
+    @Test func otherBrowsersHaveNoLaunchFlag() {
+        #expect(BrowserMedia.exactControlArguments(for: "com.google.Chrome") == nil)
+        #expect(BrowserMedia.exactControlArguments(for: "com.apple.Safari") == nil)
+    }
+}
+
+@Suite("Page probe results")
+struct ProbeResultTests {
+    /// Dia hands back what the page returned as a JSON string, so the probe's
+    /// JSON arrives quoted once more than Chrome's.
+    @Test func diaQuotesTheResultOnceMore() throws {
+        let chrome = #"{"p":true,"t":12,"d":300,"title":"Lo-fi for Focus - YouTube","url":"https://www.youtube.com/watch?v=abc123"}"#
+        let dia = #""{\"p\":true,\"t\":12,\"d\":300,\"title\":\"Lo-fi for Focus - YouTube\",\"url\":\"https://www.youtube.com/watch?v=abc123\"}""#
+        let plain = try #require(BrowserMedia.parse(chrome, tab: "1"))
+        let quoted = try #require(BrowserMedia.parse(dia, tab: "1"))
+        #expect(quoted == plain)
+        #expect(quoted.title == "Lo-fi for Focus" && quoted.playing)
+    }
+
+    @Test func anEmptyQuotedResultIsNothing() {
+        #expect(BrowserMedia.parse(#""""#, tab: "1") == nil)
+    }
+}

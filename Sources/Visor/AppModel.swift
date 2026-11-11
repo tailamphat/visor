@@ -213,8 +213,22 @@ final class AppModel {
     /// still need permission, so the hint has room.
     var compactMusic: Bool {
         guard tab == .music, approvals.isEmpty, let now = nowPlaying else { return false }
-        return !(now.usesMediaKeys && !mediaKeysAllowed)
+        return !(now.usesMediaKeys && !mediaKeysAllowed) && exactControlBrowser == nil
     }
+
+    /// The browser Visor can reopen with page access, so play, pause and the
+    /// icon are exact (Dia without its launch flag). nil when not offered.
+    var exactControlBrowser: String? {
+        guard !exactControlDismissed, let now = nowPlaying, case .browser(let id, _, false) = now.source,
+              BrowserMedia.exactControlArguments(for: id) != nil else { return nil }
+        return now.sourceName.components(separatedBy: " · ").first
+    }
+    var exactControlDismissed = UserDefaults.standard.bool(forKey: "exactControlDismissed") {
+        didSet { UserDefaults.standard.set(exactControlDismissed, forKey: "exactControlDismissed") }
+    }
+    /// The browser is being quit and reopened.
+    var exactControlBusy = false
+    var enableExactControl: (() -> Void)?
 
     /// What the closed notch's right side shows when someone needs you: the
     /// app to go to, badged "!" (approve) or "?" (answer). An approval outranks a question.

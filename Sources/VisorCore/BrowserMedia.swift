@@ -45,6 +45,13 @@ public struct BrowserMedia: Equatable, Sendable {
         return inCall ? nil : true
     }
 
+    /// Launch arguments that let Visor run page scripts in a browser that only
+    /// allows them when started that way (Dia). nil for browsers that use a
+    /// menu setting instead, or none at all.
+    public static func exactControlArguments(for bundleID: String) -> [String]? {
+        bundleID == "company.thebrowser.dia" ? ["--enable-applescript-javascript"] : nil
+    }
+
     /// Runs in the page. Prefers the Media Session metadata sites publish for
     /// the system media controls, falling back to the page title. Single quotes
     /// only, so it can sit inside an AppleScript string.
@@ -74,7 +81,13 @@ public struct BrowserMedia: Equatable, Sendable {
 
     /// Parses what `probe` returned for one tab.
     public static func parse(_ json: String, tab: String) -> BrowserMedia? {
-        guard !json.isEmpty, let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else { return nil }
+        guard !json.isEmpty, var value = try? JSONSerialization.jsonObject(with: Data(json.utf8), options: .fragmentsAllowed) else { return nil }
+        // Dia returns the page's string as JSON, so the probe's JSON comes quoted once more.
+        if let inner = value as? String {
+            guard !inner.isEmpty, let unwrapped = try? JSONSerialization.jsonObject(with: Data(inner.utf8)) else { return nil }
+            value = unwrapped
+        }
+        guard let object = value as? [String: Any] else { return nil }
         let url = object["url"] as? String ?? ""
         var title = object["title"] as? String ?? ""
         // Page titles carry the site name ("Song - YouTube") and an unread count ("(3) Song").

@@ -526,6 +526,43 @@ final class MusicService {
         }
     }
 
+    /// Quits the browser and opens it again with page access (Dia's launch
+    /// flag), so its tab can be read and controlled exactly. The browser
+    /// restores its own tabs.
+    func enableExactControl() {
+        guard !model.exactControlBusy, case .browser(let id, _, false)? = model.nowPlaying?.source,
+              let arguments = BrowserMedia.exactControlArguments(for: id),
+              let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first,
+              let url = app.bundleURL else { return }
+        model.exactControlBusy = true
+        app.terminate()
+        waitForQuit(app, url: url, arguments: arguments, id: id, deadline: Date().addingTimeInterval(20))
+    }
+
+    private func waitForQuit(_ app: NSRunningApplication, url: URL, arguments: [String], id: String, deadline: Date) {
+        guard app.isTerminated else {
+            // It may be asking to confirm the quit; give up quietly after a while.
+            guard Date() < deadline else { model.exactControlBusy = false; return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                MainActor.assumeIsolated { self.waitForQuit(app, url: url, arguments: arguments, id: id, deadline: deadline) }
+            }
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.arguments = arguments
+        configuration.activates = false
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, _ in
+            // Scripts were found blocked before; try them again right away.
+            self.scripts.async { Self.blockedSince[id] = nil }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                MainActor.assumeIsolated {
+                    self.model.exactControlBusy = false
+                    self.refreshBrowsers(audible: self.audible.union([id]))
+                }
+            }
+        }
+    }
+
     // MARK: AppleScript and artwork (scripts queue)
 
     private nonisolated static func run(_ source: String) -> (result: NSAppleEventDescriptor?, error: NSDictionary?) {

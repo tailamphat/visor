@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.refreshPlan = { [weak self] in self?.usage.refreshIfStale() }
         model.connectionAction = { [weak self] provider, action in self?.usage.perform(action, for: provider) }
         model.musicCommand = { [weak self] in self?.music.perform($0) }
+        model.enableExactControl = { [weak self] in self?.music.enableExactControl() }
         model.setVolume = { [weak self] in self?.music.setVolume($0) }
         model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
