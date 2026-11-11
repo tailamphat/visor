@@ -238,6 +238,8 @@ final class NotchController {
         keyboardOpen = false
         model.clipTyping = false
         panel.resignKey()
+        // An approval stays open until it's answered.
+        guard !model.showsCard else { return }
         model.expanded = false
     }
 

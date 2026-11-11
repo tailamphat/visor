@@ -142,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Keys while the clipboard tab has the keyboard. Returns true when handled.
     private func clipboardKey(_ event: NSEvent) -> Bool {
-        guard model.expanded, model.tab == .clipboard else { return false }
+        guard model.expanded, model.tab == .clipboard, !model.showsCard else { return false }
         let shown = model.clips.search(model.clipQuery)
         let index = shown.firstIndex { $0.id == model.clipSelection }
         let selected = index.map { shown[$0] }

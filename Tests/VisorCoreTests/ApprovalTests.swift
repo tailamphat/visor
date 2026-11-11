@@ -262,6 +262,24 @@ struct CopilotRuleTests {
         #expect(!rules.allows(request("web_fetch", #"{"url":"https://example.com"}"#)))
     }
 
+    /// A rule names the first word, so a chained command could slip a
+    /// different one past it. Anything beyond one plain command asks again.
+    @Test func aRuleNeverCoversAChainedCommand() {
+        var rules = CopilotRules()
+        rules.add(for: request("bash", #"{"command":"ls -la"}"#))
+        #expect(rules.allows(request("bash", #"{"command":"ls src"}"#)))
+        for chained in ["ls; rm -rf build", "ls && rm -rf build", "ls || rm x", "ls | sh", "ls $(rm x)",
+                        "ls `rm x`", "ls > ~/.zshrc", "ls\\nrm x", "ls & rm x", "ls <(rm x)"] {
+            #expect(!rules.allows(request("bash", #"{"command":"\#(chained)"}"#)), "\(chained)")
+        }
+    }
+
+    /// "F=/tmp/out.txt; tail $F" named the rule after the one-time variable.
+    @Test func leadingVariablesDontNameTheRule() {
+        #expect(CopilotRules.Rule(for: request("bash", #"{"command":"F=/tmp/a.txt LANG=C tail -n 5 out.log"}"#)).match == "tail")
+        #expect(CopilotRules.Rule(for: request("bash", #"{"command":"npm test"}"#)).match == "npm")
+    }
+
     @Test func rulesAreSavedAndNotDuplicated() throws {
         var rules = CopilotRules()
         rules.add(for: request("bash", #"{"command":"npm test"}"#))

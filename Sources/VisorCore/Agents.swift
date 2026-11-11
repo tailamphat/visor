@@ -517,7 +517,7 @@ public struct CopilotRules: Codable, Equatable, Sendable {
             switch request.tool {
             case "Bash":
                 kind = "command"
-                match = request.preview.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? "*"
+                match = Self.commandName(request.preview)
             case "Edit", "Write", "MultiEdit":
                 kind = "edits"
                 match = "*"
@@ -528,6 +528,22 @@ public struct CopilotRules: Codable, Equatable, Sendable {
                 kind = request.tool
                 match = "*"
             }
+        }
+
+        /// The command's first word, after any leading `NAME=value` assignments.
+        static func commandName(_ command: String) -> String {
+            let words = command.split(whereSeparator: \.isWhitespace).map(String.init)
+            let isAssignment = { (word: String) in
+                guard let equals = word.firstIndex(of: "="), equals != word.startIndex else { return false }
+                return word[..<equals].allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" }
+            }
+            return words.first { !isAssignment($0) } ?? words.first ?? "*"
+        }
+
+        /// One plain command: no chaining, pipes, background jobs, subshells,
+        /// redirection or second line, so its first word says what it runs.
+        public static func isSimple(_ command: String) -> Bool {
+            !command.contains { ";&|`<>\n\r".contains($0) } && !command.contains("$(")
         }
 
         /// What the "Always" button names: "npm", "edits", "docs.github.com".
@@ -550,6 +566,8 @@ public struct CopilotRules: Codable, Equatable, Sendable {
 
     public func allows(_ request: ApprovalRequest) -> Bool {
         let wanted = Rule(for: request)
+        // A rule names one command; anything chained to it must still ask.
+        if wanted.kind == "command" && !Rule.isSimple(request.preview) { return false }
         return rules.contains { $0.project == wanted.project && $0.kind == wanted.kind && ($0.match == "*" || $0.match == wanted.match) }
     }
 }
