@@ -26,7 +26,14 @@ final class HookServer: @unchecked Sendable {
         try? fm.removeItem(at: directory.appendingPathComponent("hook.sock"))
     }
 
+    /// Debug builds listen on their own socket, so real agents never reach a
+    /// test build: while it runs (and the release is quit), the hook script
+    /// finds no socket and the agent asks in its own terminal.
+    #if DEBUG
+    static var socketPath: String { directory.appendingPathComponent("hook-debug.sock").path }
+    #else
     static var socketPath: String { directory.appendingPathComponent("hook.sock").path }
+    #endif
 
     private let queue = DispatchQueue(label: "visor.hooks")
     private var listener: DispatchSourceRead?

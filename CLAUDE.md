@@ -28,13 +28,13 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 ## Testing the UI without a mouse
 
-Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) accept extra messages on the hook socket `~/Library/Application Support/Visor/hook.sock`:
+Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on their own socket, `~/Library/Application Support/Visor/hook-debug.sock`, never the real `hook.sock`, so a test build can't receive (or answer) real agent requests: while it runs, agents ask in their own terminal. Never send `_decide` to the real socket. The debug socket also accepts extra messages:
 
 - `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
 
-Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
+Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook-debug.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
 
 ## Agents, approvals and questions
 
