@@ -304,10 +304,6 @@ struct ApprovalView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
         }
-        // On top of the panel's own padding: room on every side, like the music panel.
-        .padding(.horizontal, 8)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
     }
 }
 

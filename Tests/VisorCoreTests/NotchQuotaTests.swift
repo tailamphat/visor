@@ -106,15 +106,32 @@ struct NotchEarsTests {
     }
 }
 
+@Suite("Open panel spacing")
+struct PanelSpacingTests {
+    /// Every open panel keeps the same room from its edges.
+    @Test func oneInsetForEveryPanel() {
+        #expect(NotchEars.panelInset == 18)
+    }
+
+    /// The Agents list grows with its rows: a 15 pt label per agent group,
+    /// a 44 pt row per session, 6 pt between them, nothing left over.
+    @Test func agentsListIsAsTallAsItsRows() {
+        #expect(NotchEars.agentsList(groups: 1, sessions: 1) == 15 + 44 + 6)
+        #expect(NotchEars.agentsList(groups: 2, sessions: 2) == 136)
+        #expect(NotchEars.agentsList(groups: 2, sessions: 5) == 30 + 220 + 6 * 6)
+    }
+}
+
 @Suite("Compact music panel")
 struct CompactMusicTests {
     @Test func thirtyPercentWiderThanTheClosedNotch() {
-        // Closed while playing: 174 + 2 × 38 + 2 × 6 = 262.
-        #expect(NotchEars.musicWidth(notch: 174) == 341)
+        // Closed while playing: 300 + 2 × 38 + 2 × 6 = 388, and 1.3 × 388 = 505.
+        #expect(NotchEars.musicWidth(notch: 300) == 505)
     }
 
-    @Test func neverTooNarrowForTwoTabsEachSide() {
-        // 1.3 × 188 = 244, but two tabs (70) and the flare (12) each side need 264.
-        #expect(NotchEars.musicWidth(notch: 100) == 264)
+    @Test func roomForTwoTabsEachSideBesideTheNotch() {
+        // Two tabs (64), the panel inset (18) and a 6 pt gap to the notch,
+        // plus the open flare (12), each side.
+        #expect(NotchEars.musicWidth(notch: 174) == 174 + 2 * (64 + 18 + 6 + 12))
     }
 }

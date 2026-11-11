@@ -49,9 +49,10 @@ struct NotchLayout {
     /// The open panel's width for the tabs. Approvals keep 580 for their rule text.
     static let width: CGFloat = 520
     static let expandedSize = CGSize(width: width, height: 200)
-    static let approvalSize = CGSize(width: 580, height: 196)
-    static let musicSize = CGSize(width: width, height: 172)
-    static let compactMusicHeight: CGFloat = 128
+    static let approvalSize = CGSize(width: 580, height: 193)
+    static let musicSize = CGSize(width: width, height: 182)
+    /// The compact Now Playing row: artwork beside title and controls.
+    static let compactMusicContent: CGFloat = 70
     static let clipboardSize = CGSize(width: width, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: width, height: 312)
@@ -68,11 +69,19 @@ struct NotchLayout {
 
     func flare(expanded: Bool) -> CGFloat { expanded ? 12 : 6 }
 
+    /// Room from an open panel's edges to its content and header, on every tab.
+    static let inset = CGFloat(NotchEars.panelInset)
+    /// Between the header and the content.
+    static let contentTop: CGFloat = 8
+
+    /// A panel just tall enough for content of this height, with the same room below it.
+    func fitting(_ content: CGFloat) -> CGFloat { notch.height + Self.contentTop + content + Self.inset }
+
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.compactMusic {
-                return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: Self.compactMusicHeight)
+                return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: fitting(Self.compactMusicContent))
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
             if model.tab == .usage {
@@ -88,9 +97,9 @@ struct NotchLayout {
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
                 let groups = Set(model.board.sessions.map(\.agent)).count
-                let content = CGFloat(groups) * 24 + CGFloat(model.board.sessions.count) * 52 + 30
-                return CGSize(width: Self.expandedSize.width,
-                              height: min(Self.listMaxHeight, max(Self.expandedSize.height, notch.height + content)))
+                var content = CGFloat(NotchEars.agentsList(groups: groups, sessions: model.board.sessions.count))
+                if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
+                return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
@@ -358,9 +367,10 @@ struct ExpandedView: View {
                     }
                 }
             }
-            .padding(.horizontal, model.compactMusic ? 12 : 18)
-            .padding(.top, model.compactMusic ? 6 : 8)
-            .padding(.bottom, model.compactMusic ? 12 : 14)
+            // The same room on every tab: the sides and bottom match the header's tabs.
+            .padding(.horizontal, NotchLayout.inset)
+            .padding(.top, NotchLayout.contentTop)
+            .padding(.bottom, NotchLayout.inset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
@@ -370,9 +380,9 @@ struct ExpandedView: View {
     @ViewBuilder private var header: some View {
         if model.compactMusic {
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2)).padding(.leading, 6)
+                tabs(Tab.shown.prefix(2)).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(Tab.shown.dropFirst(2)).padding(.trailing, 6)
+                tabs(Tab.shown.dropFirst(2)).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
@@ -395,13 +405,14 @@ struct ExpandedView: View {
     private var fullHeader: some View {
         HStack(spacing: 0) {
             tabs(Tab.shown[...])
-            .padding(.leading, 14)
+            .padding(.leading, NotchLayout.inset)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
                 if model.hasActivity { AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) })) }
                 if let session = model.plan?.session, model.shows(.claude) {
                     Text("\(Int(session.percentLeft.rounded()))% left")
                         .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        .lineLimit(1).fixedSize()
                         .foregroundStyle(Theme.textSecondary)
                 }
                 if model.tab == .usage && !model.showsCard {
@@ -421,7 +432,7 @@ struct ExpandedView: View {
                     .help("Connected accounts")
                 }
             }
-            .padding(.trailing, 16)
+            .padding(.trailing, NotchLayout.inset)
         }
     }
 }

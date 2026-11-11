@@ -93,11 +93,22 @@ public enum NotchEars {
         (right - left) / 2
     }
 
+    /// Room between an open panel's content and its edges (sides and bottom),
+    /// the same for every tab, so no panel looks cramped or loose.
+    public static let panelInset = 18.0
+
+    /// The Agents list's height: a 15 pt label per agent group and a 44 pt
+    /// row per session, 6 pt apart.
+    public static func agentsList(groups: Int, sessions: Int) -> Double {
+        Double(groups) * 15 + Double(sessions) * 44 + Double(max(groups + sessions - 1, 0)) * 6
+    }
+
     /// Now Playing opened from the notch: 30% wider than the closed notch while
-    /// music plays (two minimum ears and a 6 pt flare each side), but never
-    /// too narrow for two tab buttons (70) and the open flare (12) each side.
+    /// music plays (two minimum ears and a 6 pt flare each side), but never too
+    /// narrow for two tab buttons (64), the panel inset, a 6 pt gap to the
+    /// notch and the open flare (12) each side.
     public static func musicWidth(notch: Double) -> Double {
         let closed = notch + 2 * minWidth + 2 * 6
-        return max((closed * 1.3).rounded(.up), notch + 2 * (70 + 12))
+        return max((closed * 1.3).rounded(.up), notch + 2 * (64 + panelInset + 6 + 12))
     }
 }
