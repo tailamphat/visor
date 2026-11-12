@@ -115,15 +115,6 @@ public enum NotchEars {
         content > 0 ? min(maxWidth, (content + 2 * inset).rounded(.up)) : 0
     }
 
-    /// Music on the right while agents have the left: the 20 pt artwork and
-    /// its playing badge reaching 5 pt past the corner.
-    public static let badgedArtwork = 20.0 + 5
-
-    /// Quota columns side by side, 6 apart.
-    public static func quotas(columns: [Double]) -> Double {
-        columns.reduce(0, +) + Double(max(columns.count - 1, 0)) * 6
-    }
-
     /// How far right to move the shape so the hardware notch stays covered
     /// when one ear is wider than the other.
     public static func shift(left: Double, right: Double) -> Double {

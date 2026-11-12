@@ -198,6 +198,11 @@ final class AppModel {
     var timerPaused: TimeInterval?
     var barActions: BarService?
 
+    /// What each side of the closed notch shows, measured by the view, so
+    /// the sides can be sized with the same inset around anything.
+    var leftEarContent: CGFloat = 0
+    var rightEarContent: CGFloat = 0
+
     /// Host app icons by name ("Ghostty"), for the closed notch.
     var hostIcons: [String: NSImage] = [:]
 

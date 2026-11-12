@@ -6,54 +6,15 @@ import SwiftUI
 struct NotchLayout {
     var notch: CGSize
 
-    /// The left ear: the working agents' marks, the "done" news, or the artwork.
-    func leftEar(_ model: AppModel) -> CGFloat {
-        if let peek = model.peek {
-            // ✓ (13) + mark (12), 5 apart, then the project and duration.
-            var content: Double = 13 + 5 + 12
-            if case .done(let turn) = peek {
-                let text = [turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · ")
-                content += 5 + Self.textWidth(text, .systemFont(ofSize: 11, weight: .semibold))
-            }
-            return CGFloat(NotchEars.width(content: content))
-        }
-        if model.hasActivity {
-            let marks = NotchMarks.make(model.board, approvalsFrom: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
-            return CGFloat(NotchEars.width(content: marks.contentWidth { text in
-                text.hasPrefix("+") ? Self.textWidth(text, .systemFont(ofSize: 9, weight: .bold))
-                    : Self.textWidth(text, .monospacedDigitSystemFont(ofSize: 10, weight: .bold))
-            }))
-        }
-        return CGFloat(NotchEars.width(content: model.isPlaying ? 20 : 0))
-    }
-
-    /// The right ear: "Answered", the attention bubble, music, or the quota columns.
-    func rightEar(_ model: AppModel) -> CGFloat {
-        if let peek = model.peek, case .answered = peek {
-            return CGFloat(NotchEars.width(content: Self.textWidth("Answered", .monospacedDigitSystemFont(ofSize: 11, weight: .medium))))
-        }
-        if let note = model.attentionNote {
-            // The app icon with its bubble 5 pt past the corner, or the bubble alone (drawn 17 pt wide).
-            return CGFloat(NotchEars.width(content: note.icon == nil ? 17 : 18 + 5))
-        }
-        if model.isPlaying {
-            let bars = 3 * 3 + 2 * 2.5
-            return CGFloat(NotchEars.width(content: model.hasActivity || model.peek != nil ? NotchEars.badgedArtwork : bars))
-        }
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
-        // Each column is its mark (10) over its percent, as wide as the wider one.
-        let columns = model.quotas.map { max(10, Self.textWidth($0.text, font)) }
-        return CGFloat(NotchEars.width(content: NotchEars.quotas(columns: columns)))
-    }
+    /// Each side of the closed notch: what it shows, as measured by the view,
+    /// with the same inset to the notch and to its outer edge.
+    func leftEar(_ model: AppModel) -> CGFloat { CGFloat(NotchEars.width(content: Double(model.leftEarContent))) }
+    func rightEar(_ model: AppModel) -> CGFloat { CGFloat(NotchEars.width(content: Double(model.rightEarContent))) }
 
     /// Moves the closed shape sideways when its ears differ, keeping the notch covered.
     func shift(_ model: AppModel) -> CGFloat {
         guard !model.expanded, showsEars(model) else { return 0 }
         return CGFloat(NotchEars.shift(left: Double(leftEar(model)), right: Double(rightEar(model))))
-    }
-
-    private static func textWidth(_ text: String, _ font: NSFont) -> Double {
-        Double((text as NSString).size(withAttributes: [.font: font]).width)
     }
 
     /// The open panel's width for the tabs. Approvals keep 580 for their rule text.
@@ -187,15 +148,27 @@ struct CollapsedView: View {
     var body: some View {
         HStack(spacing: 0) {
             if layout.showsEars(model) {
-                // Content hugs the hardware notch with the same gap on both sides;
-                // any spare ear width goes to the outer edge.
+                // Each side is sized from its measured content, so whatever it
+                // shows has the same gap to the notch and to the outer edge.
                 let gap = CGFloat(NotchEars.inset)
-                left.padding(.trailing, gap).frame(width: layout.leftEar(model), alignment: .trailing)
+                measured(left) { model.leftEarContent = $0 }
+                    .padding(.trailing, gap).frame(width: layout.leftEar(model), alignment: .trailing)
                 Spacer(minLength: layout.notch.width)
-                right.padding(.leading, gap).frame(width: layout.rightEar(model), alignment: .leading)
+                measured(right) { model.rightEarContent = $0 }
+                    .padding(.leading, gap).frame(width: layout.rightEar(model), alignment: .leading)
             }
         }
         .frame(height: layout.notch.height)
+    }
+
+    /// The content at its own width, reported whenever it changes (0 when empty).
+    private func measured<Content: View>(_ content: Content, _ report: @escaping (CGFloat) -> Void) -> some View {
+        ZStack {
+            Color.clear.frame(width: 0, height: 0)
+            content
+        }
+        .fixedSize()
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report($0) }
     }
 
     @ViewBuilder private var left: some View {
@@ -205,8 +178,11 @@ struct CollapsedView: View {
                 switch peek {
                 case .done(let turn):
                     AgentMark(agent: turn.agent, size: 12)
+                    // A long project name truncates, keeping the side within
+                    // NotchEars.maxWidth: ✓ 15, mark 12, two 5 pt gaps, the text.
                     Text([turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · "))
                         .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        .frame(maxWidth: CGFloat(NotchEars.maxWidth - 2 * NotchEars.inset) - 37, alignment: .leading)
                 case .answered(let agent):
                     AgentMark(agent: agent, size: 12)
                 }
@@ -231,6 +207,8 @@ struct CollapsedView: View {
                         .overlay(alignment: .bottomTrailing) {
                             bubble.background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black)).offset(x: 5, y: 4)
                         }
+                        // Counts the bubble reaching past the corner.
+                        .padding(.trailing, 5)
                 } else {
                     bubble
                 }
@@ -247,6 +225,9 @@ struct CollapsedView: View {
                             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black))
                             .offset(x: 5, y: 4)
                     }
+                    // Counts the bars reaching past the corner; their black
+                    // backing doesn't show on the notch.
+                    .padding(.trailing, 2.5)
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }

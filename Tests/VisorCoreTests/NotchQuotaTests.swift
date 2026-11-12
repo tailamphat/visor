@@ -88,20 +88,6 @@ struct NotchEarsTests {
         #expect(NotchEars.width(content: 500) == NotchEars.maxWidth)
     }
 
-    @Test func quotaColumnsAreSpacedApart() {
-        #expect(NotchEars.quotas(columns: []) == 0)
-        #expect(NotchEars.quotas(columns: [20]) == 20)
-        #expect(NotchEars.quotas(columns: [20, 22, 18]) == 72)
-    }
-
-    /// Music next to busy agents: the artwork with a bars badge on its
-    /// corner, like the app icon's "?", fits the smallest side.
-    @Test func musicBesideAgentsFitsTheSmallestSide() {
-        // The 20 pt artwork and the badge 5 past its corner.
-        #expect(NotchEars.badgedArtwork == 20 + 5)
-        #expect(NotchEars.width(content: NotchEars.badgedArtwork) == 41)
-    }
-
     @Test func unevenEarsShiftTheShapeTowardTheWiderSide() {
         #expect(NotchEars.shift(left: 38, right: 100) == 31)
         #expect(NotchEars.shift(left: 100, right: 38) == -31)

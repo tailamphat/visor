@@ -527,13 +527,6 @@ public struct NotchMarks: Equatable, Sendable {
         return NotchMarks(shown: Array(agents.prefix(2)), more: agents.dropFirst(2).map(\.agent))
     }
 
-    /// What the marks take in the closed notch: each mark (drawn 16 pt wide)
-    /// with its count 2 pt after, 6 apart, then the "+N" chip (4 pt padding each side).
-    public func contentWidth(textWidth: (String) -> Double) -> Double {
-        var parts = shown.map { 16 + ($0.count > 1 ? 2 + textWidth("\($0.count)") : 0) }
-        if !more.isEmpty { parts.append(textWidth("+\(more.count)") + 8) }
-        return parts.reduce(0, +) + Double(max(parts.count - 1, 0)) * 6
-    }
 }
 
 

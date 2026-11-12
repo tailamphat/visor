@@ -174,18 +174,6 @@ struct NotchMarksTests {
         #expect(NotchMarks.make(board, pendingApproval: true).shown.first?.waiting == true)
     }
 
-    @Test func contentWidthIsWhatTheMarksTake() {
-        let text = { (s: String) in Double(s.count) * 6 }
-        let one = NotchMarks(shown: [.init(agent: "Claude Code", count: 1, attention: nil)], more: [])
-        #expect(one.contentWidth(textWidth: text) == 16, "a single mark, no count")
-        let three = NotchMarks(shown: [.init(agent: "Claude Code", count: 3, attention: nil)], more: [])
-        #expect(three.contentWidth(textWidth: text) == 16 + 2 + 6)
-        let two = NotchMarks(shown: [.init(agent: "Claude Code", count: 2, attention: nil),
-                                     .init(agent: "Copilot CLI", count: 1, attention: nil)], more: ["Antigravity"])
-        // mark+count, 6, mark, 6, "+1" chip padded 4 each side
-        #expect(two.contentWidth(textWidth: text) == 24 + 6 + 16 + 6 + (12 + 8))
-        #expect(NotchMarks(shown: [], more: []).contentWidth(textWidth: text) == 0)
-    }
 }
 
 @Suite("Describing what an agent does")
