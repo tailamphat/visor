@@ -33,8 +33,24 @@ struct AgentBoardTests {
         #expect(board.sessions[0].state == .working("Thinking"))
         board.apply(hook("Stop", "{\(base)}"))
         #expect(board.sessions[0].state == .done && !board.sessions[0].isActive)
+        // Claude Code says it's waiting about a minute after every turn; a turn
+        // that asked nothing is still just done.
         board.apply(hook("Notification", #"{\#(base),"notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#))
-        #expect(board.sessions[0].state == .needsInput)
+        #expect(board.sessions[0].state == .done)
+    }
+
+    @Test func waitingAfterATurnThatAskedIsAReply() {
+        for (reply, asks) in [("Should I commit and release 0.3.2?", true),
+                              ("Want me to fix it?**\\n", true),
+                              ("要提交吗？", true),
+                              ("Good. 0.3.2 is out and the cask is updated. Tell me if anything else comes up with Visor.", false),
+                              ("", false)] {
+            var board = AgentBoard()
+            board.apply(hook("UserPromptSubmit", #"{\#(base),"prompt":"go"}"#))
+            board.apply(hook("Stop", #"{\#(base),"last_assistant_message":"\#(reply)"}"#))
+            board.apply(hook("Notification", #"{\#(base),"notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#))
+            #expect(board.sessions[0].state == (asks ? .needsInput : .done), "\(reply)")
+        }
     }
 
     @Test func hostIsRecorded() {

@@ -173,6 +173,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable {
     public var task: String?
     /// When the user last sent it a prompt: the start of the current turn.
     public var turnStart: Date?
+    /// The last finished turn ended by asking you something ("Should I commit?").
+    public var askedForReply = false
 
     public var project: String {
         let name = (cwd as NSString).lastPathComponent
@@ -235,7 +237,9 @@ public struct AgentBoard: Equatable, Sendable {
             let kind = message.payload["notification_type"] as? String ?? ""
             let text = (message.payload["message"] as? String ?? "").lowercased()
             if kind == "idle_prompt" || text.contains("waiting for your input") {
-                next = .needsInput
+                // Claude Code says this about a minute after every finished turn;
+                // it only waits for a reply when the turn ended by asking one.
+                next = sessions[index].state == .done && !sessions[index].askedForReply ? nil : .needsInput
             } else if kind == "permission_prompt" || text.contains("permission") {
                 // Visor's own card already shows this when its hook asked; a question's permission step is still the question.
                 switch sessions[index].state {
@@ -245,13 +249,22 @@ public struct AgentBoard: Equatable, Sendable {
             } else {
                 next = nil
             }
-        case "Stop": next = .done
+        case "Stop":
+            sessions[index].askedForReply = Self.asksForReply(message.payload["last_assistant_message"] as? String ?? "")
+            next = .done
         default: next = nil
         }
         if let next, next != sessions[index].state {
             sessions[index].state = next
             sessions[index].since = now
         }
+    }
+
+    /// Whether a reply ends by asking something: its last character, past
+    /// closing markdown and quotes, is a question mark.
+    static func asksForReply(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "*_`\"')]")))
+        return trimmed.hasSuffix("?") || trimmed.hasSuffix("？")
     }
 
     /// The user answered an approval; the agent carries on.
