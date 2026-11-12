@@ -84,3 +84,26 @@ public struct PlanUsage: Equatable, Sendable {
         return PlanUsage(limits: limits, extra: extra)
     }
 }
+
+/// The Claude plan's name, from the account's live profile
+/// (`/api/oauth/profile`). Claude Code's saved sign-in keeps the plan it
+/// signed in with, so an upgrade wouldn't show until it signed in again.
+public enum ClaudePlan {
+    public static func name(fromProfile data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let organization = object["organization"] as? [String: Any] ?? [:]
+        let account = object["account"] as? [String: Any] ?? [:]
+        if let type = organization["organization_type"] as? String, type.hasPrefix("claude_") {
+            var name = "Claude " + type.dropFirst("claude_".count).capitalized
+            // "default_claude_max_5x" → "5x"
+            if let tier = (organization["rate_limit_tier"] as? String)?.split(separator: "_").last,
+               tier.hasSuffix("x"), tier.dropLast().allSatisfy(\.isNumber) {
+                name += " " + tier
+            }
+            return name
+        }
+        if account["has_claude_max"] as? Bool == true { return "Claude Max" }
+        if account["has_claude_pro"] as? Bool == true { return "Claude Pro" }
+        return nil
+    }
+}

@@ -109,9 +109,15 @@ final class UsageService {
         fetching = true
         let cached = token
         let allowKeychain = !claudeKeychainDenied
+        // Every 15 minutes, and whenever the sign-in is read again (a new token).
+        let wantsProfile = Date().timeIntervalSince(profileRead) > 15 * 60 || cached.map { $0.expires < Date() } ?? true
         work.async {
             var lookup: KeychainLookup?
-            let result = Self.fetchPlan(cached: cached, allowKeychain: allowKeychain, lookup: &lookup)
+            var profileName: String?
+            let result = Self.fetchPlan(cached: cached, allowKeychain: allowKeychain, lookup: &lookup) { token in
+                // The live plan name: the saved sign-in keeps the plan Claude Code signed in with.
+                if wantsProfile { profileName = Self.fetchProfilePlan(token: token) }
+            }
             let usesAPIKey = lookup == .missing && Self.claudeUsesAPIKey()
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -121,11 +127,16 @@ final class UsageService {
                         self.model.claudeLookup = lookup
                         self.model.claudeUsesAPIKey = usesAPIKey
                     }
+                    if let profileName {
+                        self.profileName = profileName
+                        self.profileRead = Date()
+                        self.model.planName = profileName
+                    }
                     switch result {
                     case .success(let fetched):
                         self.token = fetched.token
                         self.model.plan = fetched.plan
-                        if let name = fetched.planName { self.model.planName = name }
+                        if let name = self.profileName ?? fetched.planName { self.model.planName = name }
                         self.model.planError = nil
                         self.model.planUpdated = Date()
                     case .failure(let error):
@@ -445,9 +456,26 @@ final class UsageService {
         var token: (value: String, expires: Date)
     }
 
+    /// The plan name from `/api/oauth/profile`, kept between its 15-minute reads.
+    private var profileName: String?
+    private var profileRead = Date.distantPast
+
+    private nonisolated static func fetchProfilePlan(token: String) -> String? {
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/profile")!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        request.setValue("Visor", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 15
+        guard case .ok(let data) = send(request) else { return nil }
+        return ClaudePlan.name(fromProfile: data)
+    }
+
     /// `lookup` is set when the sign-in was read again (not on a cached token).
+    /// `withToken` runs once the token is known, before the usage request,
+    /// so the plan name can be read even when usage is unavailable.
     private nonisolated static func fetchPlan(cached: (value: String, expires: Date)?, allowKeychain: Bool,
-                                              lookup: inout KeychainLookup?) -> Result<Fetched, PlanError> {
+                                              lookup: inout KeychainLookup?,
+                                              withToken: (String) -> Void = { _ in }) -> Result<Fetched, PlanError> {
         var credentials: Credentials?
         if cached == nil || cached!.expires < Date() {
             let read = readCredentials(allowKeychain: allowKeychain)
@@ -460,6 +488,7 @@ final class UsageService {
             }
         }
         let token = credentials.map { ($0.token, $0.expires) } ?? cached!
+        withToken(token.0)
         switch request(token: token.0) {
         case .ok(let data):
             guard let plan = PlanUsage.parse(data) else { return .failure(PlanError(message: "Couldn't read plan usage.")) }

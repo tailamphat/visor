@@ -313,3 +313,28 @@ struct AntigravityUsageTests {
         #expect(usage.limits.map(\.id) == ["ok"])
     }
 }
+
+@Suite("Claude plan name")
+struct ClaudePlanNameTests {
+    func profile(_ type: String, _ tier: String, max: Bool = false, pro: Bool = false) -> Data {
+        Data(#"{"account":{"has_claude_max":\#(max),"has_claude_pro":\#(pro)},"organization":{"organization_type":"\#(type)","rate_limit_tier":"\#(tier)"}}"#.utf8)
+    }
+
+    /// The live profile, not the plan Claude Code saved when it signed in:
+    /// switching Pro to Max shows straight away.
+    @Test func maxWithItsTier() {
+        #expect(ClaudePlan.name(fromProfile: profile("claude_max", "default_claude_max_5x", max: true)) == "Claude Max 5x")
+        #expect(ClaudePlan.name(fromProfile: profile("claude_max", "default_claude_max_20x", max: true)) == "Claude Max 20x")
+    }
+
+    @Test func proAndTeam() {
+        #expect(ClaudePlan.name(fromProfile: profile("claude_pro", "default_claude_ai", pro: true)) == "Claude Pro")
+        #expect(ClaudePlan.name(fromProfile: profile("claude_team", "default_claude_team")) == "Claude Team")
+    }
+
+    @Test func accountFlagsWhenTheOrganizationSaysNothing() {
+        #expect(ClaudePlan.name(fromProfile: Data(#"{"account":{"has_claude_max":true}}"#.utf8)) == "Claude Max")
+        #expect(ClaudePlan.name(fromProfile: Data(#"{"account":{}}"#.utf8)) == nil)
+        #expect(ClaudePlan.name(fromProfile: Data("nope".utf8)) == nil)
+    }
+}
