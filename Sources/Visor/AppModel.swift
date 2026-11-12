@@ -87,15 +87,25 @@ final class AppModel {
     var peek: Peek?
 
     // Usage
-    var plan: PlanUsage?
+    var plan: PlanUsage? {
+        didSet { plan?.limits.forEach { usageHistory.record(UsageKey.claude($0.kind), used: $0.percentUsed) } }
+    }
     var planName: String?
     var planError: String?
     var planUpdated: Date?
     var spend: SpendSummary?
     /// Copilot plans with premium requests, company (*.ghe.com) first.
-    var copilot: [CopilotUsage] = []
+    var copilot: [CopilotUsage] = [] {
+        didSet {
+            for usage in copilot where usage.isTracked && !usage.premiumUnlimited {
+                usageHistory.record(UsageKey.copilot(usage.host), used: 100 - usage.percentLeft)
+            }
+        }
+    }
     /// Antigravity quotas, read on demand from `agy -p /usage`.
-    var antigravity: AntigravityUsage?
+    var antigravity: AntigravityUsage? {
+        didSet { antigravity?.limits.forEach { usageHistory.record(UsageKey.antigravity($0.id), used: $0.percentUsed) } }
+    }
     var antigravityError: String?
     var antigravityUpdated: Date?
     var antigravityLoading = false
@@ -104,11 +114,21 @@ final class AppModel {
     var openCodeError: String?
     var openCodeUpdated: Date?
     /// OpenCode Go limits, when the user signed in with a Go key.
-    var openCodeGo: OpenCodeGoUsage?
+    var openCodeGo: OpenCodeGoUsage? {
+        didSet { openCodeGo?.limits.forEach { usageHistory.record(UsageKey.openCode($0.id), used: $0.percentUsed) } }
+    }
+    /// Recent readings of every limit, for the burn-rate forecasts.
+    @ObservationIgnored var usageHistory = UsageHistory()
+
+    /// When a limit runs out at the current pace, or what's left at its reset.
+    func forecast(_ key: String, used: Double, resetsAt: Date?, window: TimeInterval?) -> BurnForecast? {
+        BurnForecast.make(used: used, resetsAt: resetsAt, window: window, history: usageHistory.samples(key))
+    }
 
     /// Connected agent quotas displayed side-by-side in the closed notch's right ear.
     var quotas: [NotchQuota] {
-        NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo)
+        NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo,
+                               forecast: forecast)
             .filter { quota in !hiddenProviders.contains { $0.agent == quota.agent } }
     }
 

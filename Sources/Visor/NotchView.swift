@@ -29,7 +29,7 @@ struct NotchLayout {
         if model.attentionNote != nil || model.isPlaying || model.quotas.isEmpty { return CGFloat(NotchEars.minWidth) }
         let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
         // Each column is its mark (10) over its percent, as wide as the wider one.
-        let columns = model.quotas.map { max(10, Self.textWidth("\(Int($0.percentLeft.rounded()))%", font)) }
+        let columns = model.quotas.map { max(10, Self.textWidth($0.text, font)) }
         return CGFloat(NotchEars.width(content: NotchEars.quotas(columns: columns)))
     }
 
@@ -245,15 +245,16 @@ struct CollapsedView: View {
                         // Always the agent's own colour, so each is recognisable;
                         // the percent below carries the warning colour.
                         AgentMark(agent: quota.agent, size: 10)
-                        Text("\(Int(quota.percentLeft.rounded()))%")
+                        // The time left when it runs out within the hour.
+                        Text(quota.text)
                             .font(.system(size: 9, weight: .semibold).monospacedDigit())
                             .lineLimit(1)
                             .fixedSize()
-                            .foregroundStyle(quota.percentLeft <= 10 ? Theme.critical
-                                : quota.percentLeft <= 25 ? Theme.warning
+                            .foregroundStyle(quota.level == .critical ? Theme.critical
+                                : quota.level == .warning ? Theme.warning
                                 : Theme.textSecondary)
                     }
-                    .help(quota.label)
+                    .help(quota.runsOutSoon ? quota.label + ", runs out in " + quota.text + " at this pace" : quota.label)
                 }
             }
         }

@@ -357,7 +357,11 @@ struct UsageView: View {
                 if model.shows(.openCode) { OpenCodeBlock(model: model) }
                 // No usage column, but the meters line up with the rows above.
                 VStack(alignment: .leading, spacing: 20) {
-                    if model.shows(.copilot) { ForEach(model.copilot, id: \.host) { CopilotBlock(usage: $0) } }
+                    if model.shows(.copilot) { ForEach(model.copilot, id: \.host) { usage in
+                        CopilotBlock(usage: usage, forecast: usage.premiumUnlimited ? nil
+                            : model.forecast(UsageKey.copilot(usage.host), used: 100 - usage.percentLeft, resetsAt: usage.resetsAt,
+                                             window: usage.resetsAt.flatMap { BurnForecast.monthWindow(endingAt: $0) }))
+                    } }
                     if model.shows(.antigravity) { AntigravityBlock(model: model) }
                 }
                 .padding(.trailing, UsageColumns.usageWidth + UsageColumns.spacing)
@@ -381,7 +385,10 @@ struct UsageView: View {
                 if let plan = model.plan {
                     ForEach(plan.limits.prefix(3)) { limit in
                         LimitMeter(title: limit.title, used: limit.percentUsed,
-                                   caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" })
+                                   caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" },
+                                   forecast: model.forecast(UsageKey.claude(limit.kind), used: limit.percentUsed, resetsAt: limit.resetsAt,
+                                                            window: BurnForecast.window(claude: limit.kind)),
+                                   resetsAt: limit.resetsAt)
                     }
                     if let extra = plan.extra {
                         Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
@@ -540,6 +547,7 @@ struct ProviderHeader<Note: View>: View {
 /// Copilot's premium requests for one account.
 struct CopilotBlock: View {
     let usage: CopilotUsage
+    var forecast: BurnForecast?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -547,7 +555,9 @@ struct CopilotBlock: View {
             if usage.premiumUnlimited {
                 LimitMeter(title: "Premium requests", used: 0, caption: caption, unlimited: true)
             } else {
-                LimitMeter(title: "Premium requests", used: 100 - usage.percentLeft, caption: caption)
+                LimitMeter(title: "Premium requests", used: 100 - usage.percentLeft, caption: caption,
+                           forecast: forecast, resetsAt: usage.resetsAt,
+                           detail: "\(usage.premiumUsed.formatted()) of \(usage.premiumEntitlement.formatted())")
             }
             if usage.completionsUnlimited || usage.chatUnlimited || usage.overagePermitted {
                 // The overage chip goes first when the row is too narrow for all three,
@@ -608,7 +618,10 @@ struct AntigravityBlock: View {
                 if let usage = model.antigravity {
                     ForEach(usage.limits) { limit in
                         LimitMeter(title: limit.title, used: limit.percentUsed,
-                                   caption: limit.resetsAt.map { "Resets " + $0.formatted(.dateTime.day().month(.abbreviated)) })
+                                   caption: limit.resetsAt.map { "Resets " + $0.formatted(.dateTime.day().month(.abbreviated)) },
+                                   forecast: model.forecast(UsageKey.antigravity(limit.id), used: limit.percentUsed,
+                                                            resetsAt: limit.resetsAt, window: nil),
+                                   resetsAt: limit.resetsAt)
                     }
                     if let error = model.antigravityError {
                         Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
@@ -640,7 +653,10 @@ struct OpenCodeBlock: View {
                     if let go = model.openCodeGo {
                         ForEach(go.limits) { limit in
                             LimitMeter(title: limit.title, used: limit.percentUsed,
-                                       caption: limit.resetsAt.map { "Resets " + LimitMeter.resetText($0) })
+                                       caption: limit.resetsAt.map { "Resets " + LimitMeter.resetText($0) },
+                                       forecast: model.forecast(UsageKey.openCode(limit.id), used: limit.percentUsed, resetsAt: limit.resetsAt,
+                                                                window: BurnForecast.window(openCode: limit.id, resetsAt: limit.resetsAt)),
+                                       resetsAt: limit.resetsAt)
                         }
                     }
                     if let usage = model.openCode {
@@ -703,6 +719,11 @@ struct LimitMeter: View {
     let used: Double
     var caption: String?
     var unlimited = false
+    /// At this pace: when it runs out, or what's left at the reset. Replaces the caption.
+    var forecast: BurnForecast? = nil
+    var resetsAt: Date? = nil
+    /// Appended to the forecast ("83 of 300").
+    var detail: String? = nil
 
     var body: some View {
         let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
@@ -728,11 +749,40 @@ struct LimitMeter: View {
                 }
             }
             .frame(height: 6)
-            if let caption, !caption.isEmpty {
+            if let forecast, let resetsAt {
+                forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(1)
+            } else if let caption, !caption.isEmpty {
                 Text(caption).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// "Runs out in ~1h 15m · resets in 2h 10m", "On pace · ~5% left when it resets Fri 09:00".
+    private func forecastText(_ forecast: BurnForecast, resetsAt: Date) -> Text {
+        let now = Date()
+        var head: Text, tail: String
+        switch forecast {
+        case .runsOut(let at):
+            let seconds = at.timeIntervalSince(now)
+            let when = BurnForecast.duration(seconds).map { "in ~" + $0 }
+                ?? "~" + at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+            head = Text("Runs out " + when).foregroundColor(seconds < 15 * 60 ? Theme.critical : Theme.warning)
+            let days = Int(resetsAt.timeIntervalSince(at) / 86_400)
+            tail = resetsAt.timeIntervalSince(now) < 86_400 || days < 1
+                ? "resets " + Self.resetPhrase(resetsAt)
+                : "\(days) day\(days == 1 ? "" : "s") before reset"
+        case .lasts(let left):
+            head = Text("On pace").foregroundColor(Theme.onPace)
+            tail = "~\(Int(left.rounded()))% left when it resets " + Self.resetPhrase(resetsAt)
+        }
+        if let detail { tail += " · " + detail }
+        return head + Text(" · " + tail).foregroundColor(Theme.textMuted)
+    }
+
+    /// "in 2h 10m", "Fri 09:00", or "1 Dec" a week or more away.
+    static func resetPhrase(_ date: Date) -> String {
+        date.timeIntervalSinceNow < 7 * 86_400 ? resetText(date) : date.formatted(.dateTime.day().month(.abbreviated))
     }
 
     static func resetText(_ date: Date) -> String {

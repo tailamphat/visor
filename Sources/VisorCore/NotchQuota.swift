@@ -6,11 +6,30 @@ public struct NotchQuota: Equatable, Sendable, Identifiable {
     public var agent: String
     public var percentLeft: Double
     public var label: String
+    /// Seconds until it runs out at the current pace, when that's before it resets.
+    public var runsOutIn: TimeInterval?
 
-    public init(agent: String, percentLeft: Double, label: String) {
+    public init(agent: String, percentLeft: Double, label: String, runsOutIn: TimeInterval? = nil) {
         self.agent = agent
         self.percentLeft = percentLeft
         self.label = label
+        self.runsOutIn = runsOutIn
+    }
+
+    /// Runs out within the hour: worth slowing down, so the notch says when.
+    public var runsOutSoon: Bool { runsOutIn.map { $0 < 3600 } ?? false }
+
+    /// Under the mark: "42m" when it runs out soon, else "36%".
+    public var text: String {
+        if runsOutSoon, let runsOutIn, let time = BurnForecast.duration(runsOutIn) { return time }
+        return "\(Int(percentLeft.rounded()))%"
+    }
+
+    public enum Level: Sendable { case normal, warning, critical }
+
+    public var level: Level {
+        if let runsOutIn, runsOutSoon { return runsOutIn < 15 * 60 ? .critical : .warning }
+        return percentLeft <= 10 ? .critical : percentLeft <= 25 ? .warning : .normal
     }
 }
 
@@ -21,20 +40,30 @@ public enum NotchQuotaSummary {
     public static func make(plan: PlanUsage?,
                             antigravity: AntigravityUsage?,
                             copilot: [CopilotUsage],
-                            openCode: OpenCodeGoUsage? = nil) -> [NotchQuota] {
+                            openCode: OpenCodeGoUsage? = nil,
+                            forecast: (_ key: String, _ used: Double, _ resetsAt: Date?, _ window: TimeInterval?) -> BurnForecast? = { _, _, _, _ in nil },
+                            now: Date = Date()) -> [NotchQuota] {
         var result: [NotchQuota] = []
+        func runsOutIn(_ key: String, _ used: Double, _ resetsAt: Date?, _ window: TimeInterval?) -> TimeInterval? {
+            guard case .runsOut(let at) = forecast(key, used, resetsAt, window) else { return nil }
+            return at.timeIntervalSince(now)
+        }
 
         // 1. Claude Code
         if let session = plan?.session {
             let left = session.percentLeft
             result.append(NotchQuota(agent: "Claude Code",
                                      percentLeft: left,
-                                     label: "Claude: \(Int(left.rounded()))% 5h session"))
+                                     label: "Claude: \(Int(left.rounded()))% 5h session",
+                                     runsOutIn: runsOutIn(UsageKey.claude(session.kind), session.percentUsed, session.resetsAt,
+                                                          BurnForecast.window(claude: session.kind))))
         } else if let first = plan?.limits.first {
             let left = first.percentLeft
             result.append(NotchQuota(agent: "Claude Code",
                                      percentLeft: left,
-                                     label: "Claude: \(Int(left.rounded()))% \(first.title.lowercased())"))
+                                     label: "Claude: \(Int(left.rounded()))% \(first.title.lowercased())",
+                                     runsOutIn: runsOutIn(UsageKey.claude(first.kind), first.percentUsed, first.resetsAt,
+                                                          BurnForecast.window(claude: first.kind))))
         }
 
         // 2. Antigravity
@@ -42,7 +71,8 @@ public enum NotchQuotaSummary {
             let lowest = limits.min(by: { $0.percentLeft < $1.percentLeft }) ?? limits[0]
             result.append(NotchQuota(agent: "Antigravity",
                                      percentLeft: lowest.percentLeft,
-                                     label: "Antigravity: \(Int(lowest.percentLeft.rounded()))% \(lowest.title.lowercased())"))
+                                     label: "Antigravity: \(Int(lowest.percentLeft.rounded()))% \(lowest.title.lowercased())",
+                                     runsOutIn: runsOutIn(UsageKey.antigravity(lowest.id), lowest.percentUsed, lowest.resetsAt, nil)))
         }
 
         // 3. Copilot CLI
@@ -50,7 +80,10 @@ public enum NotchQuotaSummary {
             let left = tracked.percentLeft
             result.append(NotchQuota(agent: "Copilot CLI",
                                      percentLeft: left,
-                                     label: "Copilot: \(Int(left.rounded()))% premium requests"))
+                                     label: "Copilot: \(Int(left.rounded()))% premium requests",
+                                     runsOutIn: tracked.premiumUnlimited ? nil
+                                        : runsOutIn(UsageKey.copilot(tracked.host), 100 - left, tracked.resetsAt,
+                                                    tracked.resetsAt.flatMap { BurnForecast.monthWindow(endingAt: $0) })))
         }
 
         // 4. OpenCode Go
@@ -58,7 +91,9 @@ public enum NotchQuotaSummary {
             let left = lowest.percentLeft
             result.append(NotchQuota(agent: "OpenCode",
                                      percentLeft: left,
-                                     label: "OpenCode: \(Int(left.rounded()))% \(lowest.title.lowercased())"))
+                                     label: "OpenCode: \(Int(left.rounded()))% \(lowest.title.lowercased())",
+                                     runsOutIn: runsOutIn(UsageKey.openCode(lowest.id), lowest.percentUsed, lowest.resetsAt,
+                                                          BurnForecast.window(openCode: lowest.id, resetsAt: lowest.resetsAt))))
         }
 
         return result
