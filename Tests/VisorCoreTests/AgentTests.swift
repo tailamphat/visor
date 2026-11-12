@@ -69,6 +69,26 @@ struct AgentBoardTests {
         #expect(board.sessions.isEmpty)
     }
 
+    @Test func sessionsSurviveARestart() throws {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"Fix the build\"}"))
+        board.setHost("Ghostty", session: "s1")
+        board.apply(hook("Stop", pid: 5151, #"{"session_id":"s2","cwd":"/Users/me/docs","last_assistant_message":"Should I commit?"}"#))
+        board.apply(hook("Notification", pid: 5151, #"{"session_id":"s2","notification_type":"idle_prompt"}"#))
+
+        let restored = try AgentBoard.restored(from: board.saved()) { $0 == 4242 || $0 == 5151 }
+        #expect(restored.sessions.map(\.id) == ["s1", "s2"])
+        #expect(restored.sessions[0].host == "Ghostty")
+        #expect(restored.sessions[0].task == "Fix the build")
+        // Whatever it was doing may have ended while Visor was away; its next event says.
+        #expect(restored.sessions[0].state == .idle)
+        #expect(restored.sessions[1].state == .needsInput, "still waiting for you")
+
+        let oneGone = try AgentBoard.restored(from: board.saved()) { $0 == 5151 }
+        #expect(oneGone.sessions.map(\.id) == ["s2"], "exited agents are dropped")
+        #expect(AgentBoard.restored(from: Data("junk".utf8)) { _ in true }.sessions.isEmpty)
+    }
+
     @Test func sessionEndRemovesIt() {
         var board = AgentBoard()
         board.apply(hook("SessionStart", "{\(base)}"))

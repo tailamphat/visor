@@ -23,7 +23,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var agents = AgentBoard()
 
     private func publishAgents() {
-        if agents.differsVisibly(from: model.board) { model.board = agents }
+        guard agents.differsVisibly(from: model.board) else { return }
+        model.board = agents
+        saveAgentsSoon()
+    }
+
+    // MARK: Sessions across restarts
+
+    private static var sessionsURL: URL {
+        #if DEBUG
+        HookServer.directory.appendingPathComponent("sessions-debug.json")
+        #else
+        HookServer.directory.appendingPathComponent("sessions.json")
+        #endif
+    }
+    private var saveAgentsWork: DispatchWorkItem?
+
+    /// At most once a second, off the main thread.
+    private func saveAgentsSoon() {
+        guard saveAgentsWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.saveAgentsWork = nil
+                guard let data = try? self.agents.saved() else { return }
+                DispatchQueue.global(qos: .utility).async { try? data.write(to: Self.sessionsURL, options: .atomic) }
+            }
+        }
+        saveAgentsWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+    }
+
+    /// The agents that were running before Visor (re)started.
+    private func restoreAgents() {
+        guard let data = try? Data(contentsOf: Self.sessionsURL) else { return }
+        agents = AgentBoard.restored(from: data) { kill($0, 0) == 0 || errno == EPERM }
+        for session in agents.sessions {
+            guard let host = session.host, model.hostIcons[host] == nil,
+                  let app = ProcessTree.hostAppPath(of: session.pid) else { continue }
+            model.hostIcons[host] = NSWorkspace.shared.icon(forFile: app)
+        }
+        publishAgents()
     }
 
     // MARK: Copilot approvals
@@ -65,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
         model.focusAgent = { [weak self] session in self?.focus(session) }
 
+        restoreAgents()
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
         do { try hooks.start() } catch { NSLog("Visor: hook socket failed: \(error)") }

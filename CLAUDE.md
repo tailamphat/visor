@@ -42,6 +42,8 @@ Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Vis
 - The terminal shows its own prompt while Visor holds a hook; answering there makes Claude Code drop the hook.
 - Questions (Claude Code's `AskUserQuestion`): `PreToolUse` sets the session to asking; the notch shows a blue "?" but no card, and does not open. On `PermissionRequest`, reply with no output at once so the terminal's own prompt answers it. The Agents row (click) brings the host app forward; `AgentQuestion` only parses the label. A `PostToolUse` for the tool shows the "Answered" peek.
 - Antigravity CLI (`agy`): hooks live in `~/.gemini/config/hooks.json` (top-level named hooks; tool events use the nested `matcher`/`hooks` shape, lifecycle events the flat shape). `agent-hook.sh` takes the provider first (`antigravity <Event>`). `PreInvocation` with `invocationNum == 0` starts a turn; later invocations are just "Thinking". `PreToolUse` prints `{"decision":"allow"}` to defer to agy's own permissions, so the notch shows sessions and activity but approvals stay in the terminal. Set `VISOR_USAGE_PROBE=1` on `agy -p /usage` runs so the quota check never shows up as a session.
+- Sessions are saved to `sessions.json` (debug builds: `sessions-debug.json`) and restored on launch, minus agents whose process has exited; agents only send events when something happens, so without it an idle session stays missing after a restart until its next turn.
+- The notch window never resizes (resizing it mid-animation drew text outside the panel); it ignores the mouse except over the open panel.
 - Closed notch: amber "!" bubble = approval, blue "?" bubble = question or waiting for a reply, green check = done or answered.
 
 ## Music

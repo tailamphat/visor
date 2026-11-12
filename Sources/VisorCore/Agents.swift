@@ -131,7 +131,7 @@ public struct HookMessage: @unchecked Sendable {
     public var toolInput: [String: Any] { payload["tool_input"] as? [String: Any] ?? [:] }
 }
 
-public enum AgentState: Equatable, Sendable {
+public enum AgentState: Equatable, Sendable, Codable {
     case idle
     case working(String)
     case needsApproval(String)
@@ -157,7 +157,7 @@ public enum Attention: Int, Comparable, Sendable {
     public static func < (a: Attention, b: Attention) -> Bool { a.rawValue < b.rawValue }
 }
 
-public struct AgentSession: Equatable, Sendable, Identifiable {
+public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var id: String
     public var pid: Int32
     public var cwd: String
@@ -272,6 +272,25 @@ public struct AgentBoard: Equatable, Sendable {
         guard let i = sessions.firstIndex(where: { $0.id == id }), case .needsApproval = sessions[i].state else { return }
         sessions[i].state = .working("Thinking")
         sessions[i].since = now
+    }
+
+    /// The sessions, to restore after Visor restarts: agents only speak when
+    /// something happens, so an idle one would stay missing until its next turn.
+    public func saved() throws -> Data { try JSONEncoder().encode(sessions) }
+
+    /// Sessions saved before a restart whose agent is still running. Working
+    /// and approving may have ended meanwhile, so they start idle until the
+    /// next event; a question or a finished turn still waits for you.
+    public static func restored(from data: Data, isAlive: (Int32) -> Bool) -> AgentBoard {
+        var board = AgentBoard()
+        board.sessions = ((try? JSONDecoder().decode([AgentSession].self, from: data)) ?? []).filter { $0.pid > 0 && isAlive($0.pid) }
+        for i in board.sessions.indices {
+            switch board.sessions[i].state {
+            case .working, .needsApproval: board.sessions[i].state = .idle
+            case .idle, .asking, .needsInput, .done: break
+            }
+        }
+        return board
     }
 
     /// Drops sessions whose Claude Code process has exited.
