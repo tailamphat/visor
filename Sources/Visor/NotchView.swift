@@ -242,10 +242,9 @@ struct CollapsedView: View {
                 ForEach(model.quotas) { quota in
                     // Mark on top, percent below, so each agent is one narrow column.
                     VStack(spacing: 1.5) {
-                        AgentMark(agent: quota.agent, size: 10,
-                                  color: quota.percentLeft <= 10 ? Theme.critical
-                                      : quota.percentLeft <= 25 ? Theme.warning
-                                      : Color(nsColor: AgentStyle.mark(quota.agent)))
+                        // Always the agent's own colour, so each is recognisable;
+                        // the percent below carries the warning colour.
+                        AgentMark(agent: quota.agent, size: 10)
                         Text("\(Int(quota.percentLeft.rounded()))%")
                             .font(.system(size: 9, weight: .semibold).monospacedDigit())
                             .lineLimit(1)
