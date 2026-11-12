@@ -109,13 +109,15 @@ public enum NotchEars {
     /// Room between the content and the hardware notch, the same on both sides.
     public static let inset = 8.0
 
+    /// The content with `inset` on both sides, so every ear has the same room
+    /// to the notch and to its outer edge. Nothing to show: no ear.
     public static func width(content: Double) -> Double {
-        min(maxWidth, max(minWidth, (content + 2 * inset).rounded(.up)))
+        content > 0 ? min(maxWidth, (content + 2 * inset).rounded(.up)) : 0
     }
 
-    /// Music on the right while agents have the left: the gap to the notch,
-    /// the 20 pt artwork, and its playing badge reaching 5 pt past the corner.
-    public static let badgedArtwork = inset + 20 + 5
+    /// Music on the right while agents have the left: the 20 pt artwork and
+    /// its playing badge reaching 5 pt past the corner.
+    public static let badgedArtwork = 20.0 + 5
 
     /// Quota columns side by side, 6 apart.
     public static func quotas(columns: [Double]) -> Double {

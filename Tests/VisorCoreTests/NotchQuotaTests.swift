@@ -79,8 +79,10 @@ struct NotchQuotaTests {
 
 @Suite("Notch ears")
 struct NotchEarsTests {
-    @Test func widthFitsContentWithinBounds() {
-        #expect(NotchEars.width(content: 10) == NotchEars.minWidth)
+    /// Every side: the content with the same gap to the notch and to the outer edge.
+    @Test func widthIsContentWithTheSameInsetEachSide() {
+        #expect(NotchEars.width(content: 12) == 12 + 2 * NotchEars.inset)
+        #expect(NotchEars.width(content: 0) == 0, "nothing to show: no ear")
         #expect(NotchEars.width(content: 60) == 60 + 2 * NotchEars.inset)
         #expect(NotchEars.width(content: 60.2) == 77)
         #expect(NotchEars.width(content: 500) == NotchEars.maxWidth)
@@ -95,9 +97,9 @@ struct NotchEarsTests {
     /// Music next to busy agents: the artwork with a bars badge on its
     /// corner, like the app icon's "?", fits the smallest side.
     @Test func musicBesideAgentsFitsTheSmallestSide() {
-        // 8 from the notch, the 20 pt artwork, the badge 5 past its corner.
-        #expect(NotchEars.badgedArtwork == 8 + 20 + 5)
-        #expect(NotchEars.badgedArtwork <= NotchEars.minWidth)
+        // The 20 pt artwork and the badge 5 past its corner.
+        #expect(NotchEars.badgedArtwork == 20 + 5)
+        #expect(NotchEars.width(content: NotchEars.badgedArtwork) == 41)
     }
 
     @Test func unevenEarsShiftTheShapeTowardTheWiderSide() {

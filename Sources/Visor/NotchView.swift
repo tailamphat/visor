@@ -17,8 +17,14 @@ struct NotchLayout {
             }
             return CGFloat(NotchEars.width(content: content))
         }
-        if model.hasActivity { return CGFloat(NotchMarks.earWidth(agents: model.board.activeAgents.count)) }
-        return CGFloat(NotchEars.minWidth)
+        if model.hasActivity {
+            let marks = NotchMarks.make(model.board, approvalsFrom: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
+            return CGFloat(NotchEars.width(content: marks.contentWidth { text in
+                text.hasPrefix("+") ? Self.textWidth(text, .systemFont(ofSize: 9, weight: .bold))
+                    : Self.textWidth(text, .monospacedDigitSystemFont(ofSize: 10, weight: .bold))
+            }))
+        }
+        return CGFloat(NotchEars.width(content: model.isPlaying ? 20 : 0))
     }
 
     /// The right ear: "Answered", the attention bubble, music, or the quota columns.
@@ -26,7 +32,14 @@ struct NotchLayout {
         if let peek = model.peek, case .answered = peek {
             return CGFloat(NotchEars.width(content: Self.textWidth("Answered", .monospacedDigitSystemFont(ofSize: 11, weight: .medium))))
         }
-        if model.attentionNote != nil || model.isPlaying || model.quotas.isEmpty { return CGFloat(NotchEars.minWidth) }
+        if let note = model.attentionNote {
+            // The app icon with its bubble 5 pt past the corner, or the bubble alone (drawn 17 pt wide).
+            return CGFloat(NotchEars.width(content: note.icon == nil ? 17 : 18 + 5))
+        }
+        if model.isPlaying {
+            let bars = 3 * 3 + 2 * 2.5
+            return CGFloat(NotchEars.width(content: model.hasActivity || model.peek != nil ? NotchEars.badgedArtwork : bars))
+        }
         let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
         // Each column is its mark (10) over its percent, as wide as the wider one.
         let columns = model.quotas.map { max(10, Self.textWidth($0.text, font)) }
