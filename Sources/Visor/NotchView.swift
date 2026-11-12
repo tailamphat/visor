@@ -171,22 +171,33 @@ struct CollapsedView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report($0) }
     }
 
+    /// Whose badge a peek shows, and its hover text.
+    private static func describe(_ peek: Peek) -> (agent: String, help: String) {
+        switch peek {
+        case .done(let turn):
+            let detail = [turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · ")
+            return (turn.agent, "\(turn.agent) finished" + (detail.isEmpty ? "" : ": " + detail))
+        case .answered(let agent):
+            return (agent, "\(agent): answered")
+        }
+    }
+
     @ViewBuilder private var left: some View {
         if let peek = model.peek {
-            HStack(spacing: 5) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.good).font(.system(size: 13))
-                switch peek {
-                case .done(let turn):
-                    AgentMark(agent: turn.agent, size: 12)
-                    // A long project name truncates, keeping the side within
-                    // NotchEars.maxWidth: ✓ 15, mark 12, two 5 pt gaps, the text.
-                    Text([turn.project, turn.durationText].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                        .frame(maxWidth: CGFloat(NotchEars.maxWidth - 2 * NotchEars.inset) - 37, alignment: .leading)
-                case .answered(let agent):
-                    AgentMark(agent: agent, size: 12)
+            // The agent's mark with a green ✓ on its corner, like the "?" and
+            // "!" badges on the right; the project and time are in the hover text.
+            let (agent, help) = Self.describe(peek)
+            AgentMark(agent: agent, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white, Theme.good)
+                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black).padding(-1.5))
+                        .offset(x: 5, y: 4)
                 }
-            }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(help)
         } else if model.hasActivity {
             AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
         } else if model.isPlaying {
