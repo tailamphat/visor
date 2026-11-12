@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Visor turns the MacBook notch into a small control room for Claude Code, Copilot CLI, Antigravity and OpenCode.">
 <title>Visor for macOS</title>
+<link rel="icon" href="assets/visor-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   /* An issue of a small magazine: art up top, a dated byline, a warm headline,
      then one short story per feature, each with a framed picture of the notch. */
@@ -20,7 +21,7 @@
     --rule: #E1D9CB;
     --link: #B5532F;
     --frame-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 40px -18px rgba(60,40,20,.35);
-    --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+    --serif: "Fraunces", "Iowan Old Style", Georgia, serif;
     --sans: "Inter", -apple-system, "Helvetica Neue", sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --sf: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -52,18 +53,13 @@
   /* ---------- Top bar ---------- */
   nav { display: flex; align-items: center; justify-content: space-between; height: 64px; font-size: 14px; }
   .brand { display: flex; align-items: center; gap: 10px; font: 600 16px var(--sans); color: var(--ink); text-decoration: none; }
-  .brand i { width: 26px; height: 15px; background: var(--ink); border-radius: 0 0 6px 6px; display: block; }
+  .brand img { width: 30px; height: 30px; display: block; }
   nav .links { display: flex; gap: 22px; }
   nav .links a { color: var(--ink-2); text-decoration: none; }
   nav .links a:hover { color: var(--ink); }
 
   /* ---------- Hero: the wallpaper as the painting, the live notch on it ---------- */
-  .art { border-radius: 22px; overflow: hidden; position: relative; box-shadow: var(--frame-shadow);
-    background:
-      radial-gradient(ellipse at 15% 95%, rgba(242,140,100,.85), transparent 45%),
-      radial-gradient(ellipse at 85% 85%, rgba(91,155,255,.75), transparent 50%),
-      radial-gradient(ellipse at 50% 125%, rgba(224,81,138,.6), transparent 55%),
-      linear-gradient(172deg, #262A63 0%, #4F4495 42%, #835DAE 72%, #C9789A 100%); }
+  .art { border-radius: 22px; overflow: hidden; position: relative; isolation: isolate; box-shadow: var(--frame-shadow); background: #3B3A78; }
   .menubar { height: 30px; background: rgba(240,238,245,.55); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font: 500 13px var(--sf); color: #1d1d1f; }
   .menubar .l, .menubar .r { display: flex; gap: 18px; }
@@ -179,7 +175,7 @@
   .byline { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--ink-3); margin: 56px 0 14px; flex-wrap: wrap; }
   .byline b { color: var(--ink); font-weight: 600; }
   .byline .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-3); }
-  h1 { font: 400 clamp(46px, 8vw, 80px)/1 var(--serif); letter-spacing: -.01em; margin: 0 0 22px; text-wrap: balance; }
+  h1 { font: 400 clamp(42px, 7vw, 68px)/1.04 var(--serif); letter-spacing: -.025em; font-variation-settings: "SOFT" 100; margin: 0 0 22px; text-wrap: balance; }
   h1 em { font-style: italic; color: var(--link); }
   .lede { font-size: 20px; line-height: 1.6; color: var(--ink-2); margin: 0 0 26px; }
   .lede b { color: var(--ink); font-weight: 600; }
@@ -189,7 +185,7 @@
   .small { font-size: 14px; color: var(--ink-3); margin-top: 10px; }
 
   article section { margin-top: 84px; }
-  h2 { font: 400 clamp(34px, 5vw, 44px)/1.08 var(--serif); letter-spacing: -.005em; margin: 0 0 16px; text-wrap: balance; }
+  h2 { font: 400 clamp(30px, 4.4vw, 38px)/1.12 var(--serif); letter-spacing: -.02em; margin: 0 0 16px; text-wrap: balance; }
   article p { margin: 0 0 16px; }
   .avail { font-size: 14px; color: var(--ink-3); margin-top: 18px; }
   .avail svg { width: 15px; height: 15px; vertical-align: -3px; margin-right: 6px; }
@@ -197,10 +193,8 @@
 
   /* A picture of the notch: wallpaper in a soft frame, the panel hanging from the top. */
   figure { margin: 28px 0 0; }
-  .shot { border-radius: 18px; overflow: hidden; position: relative; box-shadow: var(--frame-shadow); padding: 0 16px 28px;
-    background: radial-gradient(ellipse at 10% 100%, rgba(242,140,100,.7), transparent 50%), radial-gradient(ellipse at 90% 90%, rgba(91,155,255,.6), transparent 55%), linear-gradient(170deg, #2E3270, #6A55A8 60%, #B9739E); }
-  .shot.warm { background: radial-gradient(ellipse at 20% 100%, rgba(255,190,120,.8), transparent 55%), linear-gradient(170deg, #5B2E4A, #A9506A 55%, #E7966E); }
-  .shot.sea { background: radial-gradient(ellipse at 80% 100%, rgba(120,220,200,.6), transparent 55%), linear-gradient(170deg, #12324F, #1F6A8A 60%, #57A7A0); }
+  .shot { border-radius: 18px; overflow: hidden; position: relative; isolation: isolate; box-shadow: var(--frame-shadow); padding: 0 16px 28px; background: #2B2766; }
+  .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
   .np { background: #000; color: #fff; border-radius: 0 0 22px 22px; margin: 0 auto; padding: 14px 18px 18px; font: 12px/1.35 var(--sf); position: relative; overflow: hidden; }
   figcaption { font-size: 13.5px; color: var(--ink-3); margin-top: 10px; }
 
@@ -223,7 +217,7 @@
   .split .shot { padding-bottom: 20px; flex: 1; }
 
   .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 26px; }
-  .num { font: 400 54px/1 var(--serif); }
+  .num { font: 400 48px/1 var(--serif); letter-spacing: -.02em; }
   .num small { font: 500 15px var(--sans); color: var(--ink-3); margin-left: 4px; }
   .numbers p { margin: 8px 0 0; font-size: 14.5px; color: var(--ink-2); line-height: 1.5; }
 
@@ -248,6 +242,8 @@
   .privacy li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .privacy b { color: var(--ink); font-weight: 600; }
 
+  .fbrand { display: inline-flex; align-items: center; gap: 8px; }
+  .fbrand img { width: 22px; height: 22px; }
   footer { margin-top: 96px; padding: 28px 0 48px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-3); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
   @media (min-width: 900px) { .notch { zoom: 1.3; } .stage { height: 560px; } }
@@ -274,18 +270,91 @@
     <symbol id="i-usage" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></symbol>
     <symbol id="i-music" viewBox="0 0 16 16"><path fill="currentColor" d="M6 2.5l7-1.5v9.2a2.2 2.2 0 1 1-1.5-2.1V4.1L7.5 5v6.7A2.2 2.2 0 1 1 6 9.6z"/></symbol>
     <symbol id="i-clip" viewBox="0 0 16 16"><rect x="4" y="3" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 11.5V3.5a2 2 0 0 1 2-2h6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <!-- Painted scenes: flat shapes, wobbled and softened by a brush-like filter. -->
+    <filter id="brush" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.02" numOctaves="2" seed="3" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="22" xChannelSelector="R" yChannelSelector="G" result="moved"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.004 0.22" numOctaves="2" seed="9" result="streak"/>
+      <feDisplacementMap in="moved" in2="streak" scale="7" xChannelSelector="G" yChannelSelector="R" result="stroked"/>
+      <feGaussianBlur in="stroked" stdDeviation="0.6"/>
+    </filter>
+    <linearGradient id="g-sea-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B3A78"/><stop offset=".45" stop-color="#C4708A"/><stop offset=".62" stop-color="#F3B58A"/></linearGradient>
+    <linearGradient id="g-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6E5E95"/><stop offset="1" stop-color="#1F2550"/></linearGradient>
+    <linearGradient id="g-desert" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7D9A8"/><stop offset="1" stop-color="#F09A6E"/></linearGradient>
+    <linearGradient id="g-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E1F3A"/><stop offset="1" stop-color="#2F6E7A"/></linearGradient>
+    <linearGradient id="g-meadow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FB8DE"/><stop offset="1" stop-color="#F4E3C1"/></linearGradient>
+    <linearGradient id="g-hills" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B2766"/><stop offset=".55" stop-color="#B0578A"/><stop offset="1" stop-color="#FFB27A"/></linearGradient>
+    <linearGradient id="g-lake" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2B7B4"/><stop offset=".5" stop-color="#F7DCC4"/><stop offset=".52" stop-color="#7FB7B5"/><stop offset="1" stop-color="#2D6B78"/></linearGradient>
+    <symbol id="sc-sea" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-sea-sky)"/>
+      <circle cx="410" cy="170" r="36" fill="#FFE2B0"/>
+      <rect x="-40" y="182" width="680" height="160" fill="url(#g-sea)"/>
+      <path d="M330 190h160l-10 8h-140zM350 206h120l-8 7h-104zM365 222h90l-6 6h-78z" fill="#FFD7A0" opacity=".75"/>
+      <path d="M-40 150C60 120 120 140 200 170L200 190-40 190Z" fill="#4B3C6E"/>
+    </g></symbol>
+    <symbol id="sc-desert" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-desert)"/>
+      <circle cx="140" cy="110" r="42" fill="#FFF3D6"/>
+      <path d="M-40 200C80 150 200 170 300 200S500 160 640 190V340H-40Z" fill="#D9774F"/>
+      <path d="M-40 240C120 205 260 230 360 245S540 215 640 235V340H-40Z" fill="#B4513F"/>
+      <path d="M-40 275C150 255 300 270 420 280S560 262 640 272V340H-40Z" fill="#7E3436"/>
+    </g></symbol>
+    <symbol id="sc-night" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-night)"/>
+      <circle cx="470" cy="80" r="26" fill="#EAF2D8"/>
+      <path d="M-40 230L40 150 90 210 150 120 220 220 280 160 340 230 420 140 500 220 560 170 640 230V340H-40Z" fill="#163B3F"/>
+      <path d="M-40 270C120 245 260 262 380 268S540 250 640 262V340H-40Z" fill="#0B2328"/>
+    </g></symbol>
+    <symbol id="sc-meadow" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-meadow)"/>
+      <ellipse cx="200" cy="70" rx="90" ry="20" fill="#FFFFFF" opacity=".7"/>
+      <ellipse cx="460" cy="100" rx="70" ry="14" fill="#FFFFFF" opacity=".6"/>
+      <path d="M-40 190C100 160 220 180 330 200S520 170 640 185V340H-40Z" fill="#8FAE6A"/>
+      <path d="M-40 235C130 210 270 228 390 240S550 220 640 232V340H-40Z" fill="#5E8A4E"/>
+      <path d="M-40 270C150 252 300 265 420 272S560 258 640 266V340H-40Z" fill="#3E6440"/>
+    </g></symbol>
+    <symbol id="sc-hills" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-hills)"/>
+      <circle cx="430" cy="200" r="34" fill="#FFF1D2"/>
+      <path d="M-40 215C90 180 170 200 260 222S440 190 640 210V340H-40Z" fill="#8E4F86"/>
+      <path d="M-40 245C110 215 220 238 320 250S500 228 640 244V340H-40Z" fill="#5D3474"/>
+      <path d="M-40 272C140 255 260 268 380 276S520 262 640 270V340H-40Z" fill="#33204F"/>
+    </g></symbol>
+    <symbol id="sc-lake" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-lake)"/>
+      <circle cx="300" cy="120" r="30" fill="#FFF4E6"/>
+      <path d="M-40 156C40 120 90 130 150 150L190 156Z" fill="#B97C8E"/>
+      <path d="M420 156C470 112 540 110 640 140V156Z" fill="#9E6E86"/>
+      <path d="M260 170h80l-6 5h-68zM272 184h56l-5 4h-46z" fill="#FFF4E6" opacity=".7"/>
+    </g></symbol>
+    <symbol id="sc-hero" viewBox="0 0 1200 600"><g filter="url(#brush)">
+      <rect x="-60" y="-60" width="1320" height="720" fill="url(#g-sea-sky)"/>
+      <circle cx="150" cy="360" r="56" fill="#FFE2B0"/>
+      <rect x="-60" y="380" width="1320" height="280" fill="url(#g-sea)"/>
+      <path d="M70 392h160l-12 10h-136zM90 414h120l-10 8h-100zM105 436h90l-8 7h-74zM118 456h64l-6 6h-52z" fill="#FFD7A0" opacity=".75"/>
+      <path d="M860 380C930 300 1010 280 1090 300C1150 315 1200 340 1260 330V380Z" fill="#4B3C6E"/>
+      <path d="M760 380C800 350 840 345 880 360L900 380Z" fill="#5A4A7A"/>
+      <path d="M-60 520C200 490 420 505 640 515S1000 495 1260 510V660H-60Z" fill="#1B2048" opacity=".55"/>
+    </g></symbol>
+    <symbol id="sc-dusk" viewBox="0 0 600 300"><g filter="url(#brush)">
+      <rect x="-40" y="-40" width="680" height="380" fill="url(#g-hills)"/>
+      <path d="M-40 215C90 180 170 200 260 222S440 190 640 210V340H-40Z" fill="#8E4F86"/>
+      <path d="M-40 245C110 215 220 238 320 250S500 228 640 244V340H-40Z" fill="#5D3474"/>
+      <path d="M-40 272C140 255 260 268 380 276S520 262 640 270V340H-40Z" fill="#33204F"/>
+    </g></symbol>
   </defs>
 </svg>
 
 <div class="gutter">
 <nav class="wide">
-  <a class="brand" href="#"><i aria-hidden="true"></i>Visor</a>
+  <a class="brand" href="#"><img src="assets/visor-icon.png" alt="">Visor</a>
   <div class="links"><a href="#new">What's new</a><a href="#install">Install</a><a href="https://github.com/tailamphat/visor">GitHub</a></div>
 </nav>
 
 <!-- The art: a dusk wallpaper with the real notch on it. Try it. -->
 <header class="wide">
   <div class="art">
+    <svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 600"><use href="#sc-hero"/></svg>
     <div class="menubar" aria-hidden="true">
       <div class="l"><span style="font-weight:700">Terminal</span><span>Shell</span><span>Edit</span><span>View</span></div>
       <div class="r"><span>Thu 12 Nov 09:41</span></div>
@@ -397,7 +466,7 @@
     <p>Closed, Visor is barely there: a little black on each side of the notch. That's enough to tell you everything that matters without opening a thing. Busy agents pulse on the left. When one needs you, the app it's running in appears on the right with a badge: amber to approve, blue to answer. Finished turns get a green check.</p>
     <p>Hover, and it opens. Move away, and it's gone.</p>
     <figure>
-      <div class="shot">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-dusk"/></svg>
         <div class="signals">
           <div class="sig"><div class="strip"><div class="mini"><svg><use href="#claude"/></svg><span class="hw"></span><span></span></div></div><h3>Working</h3><p>Each busy agent's mark, gently pulsing.</p></div>
           <div class="sig"><div class="strip"><div class="mini"><svg><use href="#claude"/></svg><span class="hw"></span><span class="bdg"><span class="appicon">&gt;_</span><span class="b a">!</span></span></div></div><h3>Approve</h3><p>The app that's asking, with an amber "!".</p></div>
@@ -413,7 +482,7 @@
     <h2>Say yes without leaving what you're doing</h2>
     <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Allow it, deny it, or allow it always. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
     <figure>
-      <div class="shot warm"><div class="np" style="max-width:520px"><div class="glow"></div>
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-desert"/></svg><div class="np" style="max-width:520px"><div class="glow"></div>
         <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
         <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
         <div class="cmd"><span>$</span>git push origin fix/checkout</div>
@@ -428,7 +497,7 @@
     <p>The Usage tab already shows every plan you're on: Claude's session and weekly limits, Copilot premium requests on each GitHub account (company ones too), Antigravity's model limits and OpenCode Go. Now each limit also watches how fast you're going. "On pace" means you'll make it to the reset. "Runs out in ~1h 15m" means it's time to slow down.</p>
     <p>And when a limit will run out within the hour, the closed notch swaps its percent for the time left, so you see it coming without looking for it.</p>
     <figure>
-      <div class="shot sea"><div class="np" style="max-width:380px">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:380px">
         <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
         <div class="meter"><div class="top"><span>Session (5h)</span><b>36% <small>left</small></b></div><div class="bar"><i style="width:64%"></i></div><div class="cap"><span class="hot">Runs out in ~1h 15m</span> · resets in 2h 10m</div></div>
         <div class="meter"><div class="top"><span>Weekly</span><b>59% <small>left</small></b></div><div class="bar"><i style="width:41%"></i></div><div class="cap"><span class="ok">On pace</span> · ~5% left when it resets Fri 09:00</div></div>
@@ -441,7 +510,7 @@
     <h2>Every agent, in one list</h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
     <figure>
-      <div class="shot"><div class="np" style="max-width:480px">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
         <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
         <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div></div><span class="time">2:14</span></div>
         <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div></div><span class="time">0:05</span></div>
@@ -455,14 +524,14 @@
     <h2>Your clipboard and your music, a hover away</h2>
     <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. And whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect.</p>
     <div class="split">
-      <figure style="margin-top:22px"><div class="shot sea"><div class="np">
+      <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
         <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search</div>
         <div class="day">TODAY</div>
         <div class="clip mono sel"><span class="txt">brew upgrade --cask visor</span></div>
         <div class="clip"><span class="sw" style="background:#3987E5"></span><span class="txt">#3987E5</span></div>
         <div class="clip"><span class="txt">github.com/tailamphat/visor</span></div>
       </div></div></figure>
-      <figure style="margin-top:22px"><div class="shot warm"><div class="np lit">
+      <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
         <div class="song" style="margin-top:0"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
           <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
           <div class="src">Safari · YouTube</div>
@@ -535,7 +604,7 @@
     </ul>
   </section>
 
-  <footer><span>Visor · free and open source</span><span><a href="https://github.com/tailamphat/visor">Source</a> · <a href="https://github.com/tailamphat/visor/releases">Releases</a></span></footer>
+  <footer><span class="fbrand"><img src="assets/visor-icon.png" alt="">Visor · free and open source</span><span><a href="https://github.com/tailamphat/visor">Source</a> · <a href="https://github.com/tailamphat/visor/releases">Releases</a></span></footer>
 </article>
 </div>
 
