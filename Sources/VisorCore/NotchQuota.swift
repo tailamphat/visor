@@ -78,9 +78,9 @@ public enum NotchEars {
         min(maxWidth, max(minWidth, (content + 2 * inset).rounded(.up)))
     }
 
-    /// The artwork (20) and the equalizer bars (14), 6 apart: music on the
-    /// right while agents have the left.
-    public static let artworkWithBars = 20.0 + 6 + 14
+    /// Music on the right while agents have the left: the gap to the notch,
+    /// the 20 pt artwork, and its playing badge reaching 5 pt past the corner.
+    public static let badgedArtwork = inset + 20 + 5
 
     /// Quota columns side by side, 6 apart.
     public static func quotas(columns: [Double]) -> Double {

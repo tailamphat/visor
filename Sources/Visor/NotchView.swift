@@ -26,9 +26,6 @@ struct NotchLayout {
         if let peek = model.peek, case .answered = peek {
             return CGFloat(NotchEars.width(content: Self.textWidth("Answered", .monospacedDigitSystemFont(ofSize: 11, weight: .medium))))
         }
-        if model.attentionNote == nil, model.isPlaying, model.hasActivity || model.peek != nil {
-            return CGFloat(NotchEars.width(content: NotchEars.artworkWithBars))
-        }
         if model.attentionNote != nil || model.isPlaying || model.quotas.isEmpty { return CGFloat(NotchEars.minWidth) }
         let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
         // Each column is its mark (10) over its percent, as wide as the wider one.
@@ -228,11 +225,15 @@ struct CollapsedView: View {
             .help(note.help)
         } else if model.isPlaying {
             if model.hasActivity || model.peek != nil {
-                // The agent has the left side: the artwork and its bars share the right.
-                HStack(spacing: 6) {
-                    Artwork(image: model.artwork, size: 20, corner: 5)
-                    EqualizerBars(color: model.artworkTint ?? NSColor(hex: 0xC3C2B7), active: model.nowPlaying?.surelyPlaying ?? false)
-                }
+                // The agent has the left side: the bars sit on the artwork's
+                // corner, like the "?" on the app icon, so the right stays small.
+                Artwork(image: model.artwork, size: 20, corner: 5)
+                    .overlay(alignment: .bottomTrailing) {
+                        EqualizerBars.mini(color: model.artworkTint ?? .white, active: model.nowPlaying?.surelyPlaying ?? false)
+                            .padding(2.5)
+                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black))
+                            .offset(x: 5, y: 4)
+                    }
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }

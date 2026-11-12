@@ -92,11 +92,12 @@ struct NotchEarsTests {
         #expect(NotchEars.quotas(columns: [20, 22, 18]) == 72)
     }
 
-    /// Music next to busy agents: the artwork and its bars side by side,
-    /// not the bars squeezed onto the artwork's corner.
-    @Test func musicBesideAgentsFitsArtworkAndBars() {
-        #expect(NotchEars.artworkWithBars == 20 + 6 + 14)
-        #expect(NotchEars.width(content: NotchEars.artworkWithBars) == 56)
+    /// Music next to busy agents: the artwork with a bars badge on its
+    /// corner, like the app icon's "?", fits the smallest side.
+    @Test func musicBesideAgentsFitsTheSmallestSide() {
+        // 8 from the notch, the 20 pt artwork, the badge 5 past its corner.
+        #expect(NotchEars.badgedArtwork == 8 + 20 + 5)
+        #expect(NotchEars.badgedArtwork <= NotchEars.minWidth)
     }
 
     @Test func unevenEarsShiftTheShapeTowardTheWiderSide() {
