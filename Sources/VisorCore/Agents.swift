@@ -611,3 +611,21 @@ extension AgentBoard {
         }
     }
 }
+
+/// Where an approval goes. "Approvals in the Notch" is one switch for every
+/// agent that can ask the notch (Claude Code and Copilot CLI); off, each asks
+/// in its own terminal as if Visor weren't there.
+public enum ApprovalRoute: Equatable, Sendable {
+    /// Reply with nothing at once, so the terminal's own prompt answers it.
+    case terminal
+    /// A saved Copilot "Always" rule covers it: allow without a card.
+    case allow
+    /// Show the card and open the notch.
+    case notch
+
+    public static func of(_ request: ApprovalRequest, inNotch: Bool, rules: CopilotRules) -> ApprovalRoute {
+        if request.isQuestion || !inNotch { return .terminal }
+        if request.provider == "copilot" && rules.allows(request) { return .allow }
+        return .notch
+    }
+}

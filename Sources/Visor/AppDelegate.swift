@@ -81,10 +81,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         try? data.write(to: Self.copilotRulesURL, options: .atomic)
     }
 
-    /// Menu bar switch; on by default.
-    static var copilotApprovalsOn: Bool {
-        get { UserDefaults.standard.object(forKey: "copilotApprovals") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "copilotApprovals") }
+    /// Menu bar switch for every agent's approvals; on by default.
+    static var approvalsInNotch: Bool {
+        get { UserDefaults.standard.object(forKey: "approvalsInNotch") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "approvalsInNotch") }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -285,18 +285,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         noteAnsweredQuestion(message)
-        if let approval, approval.isQuestion {
-            // The terminal shows the question and answers it; let its prompt through.
-            hooks.reply(approval, nil)
-        } else if let approval {
-            if approval.provider == "copilot" && !Self.copilotApprovalsOn {
-                // Off: Copilot asks in its own terminal.
+        if let approval {
+            switch ApprovalRoute.of(approval, inNotch: Self.approvalsInNotch, rules: copilotRules) {
+            case .terminal:
+                // A question, or approvals are off: the terminal's own prompt answers it.
                 hooks.reply(approval, nil)
-            } else if approval.provider == "copilot" && copilotRules.allows(approval) {
+            case .allow:
                 // Allowed before with "Always": answer at once, no card.
                 hooks.reply(approval, .allow)
                 agents.resolveApproval(session: approval.sessionID)
-            } else {
+            case .notch:
                 model.approvals.append(approval)
                 notch.expand()
             }
@@ -379,51 +377,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let installed = HookInstaller.isInstalled
-        model.hooksInstalled = installed
-        menu.addItem(withTitle: installed ? "Claude Code connected" : "Connect Claude Code",
-                     action: installed ? nil : #selector(connect), keyEquivalent: "").target = self
-        if installed {
-            menu.addItem(withTitle: "Disconnect Claude Code", action: #selector(disconnect), keyEquivalent: "").target = self
-        }
+        let claude = HookInstaller.isInstalled
         let antigravity = HookInstaller.antigravityInstalled
+        model.hooksInstalled = claude
         model.antigravityHooksInstalled = antigravity
-        if HookInstaller.hasAntigravityCLI {
-            menu.addItem(withTitle: antigravity ? "Disconnect Antigravity" : "Connect Antigravity",
-                         action: #selector(toggleAntigravity), keyEquivalent: "").target = self
-        }
+
+        // Agents: a tick means connected; choosing one connects or disconnects it.
+        menu.addItem(.sectionHeader(title: "Agents"))
+        addToggle(to: menu, "Claude Code", on: claude, #selector(toggleClaude))
         if HookInstaller.hasCopilotCLI {
-            let copilot = HookInstaller.copilotInstalled
-            menu.addItem(withTitle: copilot ? "Disconnect Copilot CLI" : "Connect Copilot CLI",
-                         action: #selector(toggleCopilot), keyEquivalent: "").target = self
-            if copilot {
-                let approvals = menu.addItem(withTitle: "Copilot Approvals in the Notch", action: #selector(toggleCopilotApprovals), keyEquivalent: "")
-                approvals.target = self
-                approvals.state = Self.copilotApprovalsOn ? .on : .off
-            }
+            addToggle(to: menu, "Copilot CLI", on: HookInstaller.copilotInstalled, #selector(toggleCopilot))
         }
+        if HookInstaller.hasAntigravityCLI {
+            addToggle(to: menu, "Antigravity CLI", on: antigravity, #selector(toggleAntigravity))
+        }
+        menu.addItem(.separator())
+
+        let approvals = addToggle(to: menu, "Approvals in the Notch", on: Self.approvalsInNotch, #selector(toggleApprovals))
+        approvals.toolTip = "Claude Code and Copilot CLI ask in the notch. Off, they ask in their own terminal. Antigravity always asks in its terminal."
+        addToggle(to: menu, "Launch at Login", on: SMAppService.mainApp.status == .enabled, #selector(toggleLogin))
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
-        menu.addItem(.separator())
-        let login = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
-        login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Visor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
-    @objc private func connect() { installHooks() }
+    @discardableResult
+    private func addToggle(to menu: NSMenu, _ title: String, on: Bool, _ action: Selector) -> NSMenuItem {
+        let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.state = on ? .on : .off
+        return item
+    }
 
-    @objc private func disconnect() {
-        try? HookInstaller.uninstall()
-        try? HookInstaller.uninstallCopilot()
-        try? HookInstaller.uninstallAntigravity()
-        model.hooksInstalled = false
-        model.antigravityHooksInstalled = false
+    @objc private func toggleClaude() {
+        if HookInstaller.isInstalled {
+            try? HookInstaller.uninstall()
+        } else {
+            do {
+                try HookInstaller.install()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Couldn't connect Claude Code"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+        model.hooksInstalled = HookInstaller.isInstalled
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
 
-    @objc private func toggleCopilotApprovals() { Self.copilotApprovalsOn.toggle() }
+    @objc private func toggleApprovals() { Self.approvalsInNotch.toggle() }
 
     @objc private func toggleCopilot() {
         if HookInstaller.copilotInstalled { try? HookInstaller.uninstallCopilot() } else { try? HookInstaller.installCopilot() }

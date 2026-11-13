@@ -289,3 +289,31 @@ struct CopilotRuleTests {
         #expect(try JSONDecoder().decode(CopilotRules.self, from: data) == rules)
     }
 }
+
+@Suite("Approval routing")
+struct ApprovalRouteTests {
+    let claude = ApprovalRequest(hook("PermissionRequest", #"{"session_id":"s1","cwd":"/x/shop","tool_name":"Bash","tool_input":{"command":"npm test"}}"#))!
+    let copilot = ApprovalRequest(hook("permissionRequest", provider: "copilot", #"{"sessionId":"c1","cwd":"/x/shop","toolName":"bash","toolInput":{"command":"npm test"}}"#))!
+    let question = ApprovalRequest(hook("PermissionRequest", #"{"session_id":"s1","tool_name":"AskUserQuestion","tool_input":{}}"#))!
+
+    @Test func onShowsEveryAgentsApprovalsInTheNotch() {
+        #expect(ApprovalRoute.of(claude, inNotch: true, rules: CopilotRules()) == .notch)
+        #expect(ApprovalRoute.of(copilot, inNotch: true, rules: CopilotRules()) == .notch)
+    }
+
+    @Test func offLeavesEveryAgentsApprovalsInTheTerminal() {
+        #expect(ApprovalRoute.of(claude, inNotch: false, rules: CopilotRules()) == .terminal)
+        #expect(ApprovalRoute.of(copilot, inNotch: false, rules: CopilotRules()) == .terminal)
+    }
+
+    @Test func questionsAlwaysGoToTheTerminal() {
+        #expect(ApprovalRoute.of(question, inNotch: true, rules: CopilotRules()) == .terminal)
+    }
+
+    @Test func aSavedCopilotRuleAllowsAtOnce() {
+        var rules = CopilotRules()
+        rules.add(for: copilot)
+        #expect(ApprovalRoute.of(copilot, inNotch: true, rules: rules) == .allow)
+        #expect(ApprovalRoute.of(copilot, inNotch: false, rules: rules) == .terminal, "off means hands off")
+    }
+}
