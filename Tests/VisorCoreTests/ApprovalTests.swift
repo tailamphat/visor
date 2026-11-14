@@ -317,3 +317,45 @@ struct ApprovalRouteTests {
         #expect(ApprovalRoute.of(copilot, inNotch: false, rules: rules) == .terminal, "off means hands off")
     }
 }
+
+@Suite("Approvals answered in the terminal")
+struct TerminalAnswerTests {
+    let base = #""session_id":"s1","cwd":"/Users/me/web-shop""#
+    // How Claude Code 2.1 runs an allowed Bash command, as `ps` shows it.
+    let running = #"/bin/zsh -c source /Users/me/.claude/shell-snapshots/snapshot-zsh-1.sh 2>/dev/null || true && eval 'sleep 20 && echo '"'"'it is done'"'"' && curl -sI https://example.com' < /dev/null && pwd"#
+
+    @Test func seesTheAllowedCommandStart() {
+        #expect(TerminalAnswer.runs(running, command: "sleep 20 && echo 'it is done' && curl -sI https://example.com"))
+        #expect(!TerminalAnswer.runs(running, command: "sleep 20"), "only the whole command")
+        #expect(!TerminalAnswer.runs(running, command: "rm -rf build"))
+        #expect(!TerminalAnswer.runs(running, command: ""))
+    }
+
+    func waiting() -> AgentBoard {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"ship it\"}"))
+        board.apply(hook("PermissionRequest", "{\(base),\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"npm test\"}}"))
+        return board
+    }
+
+    @Test func allowedThereMeansItIsRunning() throws {
+        var board = waiting()
+        guard case .needsApproval(let what) = try #require(board.sessions.first).state else { Issue.record("not waiting"); return }
+        board.answeredInTerminal(session: "s1", allowed: true)
+        #expect(board.sessions.first?.state == .working(what))
+    }
+
+    @Test func deniedThereMeansItStopped() {
+        var board = waiting()
+        board.answeredInTerminal(session: "s1", allowed: false)
+        #expect(board.sessions.first?.state == .idle)
+        #expect(board.sessions.first?.state.attention == nil, "no amber ! left behind")
+    }
+
+    @Test func onlyTouchesAWaitingSession() {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"ship it\"}"))
+        board.answeredInTerminal(session: "s1", allowed: false)
+        #expect(board.sessions.first?.state == .working("Thinking"))
+    }
+}

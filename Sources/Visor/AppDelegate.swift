@@ -107,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         restoreAgents()
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
-        hooks.onApprovalGone = { [weak self] id in self?.approvalGone(id) }
+        hooks.onApprovalGone = { [weak self] id, reason in self?.approvalGone(id, reason) }
         do { try hooks.start() } catch { NSLog("Visor: hook socket failed: \(error)") }
 
         notch.onExpand = { [weak self] tab in
@@ -339,7 +339,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// The hook gave up (timed out, or Claude Code was interrupted).
-    private func approvalGone(_ id: UUID) {
+    private func approvalGone(_ id: UUID, _ reason: HookServer.LetGo) {
+        if let approval = model.approvals.first(where: { $0.id == id }) {
+            switch reason {
+            case .allowedInTerminal: agents.answeredInTerminal(session: approval.sessionID, allowed: true)
+            case .endedInTerminal: agents.answeredInTerminal(session: approval.sessionID, allowed: false)
+            case .timedOut, .movedOn: break
+            }
+            publishAgents()
+        }
         model.approvals.removeAll { $0.id == id }
         notch.collapseIfAway()
     }
@@ -489,6 +497,27 @@ enum ProcessTree {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
         guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
         return info.kp_eproc.e_ppid
+    }
+
+    /// The processes a process started, e.g. the shells an agent runs commands in.
+    static func children(of pid: Int32) -> [Int32] {
+        var pids = [Int32](repeating: 0, count: 256)
+        let count = proc_listchildpids(pid, &pids, Int32(pids.count * MemoryLayout<Int32>.size))
+        return count > 0 ? Array(pids.prefix(Int(count))) : []
+    }
+
+    /// A process's command line, its arguments joined by spaces, as `ps` shows it.
+    static func arguments(of pid: Int32) -> String? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return nil }
+        var buffer = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return nil }
+        // argc, the executable path, padding, then argc NUL-terminated arguments.
+        let argc = buffer.withUnsafeBytes { $0.load(as: Int32.self) }
+        var fields = buffer[MemoryLayout<Int32>.size..<size].split(separator: 0, omittingEmptySubsequences: true).dropFirst()
+        fields = fields.prefix(Int(argc))
+        return fields.map { String(decoding: $0, as: UTF8.self) }.joined(separator: " ")
     }
 
     /// Hooks may run under an intermediate shell; walk up to the agent's process

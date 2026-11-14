@@ -39,13 +39,25 @@ final class HookServer: @unchecked Sendable {
     private var listener: DispatchSourceRead?
     /// Open PermissionRequest connections by approval id. Touched on `queue` only.
     private var pending: [UUID: Held] = [:]
-    private struct Held { var fd: Int32; var session: String; var tool: String; var hookPID: Int32 }
+    private struct Held {
+        var fd: Int32
+        var session: String
+        var tool: String
+        var hookPID: Int32
+        /// The process that ran the hook (the agent), and the Bash command it
+        /// asked to run: once that command starts, it was allowed in the terminal.
+        var agentPID: Int32
+        var command: String?
+    }
     private var watchingHooks = false
+
+    /// Why a held approval went away without an answer from the notch.
+    enum LetGo { case timedOut, movedOn, endedInTerminal, allowedInTerminal }
 
     /// Called on the main thread for every event, and when an approval goes away
     /// on its own (it timed out or Claude Code moved on).
     var onMessage: (@MainActor (HookMessage, ApprovalRequest?) -> Void)?
-    var onApprovalGone: (@MainActor (UUID) -> Void)?
+    var onApprovalGone: (@MainActor (UUID, LetGo) -> Void)?
 
     func start() throws {
         try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true,
@@ -125,10 +137,12 @@ final class HookServer: @unchecked Sendable {
         guard let message = HookMessage.parse(line) else { return false }
         let approval = ApprovalRequest(message)
         if let approval {
-            pending[approval.id] = Held(fd: client, session: approval.sessionID, tool: approval.tool, hookPID: message.hookPID)
+            let command = approval.provider == "claude" && approval.tool == "Bash" ? approval.preview : nil
+            pending[approval.id] = Held(fd: client, session: approval.sessionID, tool: approval.tool,
+                                        hookPID: message.hookPID, agentPID: ProcessTree.agentAncestor(of: message.pid), command: command)
             watchHooks()
             // The hook's nc gives up at 110s; let go just before so the card doesn't linger.
-            queue.asyncAfter(deadline: .now() + 108) { [weak self] in self?.release(approval.id) }
+            queue.asyncAfter(deadline: .now() + 108) { [weak self] in self?.release(approval.id, .timedOut) }
         }
         DispatchQueue.main.async { MainActor.assumeIsolated { self.onMessage?(message, approval) } }
         return approval != nil
@@ -151,31 +165,42 @@ final class HookServer: @unchecked Sendable {
     func releaseApprovals(session: String, tool: String? = nil) {
         queue.async {
             for (id, held) in self.pending where held.session == session && (tool == nil || held.tool == tool) {
-                self.release(id)
+                self.release(id, .movedOn)
             }
         }
     }
 
     /// Claude Code stops waiting for the hook when you answer in the terminal.
     /// nc has already half-closed the socket, so a closed connection can't be
-    /// seen; instead check once a second whether the hook process still exists.
+    /// seen; instead check once a second. Denying there ends the hook process;
+    /// allowing leaves it running, but the command starts (see TerminalAnswer).
     private func watchHooks() {
         guard !watchingHooks else { return }
         watchingHooks = true
         queue.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self else { return }
             self.watchingHooks = false
-            for (id, held) in self.pending where held.hookPID > 0 && kill(held.hookPID, 0) != 0 && errno == ESRCH {
-                self.release(id)
+            for (id, held) in self.pending {
+                if held.hookPID > 0 && kill(held.hookPID, 0) != 0 && errno == ESRCH {
+                    self.release(id, .endedInTerminal)
+                } else if let command = held.command, held.agentPID > 1, Self.isRunning(command, under: held.agentPID) {
+                    self.release(id, .allowedInTerminal)
+                }
             }
             if !self.pending.isEmpty { self.watchHooks() }
         }
     }
 
+    private static func isRunning(_ command: String, under agent: Int32) -> Bool {
+        ProcessTree.children(of: agent).contains { pid in
+            ProcessTree.arguments(of: pid).map { TerminalAnswer.runs($0, command: command) } ?? false
+        }
+    }
+
     /// queue only.
-    private func release(_ id: UUID) {
+    private func release(_ id: UUID, _ reason: LetGo) {
         guard let held = pending.removeValue(forKey: id) else { return }
         close(held.fd)
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.onApprovalGone?(id) } }
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.onApprovalGone?(id, reason) } }
     }
 }

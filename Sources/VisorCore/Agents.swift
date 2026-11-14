@@ -274,6 +274,14 @@ public struct AgentBoard: Equatable, Sendable {
         sessions[i].since = now
     }
 
+    /// An approval Visor held was answered in the terminal instead: allowed,
+    /// the agent runs what it asked for; denied, Claude Code stops the turn.
+    public mutating func answeredInTerminal(session id: String, allowed: Bool, now: Date = Date()) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }), case .needsApproval(let what) = sessions[i].state else { return }
+        sessions[i].state = allowed ? .working(what) : .idle
+        sessions[i].since = now
+    }
+
     /// The sessions, to restore after Visor restarts: agents only speak when
     /// something happens, so an idle one would stay missing until its next turn.
     public func saved() throws -> Data { try JSONEncoder().encode(sessions) }
@@ -627,5 +635,18 @@ public enum ApprovalRoute: Equatable, Sendable {
         if request.isQuestion || !inNotch { return .terminal }
         if request.provider == "copilot" && rules.allows(request) { return .allow }
         return .notch
+    }
+}
+
+/// How Visor tells that an approval it holds was answered in the terminal.
+/// Denying there ends the hook (Visor checks its pid). Allowing doesn't: Claude
+/// Code leaves the hook running and starts the command, so Visor looks for it.
+public enum TerminalAnswer {
+    /// Whether a process's arguments are Claude Code running `command`: its
+    /// Bash tool wraps the command as `eval '<command>'`, quoted for the shell.
+    public static func runs(_ arguments: String, command: String) -> Bool {
+        guard !command.isEmpty else { return false }
+        let quoted = "eval '" + command.replacingOccurrences(of: "'", with: #"'"'"'"#) + "'"
+        return arguments.contains(quoted)
     }
 }
