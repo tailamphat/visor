@@ -95,7 +95,7 @@ struct NotchView: View {
             if model.expanded {
                 ExpandedView(model: model, layout: layout)
                     .padding(.horizontal, flare)
-                    .transition(.opacity.animation(.easeOut(duration: 0.18).delay(0.06)))
+                    .transition(.opacity.animation(.easeOut(duration: 0.12)))
             } else {
                 CollapsedView(model: model, layout: layout)
                     .padding(.horizontal, flare)

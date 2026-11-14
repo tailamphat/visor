@@ -78,7 +78,7 @@ final class HookServer: @unchecked Sendable {
                 bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, 32) == 0 else {
+        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, SOMAXCONN) == 0 else {
             close(fd)
             throw POSIXError(.init(rawValue: errno) ?? .EIO)
         }
@@ -172,12 +172,12 @@ final class HookServer: @unchecked Sendable {
 
     /// Claude Code stops waiting for the hook when you answer in the terminal.
     /// nc has already half-closed the socket, so a closed connection can't be
-    /// seen; instead check once a second. Denying there ends the hook process;
+    /// seen; instead check four times a second. Denying there ends the hook process;
     /// allowing leaves it running, but the command starts (see TerminalAnswer).
     private func watchHooks() {
         guard !watchingHooks else { return }
         watchingHooks = true
-        queue.asyncAfter(deadline: .now() + 1) { [weak self] in
+        queue.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             guard let self else { return }
             self.watchingHooks = false
             for (id, held) in self.pending {

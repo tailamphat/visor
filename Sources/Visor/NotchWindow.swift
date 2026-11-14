@@ -189,7 +189,7 @@ final class NotchController {
                     }
                 }
                 expandWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: work)
             } else {
                 expandWork?.cancel()
                 expandWork = nil

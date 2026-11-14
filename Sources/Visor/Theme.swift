@@ -23,7 +23,7 @@ enum Theme {
     static let serious = Color(hex: 0xEC835A)
     static let critical = Color(hex: 0xD03B3B)
 
-    static let spring = Animation.spring(response: 0.36, dampingFraction: 0.82)
+    static let spring = Animation.spring(response: 0.28, dampingFraction: 0.86)
 }
 
 extension Color {
