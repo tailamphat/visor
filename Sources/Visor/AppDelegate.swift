@@ -385,6 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        menu.addItem(withTitle: "About Visor", action: #selector(showAbout), keyEquivalent: "").target = self
+        menu.addItem(.separator())
         let claude = HookInstaller.isInstalled
         let antigravity = HookInstaller.antigravityInstalled
         model.hooksInstalled = claude
@@ -434,6 +436,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
+
+    /// The standard About panel, with the links from `About` under the version.
+    @objc private func showAbout() {
+        let credits = NSMutableAttributedString()
+        for (i, link) in About.links.enumerated() {
+            if i > 0 { credits.append(NSAttributedString(string: "   ")) }
+            credits.append(NSAttributedString(string: link.title, attributes: [.link: link.url]))
+        }
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        credits.addAttributes([.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .paragraphStyle: centered],
+                              range: NSRange(location: 0, length: credits.length))
+        // Visor has no Dock icon and macOS may refuse to activate it, so the
+        // panel is also put in front by hand or it opens behind other apps.
+        NSApp.activate(ignoringOtherApps: true)
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        if aboutPanel == nil { aboutPanel = NSApp.windows.first { !before.contains(ObjectIdentifier($0)) } }
+        aboutPanel?.orderFrontRegardless()
+    }
+
+    private weak var aboutPanel: NSWindow?
 
     @objc private func toggleApprovals() { Self.approvalsInNotch.toggle() }
 
