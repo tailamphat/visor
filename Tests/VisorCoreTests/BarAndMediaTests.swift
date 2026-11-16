@@ -80,6 +80,7 @@ struct BrowserMediaTests {
         #expect(bare.title == "Lofi beats")
         #expect(bare.artworkURL?.absoluteString == "https://i.ytimg.com/vi/XYZ/hqdefault.jpg")
         #expect(BrowserMedia.parse("", tab: "3") == nil)
+        #expect(BrowserMedia.fromTitle("Mix - YouTube", url: "https://music.youtube.com/watch?v=q", tab: "4", playing: true)?.playing == true)
         #expect(BrowserMedia.fromTitle("Mix - YouTube", url: "https://music.youtube.com/watch?v=q", tab: "4", playing: true)?.site == "YouTube Music")
     }
 
@@ -115,6 +116,13 @@ struct BrowserMediaTests {
         #expect(js.evaluateScript("video.currentTime")?.toInt32() == 0, "previous restarts when there's no previous button")
         js.evaluateScript("navigator.mediaSession = undefined; video.paused = true; video.currentTime = 0")
         #expect(js.evaluateScript(BrowserMedia.probe)?.toString() == "", "untouched media reports nothing")
+        // A background tab's video can be "not paused" yet never loaded (Chromium
+        // defers media in hidden tabs): nothing is playing.
+        js.evaluateScript("video.paused = false; video.readyState = 0; video.duration = NaN")
+        let waiting = BrowserMedia.parse(js.evaluateScript(BrowserMedia.probe)?.toString() ?? "", tab: "7")
+        #expect(waiting?.playing == false && waiting?.title == "Song")
+        js.evaluateScript("video.readyState = 4")
+        #expect(BrowserMedia.parse(js.evaluateScript(BrowserMedia.probe)?.toString() ?? "", tab: "7")?.playing == true)
         #expect(thrown == nil)
     }
 }

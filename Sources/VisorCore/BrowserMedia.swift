@@ -60,7 +60,7 @@ public struct BrowserMedia: Equatable, Sendable {
     var m=all.filter(function(e){return !e.paused;})[0]||all.filter(function(e){return e.currentTime>0;})[0];\
     if(!m)return '';var s=navigator.mediaSession&&navigator.mediaSession.metadata;\
     var a=s&&s.artwork&&s.artwork.length?s.artwork[s.artwork.length-1].src:'';\
-    return JSON.stringify({p:!m.paused,t:m.currentTime||0,d:isFinite(m.duration)?m.duration:0,\
+    return JSON.stringify({p:!m.paused,r:m.readyState,t:m.currentTime||0,d:isFinite(m.duration)?m.duration:0,\
     title:(s&&s.title)||document.title,artist:(s&&s.artist)||'',album:(s&&s.album)||'',art:a,url:location.href});})()
     """
 
@@ -100,8 +100,11 @@ public struct BrowserMedia: Equatable, Sendable {
         if artwork == nil, let id = youTubeID(url) {
             artwork = URL(string: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg")
         }
+        // Not paused isn't playing until the media has data: Chromium holds back
+        // media in background tabs, leaving it "playing" at 0:00 with nothing loaded.
+        let loaded = (object["r"] as? NSNumber).map { $0.intValue >= 2 } ?? true
         return BrowserMedia(tab: tab,
-                            playing: object["p"] as? Bool ?? false,
+                            playing: (object["p"] as? Bool ?? false) && loaded,
                             position: (object["t"] as? NSNumber)?.doubleValue ?? 0,
                             duration: (object["d"] as? NSNumber)?.doubleValue ?? 0,
                             title: title,
