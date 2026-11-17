@@ -108,6 +108,7 @@ struct PanelSpacingTests {
         #expect(NotchEars.agentsList(groups: 1, sessions: 1) == 15 + 44 + 6)
         #expect(NotchEars.agentsList(groups: 2, sessions: 2) == 136)
         #expect(NotchEars.agentsList(groups: 2, sessions: 5) == 30 + 220 + 6 * 6)
+        #expect(NotchEars.agentsList(groups: 1, sessions: 2, withContext: 1) == 15 + 88 + 15 + 12, "a context bar adds a line")
     }
 }
 

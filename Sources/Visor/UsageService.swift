@@ -12,6 +12,12 @@ final class UsageService {
     private let work = DispatchQueue(label: "visor.usage", qos: .utility)
     private let transcripts = TranscriptUsage()
     private var timers: [Timer] = []
+    private var limitWatch = LimitWatch()
+    /// Refreshes the plan just after a nearly used-up limit resets, rather than up to 2 minutes later.
+    private var resetTimer: Timer?
+    private var resetTimerFor: Date?
+    /// A limit that had run out (or nearly) has reset.
+    var onLimitBack: ((LimitReturn) -> Void)?
     private var fetching = false
     /// Read from the keychain on demand; Claude Code owns and refreshes it.
     private var token: (value: String, expires: Date)?
@@ -42,6 +48,22 @@ final class UsageService {
             MainActor.assumeIsolated { self?.refreshOpenCode() }
         })
         for timer in timers { timer.tolerance = 3 }
+    }
+
+    private func checkLimitsBack() {
+        let readings = LimitReading.all(plan: model.plan, openCode: model.openCodeGo)
+        for back in limitWatch.update(readings) { onLimitBack?(back) }
+        // The soonest reset of a Claude limit that's nearly used up.
+        let next = readings.filter { $0.key.hasPrefix("claude.") && $0.percentUsed >= LimitWatch.nearlyOut }
+            .compactMap(\.resetsAt).filter { $0 > Date() }.min()
+        guard next != resetTimerFor else { return }
+        resetTimerFor = next
+        resetTimer?.invalidate()
+        resetTimer = next.map {
+            Timer.scheduledTimer(withTimeInterval: $0.timeIntervalSinceNow + 5, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshPlan() }
+            }
+        }
     }
 
     /// Called when the usage tab opens, so numbers are never stale when looked at.
@@ -139,6 +161,7 @@ final class UsageService {
                         if let name = self.profileName ?? fetched.planName { self.model.planName = name }
                         self.model.planError = nil
                         self.model.planUpdated = Date()
+                        self.checkLimitsBack()
                     case .failure(let error):
                         self.token = nil
                         self.model.planError = error.message
@@ -258,6 +281,7 @@ final class UsageService {
                     self.model.openCodeError = local.error
                     self.model.openCodeGo = go
                     if local.usage != nil { self.model.openCodeUpdated = Date() }
+                    self.checkLimitsBack()
                 }
             }
         }

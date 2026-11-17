@@ -74,6 +74,7 @@ struct AgentRow: View {
                     time
                 }
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                if let percent = session.contextPercent { context(percent) }
             }
         }
         .padding(.horizontal, 10)
@@ -88,6 +89,29 @@ struct AgentRow: View {
 
     private var needsYou: Bool {
         session.state.attention != nil
+    }
+
+    /// How full the context window is; amber from 80%, when Claude Code is about to compact.
+    private func context(_ percent: Double) -> some View {
+        let high = percent >= 80
+        let color = high ? Theme.warning : Theme.accent
+        return HStack(spacing: 6) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(color.opacity(0.25))
+                    Capsule().fill(color).frame(width: max(3, geo.size.width * percent / 100))
+                }
+            }
+            .frame(height: 3)
+            Text(high ? "\(Int(percent))% · compacts soon" : "\(Int(percent))% context")
+                .font(.system(size: 10).monospacedDigit())
+                .foregroundStyle(high ? Theme.warning : Theme.textMuted)
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .frame(height: NotchEars.contextLine - 2)
+        .padding(.top, 1)
+        .help("\((session.contextTokens ?? 0).formatted()) of \((session.contextWindow ?? 0).formatted()) tokens in context")
     }
 
     /// Elapsed or relative time, sitting on the project line so it lines up with it.
@@ -203,6 +227,33 @@ struct ConsentButton: ButtonStyle {
     }
 }
 
+/// A button title with the key that presses it while the pointer is over the card.
+struct KeyHint: View {
+    let title: String
+    let key: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+            KeyCap(key: key)
+        }
+    }
+}
+
+struct KeyCap: View {
+    let key: String
+
+    var body: some View {
+        Text(key)
+            .font(.system(size: 10, weight: .semibold))
+            .padding(.horizontal, 4.5)
+            .padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.foreground.opacity(0.16)))
+            .opacity(0.8)
+            .help("Press \(key) while the pointer is over the card")
+    }
+}
+
 /// Icon then title, with the icon a touch bolder.
 struct ConsentLabel: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -226,6 +277,37 @@ struct PillButton: ButtonStyle {
             .background(Capsule().fill(fill.opacity(configuration.isPressed ? 0.75 : 1)))
             .contentShape(Capsule())
     }
+}
+
+// MARK: Limit is back
+
+/// Shown for a few seconds when a limit that had run out, or nearly, resets.
+struct LimitBackView: View {
+    let back: LimitReturn
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                AgentIcon(agent: back.agent, size: 22)
+                Text("\(back.agent == "Claude Code" ? "Claude" : back.agent) limit is back")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text("just now").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+            }
+            LimitMeter(title: back.title, used: 100 - back.percentLeft, caption: caption)
+        }
+    }
+
+    /// "Ran out at 14:05 · next reset 20:00"
+    private var caption: String {
+        [back.ranOutAt.map { "Ran out at " + $0.formatted(date: .omitted, time: .shortened) },
+         back.nextReset.map { "next reset " + LimitMeter.resetPhrase($0) }]
+            .compactMap { $0 }.joined(separator: " · ").capitalizedFirst
+    }
+}
+
+private extension String {
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
 
 // MARK: Approval
@@ -279,7 +361,7 @@ struct ApprovalView: View {
             // Deny, Always and Allow together in the centre.
             HStack(spacing: 8) {
                 Button { model.decide?(request, .deny) } label: {
-                    Label("Deny", systemImage: "xmark")
+                    Label { KeyHint(title: "Deny", key: "esc") } icon: { Image(systemName: "xmark") }
                 }
                 .buttonStyle(ConsentButton(kind: .deny))
                 if let always = request.alwaysAllowLabel {
@@ -288,6 +370,7 @@ struct ApprovalView: View {
                             HStack(spacing: 5) {
                                 Text("Always")
                                 Text(always).font(.system(size: 11.5, design: .monospaced)).opacity(0.75).lineLimit(1)
+                                KeyCap(key: "A")
                             }
                         } icon: {
                             Image(systemName: "arrow.triangle.2.circlepath")
@@ -297,7 +380,7 @@ struct ApprovalView: View {
                     .help("Allow this now, and don't ask again for \(always)")
                 }
                 Button { model.decide?(request, .allow) } label: {
-                    Label("Allow", systemImage: "checkmark")
+                    Label { KeyHint(title: "Allow", key: "↩") } icon: { Image(systemName: "checkmark") }
                 }
                 .buttonStyle(ConsentButton(kind: .allow))
             }

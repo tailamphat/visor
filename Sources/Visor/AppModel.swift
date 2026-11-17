@@ -85,6 +85,8 @@ final class AppModel {
     var antigravityHooksInstalled = false
     /// A few seconds of news in the closed notch: an agent finished, or a question was answered.
     var peek: Peek?
+    /// A used-up limit that just reset: the open notch shows it for a few seconds.
+    var limitBack: LimitReturn?
 
     // Usage
     var plan: PlanUsage? {

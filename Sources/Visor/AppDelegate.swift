@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hooks.onApprovalGone = { [weak self] id, reason in self?.approvalGone(id, reason) }
         do { try hooks.start() } catch { NSLog("Visor: hook socket failed: \(error)") }
 
+        usage.onLimitBack = { [weak self] in self?.showLimitBack($0) }
         notch.onExpand = { [weak self] tab in
             if tab == .usage { self?.usage.refreshIfStale() }
             if tab == .music { self?.music.refreshVolume() }
@@ -128,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             nonisolated(unsafe) let key = event
-            let handled = MainActor.assumeIsolated { self?.clipboardKey(key) == true }
+            let handled = MainActor.assumeIsolated { self?.approvalKey(key) == true || self?.clipboardKey(key) == true }
             return handled ? nil : event
         }
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
@@ -181,6 +182,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         notch.close()
     }
 
+    /// Return, A or Esc answers the card shown while the pointer is over it
+    /// (the panel has the keyboard only then). Returns true when handled.
+    private func approvalKey(_ event: NSEvent) -> Bool {
+        guard model.expanded, let request = model.approvals.first else { return false }
+        let modified = !event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+        guard let decision = ApprovalKeys.decision(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers,
+                                                   modified: modified, canAlways: request.alwaysAllowLabel != nil) else { return false }
+        decide(request, decision)
+        return true
+    }
+
     /// Keys while the clipboard tab has the keyboard. Returns true when handled.
     private func clipboardKey(_ event: NSEvent) -> Bool {
         guard model.expanded, model.tab == .clipboard, !model.showsCard else { return false }
@@ -225,6 +237,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
+    // MARK: Limit is back
+
+    /// Opens the notch on the refilled meter for a few seconds. Not over an
+    /// approval, and not while you're already using the open notch.
+    private func showLimitBack(_ back: LimitReturn) {
+        guard !model.expanded, !model.showsCard else { return }
+        model.limitBack = back
+        notch.expand()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.model.limitBack == back else { return }
+                self.model.limitBack = nil
+                self.notch.collapseIfAway()
+            }
+        }
+    }
+
+    // MARK: Context window
+
+    private let contextQueue = DispatchQueue(label: "visor.context", qos: .utility)
+    private var contextPending: Set<String> = []
+
+    /// After a Claude Code reply, reads how full the session's context is from
+    /// the end of its transcript, off the main thread, once per burst of events.
+    private func readContextSoon(_ message: HookMessage) {
+        guard message.provider == "claude", ["PostToolUse", "Stop", "SessionStart"].contains(message.event),
+              let session = message.sessionID, let path = message.payload["transcript_path"] as? String,
+              contextPending.insert(session).inserted else { return }
+        // Claude Code may still be writing the reply when the hook runs.
+        contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            let (tokens, model) = autoreleasepool { (Self.contextTokens(at: path), Self.claudeModelSetting()) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.contextPending.remove(session)
+                    self.agents.setContext(tokens: tokens, model: model, session: session)
+                    self.publishAgents()
+                }
+            }
+        }
+    }
+
+    private nonisolated static func contextTokens(at path: String) -> Int? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let size = (try? handle.seekToEnd()) ?? 0
+        let tail = UInt64(ContextUsage.tailBytes)
+        try? handle.seek(toOffset: size > tail ? size - tail : 0)
+        return (try? handle.readToEnd()).flatMap(ContextUsage.tokens(inTail:))
+    }
+
+    /// The model Claude Code is set to ("opus[1m]" asks for the 1M window).
+    private nonisolated static func claudeModelSetting() -> String? {
+        let dir = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]
+            .map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("settings.json")),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return object["model"] as? String
+    }
+
     // MARK: Agents
 
     private func received(_ message: HookMessage, _ approval: ApprovalRequest?) {
@@ -252,6 +325,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let allowed = p["mediaKeysAllowed"] as? Bool { model.mediaKeysAllowed = allowed }
             return
         }
+        // {"event":"_limitback","raw":{}} shows the "limit is back" card with a sample Claude limit.
+        if message.event == "_limitback" {
+            showLimitBack(LimitReturn(agent: "Claude Code", title: "Session (5h)", percentLeft: 100,
+                                      ranOutAt: Date().addingTimeInterval(-3 * 3600), nextReset: Date().addingTimeInterval(5 * 3600)))
+            return
+        }
         // {"event":"_clipdelete","raw":{}} deletes the newest clipboard item.
         if message.event == "_clipdelete", let first = model.clips.items.first {
             clipboard.delete(first.id)
@@ -270,6 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var message = message
         message.pid = ProcessTree.agentAncestor(of: message.pid)
         agents.apply(message)
+        readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
             if let app = ProcessTree.hostAppPath(of: message.pid) {
                 let host = ProcessTree.appName(at: app)

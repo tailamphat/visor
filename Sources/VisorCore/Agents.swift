@@ -175,6 +175,15 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var turnStart: Date?
     /// The last finished turn ended by asking you something ("Should I commit?").
     public var askedForReply = false
+    /// Tokens in its context window after the last reply, and the window's size.
+    public var contextTokens: Int?
+    public var contextWindow: Int?
+
+    /// How full the context window is, 0-100; nil when unknown.
+    public var contextPercent: Double? {
+        guard let contextTokens, let contextWindow, contextWindow > 0 else { return nil }
+        return min(100, Double(contextTokens) / Double(contextWindow) * 100)
+    }
 
     public var project: String {
         let name = (cwd as NSString).lastPathComponent
@@ -351,6 +360,16 @@ public struct AgentBoard: Equatable, Sendable {
     }
 
     /// Records the app a session runs in.
+    /// A session's context after a reply. Once a session shows it has the 1M
+    /// window it keeps it, even after compacting back under 200k.
+    public mutating func setContext(tokens: Int?, model: String?, session id: String) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].contextTokens = tokens
+        if let tokens {
+            sessions[i].contextWindow = max(sessions[i].contextWindow ?? 0, ContextUsage.window(tokens: tokens, model: model))
+        }
+    }
+
     public mutating func setHost(_ host: String?, session id: String) {
         guard let host, let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].host != host else { return }
         sessions[i].host = host
@@ -616,6 +635,7 @@ extension AgentBoard {
         return zip(sessions, other.sessions).contains { a, b in
             a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
                 || a.agent != b.agent || a.host != b.host || a.task != b.task
+                || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
         }
     }
 }

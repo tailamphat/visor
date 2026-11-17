@@ -24,6 +24,8 @@ struct NotchLayout {
     static let musicSize = CGSize(width: width, height: 182)
     /// The compact Now Playing row: artwork beside title and controls.
     static let compactMusicContent: CGFloat = 70
+    /// The "limit is back" card: a title row and one meter.
+    static let limitBackContent: CGFloat = 70
     static let clipboardSize = CGSize(width: width, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: width, height: 312)
@@ -51,6 +53,7 @@ struct NotchLayout {
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
+            if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.compactMusic {
                 return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: fitting(Self.compactMusicContent))
             }
@@ -68,7 +71,8 @@ struct NotchLayout {
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
                 let groups = Set(model.board.sessions.map(\.agent)).count
-                var content = CGFloat(NotchEars.agentsList(groups: groups, sessions: model.board.sessions.count))
+                var content = CGFloat(NotchEars.agentsList(groups: groups, sessions: model.board.sessions.count,
+                                                           withContext: model.board.sessions.filter { $0.contextPercent != nil }.count))
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
@@ -363,6 +367,8 @@ struct ExpandedView: View {
             Group {
                 if let approval = model.approvals.first {
                     ApprovalView(model: model, request: approval)
+                } else if let back = model.limitBack {
+                    LimitBackView(back: back)
                 } else {
                     switch model.tab {
                     case .agents: AgentsView(model: model)

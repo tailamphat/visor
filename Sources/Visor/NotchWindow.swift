@@ -38,6 +38,9 @@ final class NotchController {
     /// Opened from the keyboard (⌘⇧V): stays open until Esc, a paste, or a click elsewhere.
     private(set) var keyboardOpen = false
     private var expandWork: DispatchWorkItem?
+    /// Holding the keyboard because the pointer is over an approval card, so
+    /// Return, A and Esc answer it. Given back when the pointer leaves.
+    private var cardKeys = false
 
     var onExpand: ((Tab) -> Void)?
 
@@ -99,12 +102,14 @@ final class NotchController {
     private func observe() {
         withObservationTracking {
             _ = model.expanded
+            _ = model.showsCard
             _ = layout.size(for: model)
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.updateClickThrough()
+                    self.updateCardKeys()
                     self.observe()
                 }
             }
@@ -151,9 +156,20 @@ final class NotchController {
         return NSRect(x: frame.midX - size.width / 2 + layout.shift(model), y: frame.maxY - size.height, width: size.width, height: size.height)
     }
 
+    /// Takes the keyboard while the pointer is over an open approval card,
+    /// and gives it back to your app as soon as it leaves or the card goes.
+    private func updateCardKeys() {
+        let want = model.expanded && model.showsCard && !keyboardOpen
+            && notchRect().insetBy(dx: -6, dy: -6).contains(NSEvent.mouseLocation)
+        guard want != cardKeys else { return }
+        cardKeys = want
+        if want { panel.makeKey() } else if !keyboardOpen { panel.resignKey() }
+    }
+
     private func pointerMoved() {
         let point = NSEvent.mouseLocation
         updateClickThrough()
+        updateCardKeys()
         if model.expanded {
             if notchRect().insetBy(dx: -6, dy: -6).contains(point) {
                 collapseWork?.cancel()
@@ -164,7 +180,7 @@ final class NotchController {
                         guard let self else { return }
                         self.collapseWork = nil
                         // An approval stays open until it's answered.
-                        guard !self.model.showsCard, !self.model.pinned, !self.dragging, !self.keyboardOpen else { return }
+                        guard !self.model.showsCard, self.model.limitBack == nil, !self.model.pinned, !self.dragging, !self.keyboardOpen else { return }
                         self.model.expanded = false
                     }
                 }

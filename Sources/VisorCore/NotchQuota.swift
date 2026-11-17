@@ -126,10 +126,13 @@ public enum NotchEars {
     public static let panelInset = 18.0
 
     /// The Agents list's height: a 15 pt label per agent group and a 44 pt
-    /// row per session, 6 pt apart.
-    public static func agentsList(groups: Int, sessions: Int) -> Double {
-        Double(groups) * 15 + Double(sessions) * 44 + Double(max(groups + sessions - 1, 0)) * 6
+    /// row per session, 6 pt apart. A row with a context bar is 15 pt taller.
+    public static func agentsList(groups: Int, sessions: Int, withContext: Int = 0) -> Double {
+        Double(groups) * 15 + Double(sessions) * 44 + Double(withContext) * contextLine + Double(max(groups + sessions - 1, 0)) * 6
     }
+
+    /// The context bar's line in an Agents row, with the gap above it.
+    public static let contextLine = 15.0
 
     /// Now Playing opened from the notch: 30% wider than the closed notch while
     /// music plays (two minimum ears and a 6 pt flare each side), but never too
