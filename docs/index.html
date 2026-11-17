@@ -124,7 +124,7 @@
   .sess .t div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sess .t div:first-child b { font-size: 12px; }
   .sess .t div:first-child span { font-size: 10.5px; color: #8A8980; margin-left: 4px; }
-  .sess .t div:last-child { font-size: 11.5px; color: #C3C2B7; margin-top: 1px; }
+  .sess .t div:nth-child(2) { font-size: 11.5px; color: #C3C2B7; margin-top: 1px; }
   .sess .time { font-size: 10.5px; color: #8A8980; font-variant-numeric: tabular-nums; align-self: flex-start; }
   .tile { width: 26px; height: 26px; border-radius: 7px; background: rgba(255,255,255,.08); display: grid; place-items: center; flex: none; position: relative; }
   .tile svg { width: 15px; height: 15px; }
@@ -145,6 +145,10 @@
   .btn.always { background: #142A1C; border: 1px solid #2D5A3C; color: #E7F7EC; }
   .btn.always code { font: 11px var(--mono); color: #B9D9C3; background: none; padding: 0; }
   .btn.allow { background: #97E0A9; color: #05200F; border: 1px solid #97E0A9; }
+  .btn kbd { font: 600 9.5px var(--sf); padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); }
+  .sess .t .ctx { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 10px; color: #8A8980; }
+  .sess .t .ctx .bar { flex: 0 0 90px; height: 3px; margin: 0; }
+  .sess .t .ctx.warn { color: var(--amber); }
   .search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.07); border-radius: 8px; height: 28px; padding: 0 10px; color: #8A8980; font-size: 12px; }
   .search .r { margin-left: auto; font-size: 10.5px; display: flex; gap: 8px; }
   .day { font-size: 10px; font-weight: 600; letter-spacing: .06em; color: #8A8980; margin: 10px 0 4px 8px; }
@@ -404,8 +408,8 @@
 
           <div class="view" data-name="agents" hidden>
             <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
-            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div></div><span class="time">2:14</span></div>
-            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div></div><span class="time">0:05</span></div>
+            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div><div class="ctx warn"><span class="bar"><i class="warn" style="width:85%"></i></span>85% · compacts soon</div></div><span class="time">2:14</span></div>
+            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div><div class="ctx"><span class="bar"><i style="width:30%"></i></span>30% context</div></div><span class="time">0:05</span></div>
             <div class="group" style="margin-top:10px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
             <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
           </div>
@@ -414,7 +418,7 @@
             <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
             <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
             <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-            <div class="btns"><span class="btn deny">✕ Deny</span><span class="btn always">↻ Always <code>git push</code></span><span class="btn allow">✓ Allow</span></div>
+            <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn always">↻ Always <code>git push</code> <kbd>A</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div>
           </div>
 
           <div class="view" data-name="clipboard" hidden>
@@ -455,7 +459,7 @@
 </header>
 
 <article class="col">
-  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 6</span><span class="dot"></span><span>November 13th 2026</span></div>
+  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 7</span><span class="dot"></span><span>November 17th 2026</span></div>
   <h1>The notch, <em>put to work</em></h1>
   <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
   <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
@@ -479,23 +483,24 @@
   </section>
 
   <section>
-    <h2>Say yes without leaving what you're doing</h2>
-    <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Allow it, deny it, or allow it always. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
+    <h2>Say yes without leaving what you're doing <span class="tag">Keys new in 0.5</span></h2>
+    <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Allow it, deny it, or allow it always, with a click or a key: with the pointer over the card, Return allows, A always allows and Esc denies. Visor only takes the keyboard while the pointer is there, so your typing never goes astray. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-desert"/></svg><div class="np" style="max-width:520px"><div class="glow"></div>
         <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
         <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
         <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-        <div class="btns"><span class="btn deny">✕ Deny</span><span class="btn always">↻ Always <code>git push</code></span><span class="btn allow">✓ Allow</span></div>
+        <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn always">↻ Always <code>git push</code> <kbd>A</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div>
       </div></div>
     </figure>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code and Copilot CLI. Copilot's "Always" rules are kept per project.</div>
   </section>
 
   <section>
-    <h2>Know you'll run out before you do <span class="tag">New in 0.4</span></h2>
+    <h2>Know you'll run out before you do</h2>
     <p>The Usage tab already shows every plan you're on: Claude's session and weekly limits, Copilot premium requests on each GitHub account (company ones too), Antigravity's model limits and OpenCode Go. Now each limit also watches how fast you're going. "On pace" means you'll make it to the reset. "Runs out in ~1h 15m" means it's time to slow down.</p>
     <p>And when a limit will run out within the hour, the closed notch swaps its percent for the time left, so you see it coming without looking for it.</p>
+    <p>New in 0.5: when a Claude or OpenCode Go limit you'd run out of comes back, the notch opens for a few seconds to say so, with when it ran out and when it resets next. No more checking every ten minutes to see if you can get back to work.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:380px">
         <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
@@ -507,13 +512,14 @@
   </section>
 
   <section>
-    <h2>Every agent, in one list</h2>
+    <h2>Every agent, in one list <span class="tag">New in 0.5</span></h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
+    <p>Each Claude Code session now shows how full its context window is, under what it's doing. The bar turns amber from 80%, so you know a session is about to compact before it does.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
         <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
-        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div></div><span class="time">2:14</span></div>
-        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div></div><span class="time">0:05</span></div>
+        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div><div class="ctx warn"><span class="bar"><i class="warn" style="width:85%"></i></span>85% · compacts soon</div></div><span class="time">2:14</span></div>
+        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div><div class="ctx"><span class="bar"><i style="width:30%"></i></span>30% context</div></div><span class="time">0:05</span></div>
         <div class="group" style="margin-top:10px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
         <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
       </div></div>
@@ -557,8 +563,10 @@
 
   <section id="new">
     <h2>What else is new</h2>
-    <p>Small things that add up, all in Visor 0.4.</p>
+    <p>Small things that add up, in Visor 0.4 and 0.5.</p>
     <ul class="more">
+      <li><h3>About Visor</h3><p>The menu bar menu now opens an About panel with the version, and links to this site, GitHub and a new issue.</p></li>
+      <li><h3>No more "playing" in silence</h3><p>A YouTube tab the browser hadn't loaded yet no longer shows as playing in the notch.</p></li>
       <li><h3>Done, with a check on top</h3><p>A finished turn now shows the agent's mark with a small green check, just like the "?" and "!" badges. The project and how long it took are on hover.</p></li>
       <li><h3>Agents remember where they were</h3><p>Visor used to forget your running sessions when it restarted, so the list said "No agents running" until each one did something. Now they're right where you left them.</p></li>
       <li><h3>Your plan, as it is today</h3><p>Upgraded from Pro to Max? The plan name now comes from your account, not from when Claude Code last signed in.</p></li>
@@ -611,7 +619,7 @@
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 300], agents: [520, 262], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
+  const sizes = { closed: [300, 32], usage: [520, 300], agents: [520, 292], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
   const notch = document.getElementById('notch');
   const tabs = [...document.querySelectorAll('.tab')];
   const views = [...document.querySelectorAll('.view')];
