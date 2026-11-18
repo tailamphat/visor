@@ -24,7 +24,12 @@ struct AgentsView: View {
                             Text("\(group.agent) · \(group.sessions.count)")
                                 .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
                                 .foregroundStyle(Theme.textMuted)
+                            if group.agent == Self.groups(model.board.sessions).first?.agent {
+                                Spacer(minLength: 8)
+                                AgentsViewSwitch(model: model)
+                            }
                         }
+                        .frame(height: 15)
                         .padding(.top, 2)
                         ForEach(group.sessions) { AgentRow(session: $0, focus: model.focusAgent) }
                     }
@@ -55,6 +60,35 @@ struct AgentsView: View {
             }
         }
         return rank(a) != rank(b) ? rank(a) < rank(b) : a.lastEvent > b.lastEvent
+    }
+}
+
+/// List or office: two small buttons, on the first group's line in the list
+/// and in the room's corner in the office.
+struct AgentsViewSwitch: View {
+    let model: AppModel
+
+    var body: some View {
+        HStack(spacing: 0) {
+            option("list.bullet", office: false, help: "Show as a list")
+            option("building.2", office: true, help: "Show as an office")
+        }
+        .padding(1)
+        .background(Capsule().fill(Color.white.opacity(0.08)))
+    }
+
+    private func option(_ symbol: String, office: Bool, help: String) -> some View {
+        let on = model.agentsOffice == office
+        return Button { model.agentsOffice = office } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(on ? Theme.textPrimary : Theme.textMuted)
+                .frame(width: 24, height: 15)
+                .background(Capsule().fill(on ? Color.white.opacity(0.16) : .clear))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
 

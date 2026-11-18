@@ -375,7 +375,13 @@ struct ExpandedView: View {
                     LimitBackView(back: back)
                 } else {
                     switch model.tab {
-                    case .agents: if model.showsOffice { OfficeView(model: model) } else { AgentsView(model: model) }
+                    case .agents:
+                        if model.showsOffice {
+                            OfficeView(model: model)
+                                .overlay(alignment: .topTrailing) { AgentsViewSwitch(model: model).padding(.top, 4).padding(.trailing, 6) }
+                        } else {
+                            AgentsView(model: model)
+                        }
                     case .usage: if model.showAccounts { AccountsView(model: model) } else { UsageView(model: model) }
                     case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
