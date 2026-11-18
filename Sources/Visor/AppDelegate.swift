@@ -336,13 +336,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clipboard.delete(first.id)
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
             if let tab = tab.flatMap(Tab.init(rawValue:)) { model.tab = tab; notch.expand() } else { model.expanded = false }
             if message.payload["keyboard"] as? Bool == true { model.focusClipSearch?() }
             model.showAccounts = message.payload["accounts"] as? Bool == true
+            if let office = message.payload["office"] as? Bool { model.agentsOffice = office }
             return
         }
         #endif

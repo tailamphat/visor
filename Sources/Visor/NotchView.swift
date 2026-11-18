@@ -68,6 +68,10 @@ struct NotchLayout {
                 if model.shows(.copilot) && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
             }
             if model.tab == .clipboard { return Self.clipboardSize }
+            if model.showsOffice {
+                let room = OfficeLayout(sessions: model.board.sessions.count).height * OfficeView.scale
+                return CGSize(width: Self.expandedSize.width, height: fitting(CGFloat(room)))
+            }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
                 let groups = Set(model.board.sessions.map(\.agent)).count
@@ -371,7 +375,7 @@ struct ExpandedView: View {
                     LimitBackView(back: back)
                 } else {
                     switch model.tab {
-                    case .agents: AgentsView(model: model)
+                    case .agents: if model.showsOffice { OfficeView(model: model) } else { AgentsView(model: model) }
                     case .usage: if model.showAccounts { AccountsView(model: model) } else { UsageView(model: model) }
                     case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
@@ -404,7 +408,15 @@ struct ExpandedView: View {
     private func tabs(_ list: ArraySlice<Tab>) -> some View {
         HStack(spacing: 4) {
             ForEach(Array(list), id: \.self) { tab in
-                TabButton(tab: tab, selected: model.tab == tab && !model.showsCard) {
+                TabButton(tab: tab, selected: model.tab == tab && !model.showsCard,
+                          symbol: tab == .agents && model.agentsOffice ? "building.2" : nil,
+                          help: tab == .agents ? (model.agentsOffice ? "Agents: the office. Click again for the list"
+                                                                     : "Agents: the list. Click again for the office") : nil) {
+                    // Agents again, while on it: switch between the list and the office.
+                    if tab == .agents && model.tab == .agents && !model.showsCard {
+                        model.agentsOffice.toggle()
+                        return
+                    }
                     if model.tab != tab { model.showAccounts = false }
                     model.tab = tab
                     if tab == .usage { model.refreshPlan?() }
@@ -452,11 +464,14 @@ struct ExpandedView: View {
 struct TabButton: View {
     let tab: Tab
     let selected: Bool
+    /// In place of the tab's own symbol (Agents shows the view it's in).
+    var symbol: String?
+    var help: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: tab.symbol)
+            Image(systemName: symbol ?? tab.symbol)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(selected ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: 30, height: 22)
@@ -466,6 +481,6 @@ struct TabButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(tab.rawValue.capitalized)
+        .help(help ?? tab.rawValue.capitalized)
     }
 }

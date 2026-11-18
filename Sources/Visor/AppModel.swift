@@ -137,6 +137,12 @@ final class AppModel {
     // Connected accounts
     /// The Usage tab shows the accounts list instead of the numbers.
     var showAccounts = false
+    /// The Agents tab as an office of little people instead of a list; remembered.
+    var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
+        didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
+    }
+    /// Whether the Agents tab shows the office right now: chosen, and someone to show.
+    var showsOffice: Bool { tab == .agents && agentsOffice && !board.sessions.isEmpty }
     /// What the last read of Claude Code's sign-in found; nil until it finishes.
     var claudeLookup: KeychainLookup?
     var claudeUsesAPIKey = false
