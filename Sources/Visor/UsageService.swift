@@ -68,7 +68,7 @@ final class UsageService {
 
     /// Called when the usage tab opens, so numbers are never stale when looked at.
     func refreshIfStale() {
-        if Date().timeIntervalSince(model.planUpdated ?? .distantPast) > 45 { refreshPlan() }
+        if Date().timeIntervalSince(model.planUpdated ?? .distantPast) > 45 { refreshPlan() } else { checkCopilotAccounts() }
         refreshAntigravity()
         refreshOpenCode()
     }
@@ -186,9 +186,16 @@ final class UsageService {
         // Signed-in hosts are re-read every 30 minutes, tokens only when GitHub
         // rejects one; both stay in memory only. Saves launching gh three
         // times on every refresh.
-        let knownHosts = Date().timeIntervalSince(copilotHostsRead) < 1800 ? copilotHosts : nil
-        let knownTokens = copilotTokens
+        // A different active account (gh auth switch, a new Copilot CLI
+        // sign-in) drops both, since the old account's token still works.
+        let cachedHosts = Date().timeIntervalSince(copilotHostsRead) < 1800 ? copilotHosts : nil
+        let cachedTokens = copilotTokens
+        let knownAccounts = copilotAccounts
         work.async {
+            let accounts = Self.copilotAccountsFingerprint()
+            let switched = accounts != knownAccounts
+            let knownHosts = switched ? nil : cachedHosts
+            let knownTokens = switched ? [:] : cachedTokens
             let hosts = knownHosts ?? gh.map { CopilotUsage.signedInHosts(fromStatus: Self.run($0, ["auth", "status"]) ?? "") } ?? []
             // Copilot CLI signs in on its own; use it for hosts gh doesn't know.
             let cliAccounts = (try? String(contentsOf: Self.copilotConfig, encoding: .utf8)).map(CopilotCLIAccount.parse) ?? []
@@ -233,6 +240,7 @@ final class UsageService {
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.fetchingCopilot = false
+                    self.copilotAccounts = accounts
                     if knownHosts == nil {
                         self.copilotHosts = hosts
                         self.copilotHostsRead = Date()
@@ -252,6 +260,23 @@ final class UsageService {
     private var copilotHosts: [String] = []
     private var copilotHostsRead = Date.distantPast
     private var copilotTokens: [String: String] = [:]
+    /// Who was signed in at the last read, nil before the first.
+    private var copilotAccounts: String?
+
+    /// Opening the Usage tab between refreshes: two small file reads, and a
+    /// refresh only if the active account changed.
+    private func checkCopilotAccounts() {
+        guard model.shows(.copilot), !fetchingCopilot, let known = copilotAccounts else { return }
+        work.async {
+            guard Self.copilotAccountsFingerprint() != known else { return }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.refreshCopilot() } }
+        }
+    }
+
+    private nonisolated static func copilotAccountsFingerprint() -> String {
+        GitHubAccounts.fingerprint(ghHosts: try? String(contentsOf: ghHostsFile, encoding: .utf8),
+                                   copilotConfig: try? String(contentsOf: copilotConfig, encoding: .utf8))
+    }
 
     // MARK: OpenCode
 
@@ -448,6 +473,20 @@ final class UsageService {
     private nonisolated static let copilotPath = tool("copilot")
     private nonisolated static var copilotConfig: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot/config.json")
+    }
+
+    /// gh's hosts.yml: GH_CONFIG_DIR, then XDG_CONFIG_HOME/gh, then ~/.config/gh.
+    private nonisolated static var ghHostsFile: URL {
+        let environment = ProcessInfo.processInfo.environment
+        let dir: URL
+        if let path = environment["GH_CONFIG_DIR"], !path.isEmpty {
+            dir = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        } else if let path = environment["XDG_CONFIG_HOME"], !path.isEmpty {
+            dir = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).appendingPathComponent("gh")
+        } else {
+            dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/gh")
+        }
+        return dir.appendingPathComponent("hosts.yml")
     }
 
     private nonisolated static func tool(_ name: String) -> String? {

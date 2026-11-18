@@ -118,11 +118,54 @@ public struct CopilotCLIAccount: Equatable, Sendable {
             .joined(separator: "\n")
         guard let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
               let users = object["loggedInUsers"] as? [[String: Any]] else { return [] }
-        return users.compactMap { user in
-            guard let url = user["host"] as? String, let login = user["login"] as? String,
-                  let host = URL(string: url)?.host ?? Optional(url), !host.isEmpty else { return nil }
-            return CopilotCLIAccount(host: host, login: login)
+        let accounts = users.compactMap(account)
+        // The account it last signed in with is the one in use: first, so it wins its host.
+        guard let last = (object["lastLoggedInUser"] as? [String: Any]).flatMap(account),
+              accounts.contains(last) else { return accounts }
+        return [last] + accounts.filter { $0 != last }
+    }
+
+    /// The account Copilot CLI last signed in with.
+    public static func last(config: String) -> CopilotCLIAccount? {
+        let json = config.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+        let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        return (object?["lastLoggedInUser"] as? [String: Any]).flatMap(account)
+    }
+
+    private static func account(_ user: [String: Any]) -> CopilotCLIAccount? {
+        guard let url = user["host"] as? String, let login = user["login"] as? String,
+              let host = URL(string: url)?.host ?? Optional(url), !host.isEmpty else { return nil }
+        return CopilotCLIAccount(host: host, login: login)
+    }
+}
+
+/// Which GitHub account is in use on each host, so a switch (`gh auth switch`,
+/// or signing in to Copilot CLI as someone else) is noticed without a restart.
+public enum GitHubAccounts {
+    /// The active `user` of each host in gh's hosts.yml. Every signed-in
+    /// account sits under `users`; the active one is also the host's `user`.
+    public static func active(ghHosts: String) -> [String: String] {
+        var result: [String: String] = [:]
+        var host: String?
+        for line in ghHosts.split(separator: "\n") {
+            if !line.hasPrefix(" "), line.hasSuffix(":") {
+                host = String(line.dropLast())
+            } else if let host, line.hasPrefix("    user:"), !line.hasPrefix("     ") {
+                result[host] = line.dropFirst("    user:".count).trimmingCharacters(in: .whitespaces)
+            }
         }
+        return result
+    }
+
+    /// The active accounts in one string: different after a switch, the same otherwise.
+    public static func fingerprint(ghHosts: String?, copilotConfig: String?) -> String {
+        var parts = active(ghHosts: ghHosts ?? "").map { "gh \($0.key) \($0.value)" }.sorted()
+        if let last = copilotConfig.flatMap(CopilotCLIAccount.last(config:)) {
+            parts.append("cli \(last.host) \(last.login)")
+        }
+        return parts.joined(separator: "\n")
     }
 }
 

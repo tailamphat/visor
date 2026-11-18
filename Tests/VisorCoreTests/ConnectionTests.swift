@@ -66,6 +66,25 @@ struct CopilotCLIAccountsTests {
                              CopilotCLIAccount(host: "github.com", login: "monalisa")])
     }
 
+    /// Two accounts on one host: the one Copilot CLI last signed in with comes first.
+    @Test func lastSignedInAccountComesFirst() {
+        let switched = """
+        {
+          "lastLoggedInUser": { "host": "https://github.com", "login": "hubot" },
+          "loggedInUsers": [
+            { "host": "https://github.com", "login": "monalisa" },
+            { "host": "https://acme.ghe.com", "login": "octocat" },
+            { "host": "https://github.com", "login": "hubot" }
+          ]
+        }
+        """
+        #expect(CopilotCLIAccount.parse(config: switched) == [
+            CopilotCLIAccount(host: "github.com", login: "hubot"),
+            CopilotCLIAccount(host: "github.com", login: "monalisa"),
+            CopilotCLIAccount(host: "acme.ghe.com", login: "octocat"),
+        ])
+    }
+
     @Test func keychainAccountIsTheHostURLAndLogin() {
         #expect(CopilotCLIAccount(host: "acme.ghe.com", login: "octocat").keychainAccount == "https://acme.ghe.com:octocat")
     }
@@ -141,5 +160,40 @@ struct ConnectionStateTests {
         #expect(ConnectionProvider.hidden(from: ConnectionProvider.store(hidden)) == hidden)
         #expect(ConnectionProvider.hidden(from: ["nonsense"]).isEmpty)
         #expect(ConnectionProvider.copilot.agent == "Copilot CLI")
+    }
+}
+
+@Suite("Active GitHub accounts")
+struct ActiveGitHubAccountsTests {
+    let hosts = """
+    github.com:
+        git_protocol: https
+        users:
+            monalisa:
+            hubot:
+        user: hubot
+    acme.ghe.com:
+        users:
+            octocat:
+        user: octocat
+    """
+
+    /// gh keeps every signed-in account under `users` and the active one in `user`.
+    @Test func readsTheActiveUserOfEachHost() {
+        #expect(GitHubAccounts.active(ghHosts: hosts) == ["github.com": "hubot", "acme.ghe.com": "octocat"])
+        #expect(GitHubAccounts.active(ghHosts: "").isEmpty)
+    }
+
+    /// `gh auth switch` or a new Copilot CLI sign-in changes the fingerprint;
+    /// rewriting the same accounts doesn't.
+    @Test func fingerprintChangesWhenTheActiveAccountDoes() {
+        let config = #"{"lastLoggedInUser":{"host":"https://acme.ghe.com","login":"octocat"},"loggedInUsers":[]}"#
+        let before = GitHubAccounts.fingerprint(ghHosts: hosts, copilotConfig: config)
+        #expect(before == GitHubAccounts.fingerprint(ghHosts: hosts, copilotConfig: config))
+        let switched = hosts.replacingOccurrences(of: "user: hubot", with: "user: monalisa")
+        #expect(before != GitHubAccounts.fingerprint(ghHosts: switched, copilotConfig: config))
+        let otherCLI = config.replacingOccurrences(of: "octocat", with: "hubot")
+        #expect(before != GitHubAccounts.fingerprint(ghHosts: hosts, copilotConfig: otherCLI))
+        #expect(GitHubAccounts.fingerprint(ghHosts: nil, copilotConfig: nil) == "")
     }
 }
