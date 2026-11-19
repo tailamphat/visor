@@ -103,6 +103,9 @@
   .badge { display: flex; align-items: center; gap: 2px; margin-right: 2px; }
   .badge b { font: 700 10px var(--sf); color: #C3C2B7; margin-right: 4px; }
   .status .gear { width: 11px; height: 11px; color: #8A8980; margin-left: 4px; }
+  .status .gear[hidden] { display: none; }
+  .badge .plus { display: inline-flex; align-items: center; align-self: center; height: 14px; line-height: 14px; font-size: 9px; font-weight: 700; color: #C3C2B7; background: rgba(255,255,255,.12); border-radius: 99px; padding: 1px 4px; margin-right: 4px; }
+  .badge .plus[hidden] { display: none; }
   .status { display: flex; align-items: center; gap: 8px; font: 500 11px var(--sf); color: #C3C2B7; font-variant-numeric: tabular-nums; }
   .status svg { width: 12px; height: 12px; }
   .view { margin-top: 8px; }
@@ -431,7 +434,7 @@
               <button class="tab" role="tab" data-view="music" aria-selected="false" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></button>
             </div>
-            <div class="status"><span class="badge"><svg><use href="#claude"/></svg><b>2</b><svg><use href="#copilot"/></svg></span><span>91% left</span><span class="sym s-gear gear" aria-hidden="true"></span></div>
+            <div class="status"><span class="badge"><svg><use href="#claude"/></svg><b class="n-claude">2</b><svg><use href="#copilot"/></svg><b class="n-copilot"></b><span class="plus" hidden>+1</span></span><span>91% left</span><span class="sym s-gear gear" aria-hidden="true"></span></div>
           </div>
 
           <div class="view" data-name="usage">
@@ -715,6 +718,9 @@
   const tries = [...document.querySelectorAll('[data-try]')];
   const glow = document.getElementById('glow');
   const gear = document.querySelector('.status .gear');
+  const badgeClaude = document.querySelector('.badge .n-claude');
+  const badgeCopilot = document.querySelector('.badge .n-copilot');
+  const badgeMore = document.querySelector('.badge .plus');
 
   function show(name) {
     const open = name !== 'closed';
@@ -726,7 +732,11 @@
     notch.style.setProperty('--h', h + 'px');
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
-    // Like the app: Usage has its gear.
+    // Like the app: the badge counts the agents in view (the office picture has more), and Usage has its gear.
+    const office = name === 'office';
+    badgeClaude.textContent = office ? '5' : '2';
+    badgeCopilot.textContent = office ? '2' : '';
+    badgeMore.hidden = !office;
     gear.hidden = !(name === 'usage' || name === 'tokens');
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
