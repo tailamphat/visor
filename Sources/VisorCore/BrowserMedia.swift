@@ -66,6 +66,24 @@ public struct BrowserMedia: Equatable, Sendable {
 
     public enum Command: Sendable { case playPause, next, previous }
 
+    /// Runs in the page: whether the media plays and where it is.
+    public static let clock = "(function(){var all=[].slice.call(document.querySelectorAll('video,audio'));var m=all.filter(function(e){return !e.paused;})[0]||all.filter(function(e){return e.currentTime>0;})[0]||all[0];if(!m)return '';return JSON.stringify({p:!m.paused,t:m.currentTime});})()"
+
+    /// Whether media really started since it was at `from`: playing, and time
+    /// has moved. Dia holds back media in background tabs, where play() leaves
+    /// it "playing" with the clock stopped.
+    public static func started(from: Double, probe: String) -> Bool {
+        guard var value = try? JSONSerialization.jsonObject(with: Data(probe.utf8), options: .fragmentsAllowed) else { return false }
+        if let inner = value as? String, let unwrapped = try? JSONSerialization.jsonObject(with: Data(inner.utf8)) { value = unwrapped }
+        guard let object = value as? [String: Any], object["p"] as? Bool == true,
+              let time = (object["t"] as? NSNumber)?.doubleValue else { return false }
+        return time - from > 0.25
+    }
+
+    /// Browsers whose AppleScript can bring one tab forward (Dia's `focus`),
+    /// to let a held-back background tab start.
+    public static func canFocusTab(_ bundleID: String) -> Bool { bundleID == "company.thebrowser.dia" }
+
     /// Runs in the page to control playback. Next/previous click the site's own
     /// buttons; previous restarts the track when there is none.
     public static func script(for command: Command) -> String {

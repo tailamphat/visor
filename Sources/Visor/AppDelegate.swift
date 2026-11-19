@@ -318,11 +318,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.musicCommand?(command)
             return
         }
-        // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true,"known":false}} fakes a song.
+        // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true,"known":false,"tab":"<Dia tab id>"}} fakes a song.
         if message.event == "_music" {
             let p = message.payload
             let image = (p["art"] as? String).flatMap { NSImage(contentsOfFile: $0) }
-            model.nowPlaying = NowPlaying(source: .browser(bundleID: "company.thebrowser.dia", tab: "", scriptable: false),
+            // "tab": a real Dia tab id, so the buttons script that tab.
+            let tab = p["tab"] as? String ?? ""
+            model.nowPlaying = NowPlaying(source: .browser(bundleID: "company.thebrowser.dia", tab: tab, scriptable: !tab.isEmpty),
                                           sourceName: p["source"] as? String ?? "Dia · YouTube",
                                           title: p["title"] as? String ?? "", artist: p["artist"] as? String ?? "",
                                           album: "", duration: (p["duration"] as? NSNumber)?.doubleValue ?? 0,

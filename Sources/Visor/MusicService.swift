@@ -545,13 +545,53 @@ final class MusicService {
                 end tell
                 """
             }
+            // Starting a Dia tab: Dia may be holding back its media (a background tab).
+            let starting = command == .playPause && !now.isPlaying && now.stateKnown && BrowserMedia.canFocusTab(id)
+            let from = now.position(at: Date())
             scripts.async {
                 _ = Self.run(script)
+                if starting { Self.startHeldBackTab(browser: id, tab: tab, from: from) }
                 // Give the page a moment, then read the new state.
                 DispatchQueue.main.asyncAfter(deadline: .now() + (command == .playPause ? 0.3 : 1.2)) {
                     MainActor.assumeIsolated { self.refreshBrowsers(audible: self.audible.union([id])) }
                 }
             }
+        }
+    }
+
+    /// Dia holds back media in a background tab: play() leaves it "playing"
+    /// with the clock stopped until the tab is shown. If it hasn't started
+    /// after a second, show the tab until it plays, then put the previous tab
+    /// and app back. Runs on `scripts`; blocks it for up to ~4 s.
+    private nonisolated static func startHeldBackTab(browser id: String, tab: String, from: Double) {
+        func inTab(_ tabID: String, _ body: String) -> String {
+            """
+            tell application id "\(id)"
+              repeat with w in windows
+                repeat with t in tabs of w
+                  if ((id of t) as string) is "\(tabID)" then \(body)
+                end repeat
+              end repeat
+            end tell
+            """
+        }
+        let clock = inTab(tab, "return execute t javascript \(appleScriptString(BrowserMedia.clock))")
+        func playing() -> Bool { BrowserMedia.started(from: from, probe: run(clock).result?.stringValue ?? "") }
+        Thread.sleep(forTimeInterval: 1)
+        guard !playing() else { return }
+
+        let previousApp = DispatchQueue.main.sync { NSWorkspace.shared.frontmostApplication }
+        let previousTab = run("tell application id \"\(id)\" to return id of active tab of front window").result?.stringValue
+        _ = run(inTab(tab, "focus t"))
+        // The site may have given up and paused while it was held back.
+        Thread.sleep(forTimeInterval: 0.15)
+        let resume = "(function(){var m=document.querySelector('video,audio');if(!m||!m.paused)return '';var b=document.querySelector('.ytp-play-button, ytmusic-player-bar #play-pause-button');if(b){b.click();}else{m.play();}return 'ok';})()"
+        _ = run(inTab(tab, "return execute t javascript \(appleScriptString(resume))"))
+        for _ in 0..<20 where !playing() { Thread.sleep(forTimeInterval: 0.15) }
+
+        if let previousTab, previousTab != tab { _ = run(inTab(previousTab, "focus t")) }
+        if let previousApp, previousApp.bundleIdentifier != id {
+            DispatchQueue.main.async { previousApp.activate() }
         }
     }
 

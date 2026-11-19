@@ -65,3 +65,20 @@ struct BrowserBridgeTests {
         #expect(!dirs.contains { $0.path.contains("Brave") })
     }
 }
+
+@Suite("Background tab playback")
+struct BackgroundPlaybackTests {
+    /// Dia holds back media in a background tab: play() "succeeds" but time stands still.
+    @Test func startedOnlyWhenTimeMoves() {
+        #expect(BrowserMedia.started(from: 100, probe: #"{"p":true,"t":100.9}"#))
+        #expect(!BrowserMedia.started(from: 100, probe: #"{"p":true,"t":100.01}"#), "frozen")
+        #expect(!BrowserMedia.started(from: 100, probe: #"{"p":false,"t":100.9}"#), "paused again")
+        #expect(BrowserMedia.started(from: 100, probe: #""{\"p\":true,\"t\":101}""#), "Dia quotes the JSON once more")
+        #expect(!BrowserMedia.started(from: 100, probe: ""))
+    }
+
+    @Test func onlyDiaCanFlashATab() {
+        #expect(BrowserMedia.canFocusTab("company.thebrowser.dia"))
+        #expect(!BrowserMedia.canFocusTab("com.google.Chrome"))
+    }
+}
