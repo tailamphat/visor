@@ -191,6 +191,17 @@ final class AppModel {
     var providerOrder = ConnectionProvider.order(from: UserDefaults.standard.stringArray(forKey: "providerOrder") ?? []) {
         didSet { UserDefaults.standard.set(providerOrder.map(\.rawValue), forKey: "providerOrder") }
     }
+    /// The tools the Usage tab shows a section for, in order: chosen, installed and with something to show.
+    var usageSections: [ConnectionProvider] {
+        providerOrder.filter(shows).filter { provider in
+            switch provider {
+            case .claude: return true
+            case .copilot: return !copilot.isEmpty
+            case .antigravity: return antigravity != nil || antigravityError != nil || antigravityLoading
+            case .openCode: return openCode != nil || openCodeGo != nil || openCodeError != nil
+            }
+        }
+    }
     /// The Connected accounts row being dragged, and how far.
     var accountsDrag: (provider: ConnectionProvider, translation: CGFloat)?
     /// Usage without a usage column: no shown tool has one, so the limits take the full width.

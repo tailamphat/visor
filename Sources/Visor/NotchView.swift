@@ -62,7 +62,12 @@ struct NotchLayout {
             if model.tab == .usage {
                 // Plan limits sit under a bar with the switch to Tokens.
                 let bar = UsageBar.height + UsageBar.gap
-                func taller(_ size: CGSize) -> CGSize { CGSize(width: size.width, height: size.height + bar) }
+                // Each striped divider between tools takes a little more than the old gap.
+                let dividers = CGFloat(max(0, model.usageSections.count - 1)) * ToolDivider.extra
+                // No taller than the tallest panel the window has room for; past that, the list scrolls.
+                func taller(_ size: CGSize) -> CGSize {
+                    CGSize(width: size.width, height: min(size.height + bar + dividers, Self.usageWithAntigravitySize.height + bar))
+                }
                 if model.shows(.antigravity) && (model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading) {
                     return taller(Self.usageWithAntigravitySize)
                 }

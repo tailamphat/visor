@@ -469,9 +469,11 @@ struct UsageView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 20) {
-                // In the order chosen under Connected accounts.
-                ForEach(model.providerOrder.filter(model.shows), id: \.self) { provider in
+            VStack(alignment: .leading, spacing: 0) {
+                // In the order chosen under Connected accounts, a striped band between tools.
+                let sections = model.usageSections
+                ForEach(sections, id: \.self) { provider in
+                    if provider != sections.first { ToolDivider() }
                     section(provider)
                 }
                 if !ConnectionProvider.allCases.contains(where: model.shows) {
@@ -688,6 +690,32 @@ struct AccountRow<Grip: View>: View {
         case .bad: return Theme.critical
         case .neutral: return Theme.textMuted
         }
+    }
+}
+
+/// Between tools in Usage: a band of diagonal grey stripes, so it can't be
+/// mistaken for a meter's solid track.
+struct ToolDivider: View {
+    static let band: CGFloat = 6
+    static let room: CGFloat = 18
+    /// Height it adds over the plain gap that used to separate tools.
+    static let extra: CGFloat = 2 * room + band - 20
+
+    var body: some View {
+        Canvas { context, size in
+            context.clip(to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: size.height / 2))
+            var stripes = Path()
+            var x: CGFloat = -size.height
+            while x < size.width + size.height {
+                stripes.move(to: CGPoint(x: x, y: size.height))
+                stripes.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += 5
+            }
+            context.stroke(stripes, with: .color(.white.opacity(0.16)), lineWidth: 1.5)
+        }
+        .frame(height: Self.band)
+        .padding(.vertical, Self.room)
+        .accessibilityHidden(true)
     }
 }
 
