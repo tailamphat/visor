@@ -452,18 +452,35 @@ struct ExpandedView: View {
         }
     }
 
+    @ViewBuilder private var badge: some View {
+        if model.hasActivity {
+            AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
+                .fixedSize()
+        }
+    }
+
+    @ViewBuilder private var percentLeft: some View {
+        if let session = model.plan?.session, model.shows(.claude) {
+            Text("\(Int(session.percentLeft.rounded()))% left")
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .lineLimit(1).fixedSize()
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
     private var fullHeader: some View {
         HStack(spacing: 0) {
             tabs(Tab.shown[...])
             .padding(.leading, NotchLayout.inset)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
-                if model.hasActivity { AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) })) }
-                if let session = model.plan?.session, model.shows(.claude) {
-                    Text("\(Int(session.percentLeft.rounded()))% left")
-                        .font(.system(size: 11, weight: .medium).monospacedDigit())
-                        .lineLimit(1).fixedSize()
-                        .foregroundStyle(Theme.textSecondary)
+                // The badge never squeezes; with many agents "% left" makes way (it's on the Usage tab too).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        badge
+                        percentLeft
+                    }
+                    badge
                 }
                 if model.tab == .usage && !model.showsCard {
                     Button {
