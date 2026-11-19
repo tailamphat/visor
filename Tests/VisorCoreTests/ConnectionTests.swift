@@ -216,3 +216,28 @@ struct ActiveGitHubAccountsTests {
         #expect(GitHubAccounts.fingerprint(ghHosts: nil, copilotConfig: nil) == "")
     }
 }
+
+/// Copilot in JetBrains, Neovim, Xcode and older VS Code signs in on its own and
+/// keeps the token in ~/.config/github-copilot/apps.json (or hosts.json).
+@Suite("Copilot editor sign-in")
+struct CopilotEditorAccountTests {
+    @Test func readsAppsJSON() {
+        let apps = #"""
+        {"github.com:Iv1.b507a08c87ecfe98":{"user":"monalisa","oauth_token":"ghu_one","githubAppId":"Iv1.b507a08c87ecfe98"},
+         "acme.ghe.com:Iv1.b507a08c87ecfe98":{"user":"octocat","oauth_token":"ghu_two","githubAppId":"Iv1.b507a08c87ecfe98"}}
+        """#
+        let accounts = CopilotEditorAccount.parse(Data(apps.utf8))
+        #expect(accounts == [CopilotEditorAccount(host: "acme.ghe.com", login: "octocat", token: "ghu_two"),
+                             CopilotEditorAccount(host: "github.com", login: "monalisa", token: "ghu_one")])
+    }
+
+    @Test func readsOlderHostsJSON() {
+        let hosts = #"{"github.com":{"user":"monalisa","oauth_token":"gho_old"}}"#
+        #expect(CopilotEditorAccount.parse(Data(hosts.utf8)) == [CopilotEditorAccount(host: "github.com", login: "monalisa", token: "gho_old")])
+    }
+
+    @Test func skipsEntriesWithoutAToken() {
+        #expect(CopilotEditorAccount.parse(Data(#"{"github.com:x":{"user":"monalisa"}}"#.utf8)).isEmpty)
+        #expect(CopilotEditorAccount.parse(Data("not json".utf8)).isEmpty)
+    }
+}

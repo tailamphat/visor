@@ -41,7 +41,7 @@ final class UsageService {
         model.antigravityInstalled = Self.agyPath != nil
         model.openCodeInstalled = Self.openCodeInstalled
         model.copilotInstalled = Self.ghPath != nil || Self.copilotPath != nil
-            || FileManager.default.fileExists(atPath: Self.copilotConfig.path)
+            || FileManager.default.fileExists(atPath: Self.copilotConfig.path) || !Self.editorAccounts().isEmpty
         loadLedger()
         scanTranscripts()
         refreshCopilotTokens()
@@ -385,6 +385,13 @@ final class UsageService {
                 cliByHost[account.host] = account
                 cliHosts.append(account.host)
             }
+            // Editor plugins (JetBrains, Neovim, Xcode) keep their own sign-in, token included.
+            let editorAccounts = Self.editorAccounts()
+            var editorByHost: [String: CopilotEditorAccount] = [:]
+            for account in editorAccounts where !hosts.contains(account.host) && cliByHost[account.host] == nil {
+                editorByHost[account.host] = account
+                cliHosts.append(account.host)
+            }
             var tokens = knownTokens
             var found: [CopilotUsage] = []
             var problems: [CopilotProblem] = []
@@ -394,7 +401,9 @@ final class UsageService {
                 // One retry with a fresh token if the remembered one is refused.
                 for attempt in 0..<2 {
                     if attempt == 1 || tokens[host] == nil {
-                        if let account = cliByHost[host] {
+                        if let account = editorByHost[host] {
+                            tokens[host] = account.token
+                        } else if let account = cliByHost[host] {
                             guard allowKeychain else { break }
                             let read = Self.keychainPassword(service: "copilot-cli", account: account.keychainAccount)
                             if read.lookup == .denied { denied = true }
@@ -419,7 +428,7 @@ final class UsageService {
                     // one that doesn't says why under Connected accounts.
                     switch response {
                     case .ok(let data):
-                        if let usage = CopilotUsage.parse(data, host: host, login: cliByHost[host]?.login ?? "") {
+                        if let usage = CopilotUsage.parse(data, host: host, login: cliByHost[host]?.login ?? editorByHost[host]?.login ?? "") {
                             found.append(usage)
                         } else {
                             problems.append(.unreadable(host: host))
@@ -440,7 +449,7 @@ final class UsageService {
                     }
                     if denied { self.copilotKeychainDenied = true }
                     self.model.copilotDenied = denied || (self.copilotKeychainDenied && found.isEmpty)
-                    self.model.copilotAccounts = Set(hosts + cliAccounts.map(\.host)).count
+                    self.model.copilotAccounts = Set(hosts + cliAccounts.map(\.host) + editorAccounts.map(\.host)).count
                     self.model.copilotProblems = problems
                     self.copilotTokens = tokens
                     // Company plans first.
@@ -470,6 +479,19 @@ final class UsageService {
     private nonisolated static func copilotAccountsFingerprint() -> String {
         GitHubAccounts.fingerprint(ghHosts: try? String(contentsOf: ghHostsFile, encoding: .utf8),
                                    copilotConfig: try? String(contentsOf: copilotConfig, encoding: .utf8))
+            + editorAccounts().map { "\neditor \($0.host) \($0.login)" }.joined()
+    }
+
+    /// Copilot editor sign-ins: apps.json, or the older hosts.json.
+    private nonisolated static func editorAccounts() -> [CopilotEditorAccount] {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/github-copilot")
+        for name in ["apps.json", "hosts.json"] {
+            if let data = try? Data(contentsOf: dir.appendingPathComponent(name)) {
+                let accounts = CopilotEditorAccount.parse(data)
+                if !accounts.isEmpty { return accounts }
+            }
+        }
+        return []
     }
 
     // MARK: OpenCode

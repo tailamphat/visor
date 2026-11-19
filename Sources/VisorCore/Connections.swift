@@ -141,6 +141,34 @@ public struct CopilotCLIAccount: Equatable, Sendable {
     }
 }
 
+/// A Copilot sign-in made by an editor plugin (JetBrains, Neovim, Xcode, older
+/// VS Code): `~/.config/github-copilot/apps.json`, keyed "host:appId", or the
+/// older `hosts.json`, keyed by host. The token sits in the file itself.
+public struct CopilotEditorAccount: Equatable, Sendable {
+    public var host: String
+    public var login: String
+    public var token: String
+
+    public init(host: String, login: String, token: String) {
+        self.host = host
+        self.login = login
+        self.token = token
+    }
+
+    /// One account per host, sorted by host.
+    public static func parse(_ data: Data) -> [CopilotEditorAccount] {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        var byHost: [String: CopilotEditorAccount] = [:]
+        for (key, value) in object {
+            guard let entry = value as? [String: Any], let token = entry["oauth_token"] as? String, !token.isEmpty else { continue }
+            let host = String(key.split(separator: ":").first ?? "")
+            guard !host.isEmpty, byHost[host] == nil else { continue }
+            byHost[host] = CopilotEditorAccount(host: host, login: entry["user"] as? String ?? "", token: token)
+        }
+        return byHost.values.sorted { $0.host < $1.host }
+    }
+}
+
 /// Which GitHub account is in use on each host, so a switch (`gh auth switch`,
 /// or signing in to Copilot CLI as someone else) is noticed without a restart.
 public enum GitHubAccounts {
