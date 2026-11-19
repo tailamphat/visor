@@ -3,6 +3,15 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.6.5</title>
+            <pubDate>Thu, 19 Nov 2026 16:31:55 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>115</sparkle:version>
+            <sparkle:shortVersionString>0.6.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.6.5/Visor-0.6.5.zip" length="4922675" type="application/octet-stream" sparkle:edSignature="julf3V/TjYE8dlzobKTAAg3VNyL+5NjqXXyljZZ5dVnbp1ZK6kh8/+SLuJYrM6DpeqV5enKyyQ86lUSE3z4rBg=="/>
+        </item>
+        <item>
             <title>0.6.4</title>
             <pubDate>Thu, 19 Nov 2026 16:09:31 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
