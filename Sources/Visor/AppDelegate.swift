@@ -348,7 +348,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clipboard.delete(first.id)
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab; "tokens":true/false the Usage tab ("page":"models" picks its view).
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab; "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
@@ -358,6 +358,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let office = message.payload["office"] as? Bool { model.agentsOffice = office }
             if let tokens = message.payload["tokens"] as? Bool { model.usageTokens = tokens }
             if let page = (message.payload["page"] as? String).flatMap(TokensPage.init(rawValue:)) { model.tokensPage = page }
+            // "clipHover": n hovers the clipboard's nth row (0-based).
+            if let row = (message.payload["clipHover"] as? NSNumber)?.intValue, model.clips.items.indices.contains(row) {
+                model.clipHover = model.clips.items[row].id
+            }
             return
         }
         #endif
