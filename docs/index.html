@@ -197,6 +197,26 @@
 
   /* A picture of the notch: wallpaper in a soft frame, the panel hanging from the top. */
   figure { margin: 28px 0 0; }
+  .shot img.real { display: block; width: 100%; max-width: 496px; margin: 0 auto; border-radius: 0 0 22px 22px; }
+  .tk-bar { display: flex; align-items: center; gap: 2px; font-weight: 600; color: #8A8980; margin-bottom: 10px; }
+  .tk-bar span { padding: 0 6px 3px; }
+  .tk-bar span.on { color: #fff; box-shadow: inset 0 -1.5px 0 #fff; }
+  .tk-bar .rng { margin-left: auto; display: flex; padding: 1px; border-radius: 99px; background: rgba(255,255,255,.08); font-size: 10px; }
+  .tk-bar .rng i { font-style: normal; padding: 1px 8px; border-radius: 99px; }
+  .tk-bar .rng i.on { background: rgba(255,255,255,.16); color: #fff; }
+  .tk-hero { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tk-hero b { font-size: 24px; letter-spacing: -.02em; }
+  .tk-hero b small { font-size: 11px; font-weight: 500; color: #C3C2B7; margin-left: 4px; letter-spacing: 0; }
+  .tk-hero span { font-size: 10px; color: #8A8980; } .tk-hero span em { display: block; font-style: normal; font-weight: 600; font-size: 12px; color: #C3C2B7; }
+  .tk-chart { display: flex; align-items: flex-end; gap: 2px; height: 70px; margin-bottom: 6px; }
+  .tk-chart i { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; border-radius: 1px; overflow: hidden; }
+  .tk-chart i u { display: block; }
+  .tk-row { background: #161616; border-radius: 9px; padding: 6px 10px; margin-top: 4px; }
+  .tk-row .top { display: flex; gap: 6px; align-items: baseline; font-weight: 600; }
+  .tk-row .top s { width: 8px; height: 8px; border-radius: 2px; align-self: center; text-decoration: none; }
+  .tk-row .top small { color: #8A8980; font-weight: 400; font-size: 10.5px; }
+  .tk-row .top em { margin-left: auto; font-style: normal; }
+  .tk-row .split { font: 10px var(--mono, ui-monospace); color: #8A8980; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .shot { border-radius: 18px; overflow: hidden; position: relative; isolation: isolate; box-shadow: var(--frame-shadow); padding: 0 16px 28px; background: #2B2766; }
   .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
   .np { background: #000; color: #fff; border-radius: 0 0 22px 22px; margin: 0 auto; padding: 14px 18px 18px; font: 12px/1.35 var(--sf); position: relative; overflow: hidden; }
@@ -459,7 +479,7 @@
 </header>
 
 <article class="col">
-  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 7</span><span class="dot"></span><span>November 17th 2026</span></div>
+  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 8</span><span class="dot"></span><span>November 19th 2026</span></div>
   <h1>The notch, <em>put to work</em></h1>
   <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
   <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
@@ -512,6 +532,23 @@
   </section>
 
   <section>
+    <h2>Every token, counted <span class="tag">New in 0.6</span></h2>
+    <p>How much have your agents actually read and written? Flip the switch at the top of the Usage tab to <b>Tokens</b>: every token you've used across Claude Code, Copilot CLI, Antigravity, OpenCode, Codex and Gemini CLI, by model, a little like <a href="https://github.com/junhoyeo/tokscale">tokscale</a> in your notch.</p>
+    <p>The headline counts everything, and beside it the tokens without cache reads, the conversation each agent re-reads from cache on every reply: cheap, and usually most of the total. A stacked bar for each day shows which models did the work, and Overview, Models, Daily and Tools pages break it down for the last week, month or all time.</p>
+    <p>Your tools clean up after themselves (Claude Code deletes transcripts after a month), so Visor keeps its own daily totals. "All time" keeps counting.</p>
+    <figure>
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-hills"/></svg><div class="np" style="max-width:480px">
+        <div class="tk-bar"><span class="on">Overview</span><span>Models</span><span>Daily</span><span>Tools</span><span class="rng"><i>7D</i><i class="on">30D</i><i>All</i></span></div>
+        <div class="tk-hero"><b>1.84B<small>tokens</small></b><span><em>212M</em>without cache reads</span><span><em>24</em>active days</span><span><em>186M</em>peak · 12 Nov</span></div>
+        <div class="tk-chart" aria-hidden="true"><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:14%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:18%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i></div>
+        <div class="tk-row"><div class="top"><s style="background:#D97757"></s>claude-opus-5-5 <small>Claude Code</small><em>1.52B</em></div><div class="split">In 31K · Out 6.2M · Cache read 1.48B · Cache write 35M</div></div>
+        <div class="tk-row"><div class="top"><s style="background:#A78BFA"></s>claude-sonnet-5-5 <small>Copilot CLI</small><em>288M</em></div><div class="split">In 141M · Out 1.3M · Cache read 131M · Cache write 15M</div></div>
+      </div></div>
+    </figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Read from each tool's own logs on your Mac. Codex and Gemini CLI too.</div>
+  </section>
+
+  <section>
     <h2>Every agent, in one list <span class="tag">New in 0.5</span></h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
     <p>Each Claude Code session now shows how full its context window is, under what it's doing. The bar turns amber from 80%, so you know a session is about to compact before it does.</p>
@@ -524,6 +561,18 @@
         <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
       </div></div>
     </figure>
+  </section>
+
+  <section>
+    <h2>Or watch them work <span class="tag">New in 0.6</span></h2>
+    <p>Prefer to see your agents at work? Switch the Agents tab to the <b>office</b>. Each tool gets a table and each session a little person sitting at it. They get up and walk to the terminal to run a command, the bookshelf to read, the hologram to search the web, and the sofa when a turn is done. When one needs you, it comes to your desk and waves, with an amber "!" or a blue "?".</p>
+    <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants by the door. Hover anyone to see what they're doing and how full their context is; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
+    <figure>
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg>
+        <img class="real" src="assets/office.png" width="496" height="314" alt="The agent office: Claude Code, Copilot CLI and Antigravity tables with little people at work, one waiting at your desk, one at the web hologram, one resting on the sofa.">
+      </div>
+    </figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
   </section>
 
   <section>
@@ -563,8 +612,9 @@
 
   <section id="new">
     <h2>What else is new</h2>
-    <p>Small things that add up, in Visor 0.4 and 0.5.</p>
+    <p>Small things that add up, in Visor 0.4 to 0.6.</p>
     <ul class="more">
+      <li><h3>Switch Copilot accounts, no restart</h3><p>Change the active account with <code>gh auth switch</code> or in Copilot CLI and the Usage tab follows within two minutes, or at once when you open it.</p></li>
       <li><h3>About Visor</h3><p>The menu bar menu now opens an About panel with the version, and links to this site, GitHub and a new issue.</p></li>
       <li><h3>No more "playing" in silence</h3><p>A YouTube tab the browser hadn't loaded yet no longer shows as playing in the notch.</p></li>
       <li><h3>Done, with a check on top</h3><p>A finished turn now shows the agent's mark with a small green check, just like the "?" and "!" badges. The project and how long it took are on hover.</p></li>
