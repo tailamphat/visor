@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Visor Media",
+  "version": "1.0.0",
+  "description": "Lets Visor show and control the music or video playing in this browser, from the MacBook notch.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjidXNPlSmJ6ua2n42BfoDk6mvjKEI/j8meW/unhk2uEdHYpi63e3rKjOvZwcsTYLr4AQr3BDVydDGQsEMuG6EQoGCtsCaUiIU3GLad0pf2JWSKGgz0LHJUVFIx9ZoU7LCEQF1fGnpasQD0FvAYFO/93N5Dto9hMJjme2MdpGpRae3jJzSw1h3Yp8LMIg9eLdHkG76I/fvvRip1hV2mFp8W5MJrCTcZpLiop3lJ7oQ+2xOA7RPubHjrfDtR+L8lj0kibBVzi3KZuO94uE/78PmyXGR8qS/+C0B4kLua9tFfdFNpzelioWbpEGHZgMibsD8gRKOJfYfxysPLATqH+8NQIDAQAB",
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtu.be/*",
+        "*://*.soundcloud.com/*",
+        "*://open.spotify.com/*",
+        "*://music.apple.com/*",
+        "*://*.twitch.tv/*",
+        "*://*.vimeo.com/*",
+        "*://*.bandcamp.com/*",
+        "*://*.deezer.com/*",
+        "*://*.tidal.com/*",
+        "*://*.mixcloud.com/*",
+        "*://music.amazon.com/*",
+        "*://music.amazon.co.uk/*",
+        "*://music.amazon.de/*",
+        "*://music.amazon.co.jp/*",
+        "*://music.amazon.fr/*",
+        "*://*.pandora.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "media@visor.app",
+      "strict_min_version": "121.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  }
+}

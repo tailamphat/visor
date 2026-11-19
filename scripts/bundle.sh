@@ -21,12 +21,16 @@ for arg in "$@"; do
 done
 
 swift build -c release --product Visor ${ARCHS[@]+"${ARCHS[@]}"}
+swift build -c release --product visor-bridge ${ARCHS[@]+"${ARCHS[@]}"}
 BIN="$(swift build -c release ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)/Visor"
 
 APP=build/Visor.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$BIN" "$APP/Contents/MacOS/Visor"
+# Started by browsers for the Visor Media extension, which ships alongside.
+cp "$(dirname "$BIN")/visor-bridge" "$APP/Contents/Helpers/visor-bridge"
+cp -R Extension "$APP/Contents/Resources/Extension"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The release version comes from the nearest git tag (v0.1.0 -> 0.1.0), or
 # VISOR_VERSION when set. The build number is the commit count.
@@ -43,9 +47,11 @@ cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
 # Create it once with scripts/make-signing-identity.sh.
 IDENTITY="Notchboard Local Signing"
 if security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
+  codesign --force --sign "$IDENTITY" "$APP/Contents/Helpers/visor-bridge"
   codesign --force --sign "$IDENTITY" "$APP"
 else
   echo "note: no \"$IDENTITY\" certificate; signing ad hoc (permissions reset on every build)" >&2
+  codesign --force --sign - "$APP/Contents/Helpers/visor-bridge"
   codesign --force --sign - "$APP"
 fi
 

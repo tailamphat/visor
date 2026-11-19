@@ -308,6 +308,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             decide(first, answer == "deny" ? .deny : answer == "always" ? .allowAlways : .allow)
             return
         }
+        // {"event":"_musicCommand","raw":{"command":"playPause|next|previous"}} presses a music button.
+        if message.event == "_musicCommand" {
+            let command: MusicCommand = switch message.payload["command"] as? String {
+            case "next": .next
+            case "previous": .previous
+            default: .playPause
+            }
+            model.musicCommand?(command)
+            return
+        }
         // {"event":"_music","raw":{"title":..,"artist":..,"art":"/path.png","playing":true,"known":false}} fakes a song.
         if message.event == "_music" {
             let p = message.payload
@@ -495,6 +505,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         approvals.toolTip = "Claude Code and Copilot CLI ask in the notch. Off, they ask in their own terminal. Antigravity always asks in its terminal."
         addToggle(to: menu, "Launch at Login", on: SMAppService.mainApp.status == .enabled, #selector(toggleLogin))
         menu.addItem(.separator())
+        let extensionItem = menu.addItem(withTitle: "Browser Extension for Music\u{2026}", action: #selector(showBrowserExtension), keyEquivalent: "")
+        extensionItem.target = self
+        extensionItem.toolTip = "Show and control music in any browser, Firefox and Zen included"
         menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
         menu.addItem(withTitle: "Quit Visor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
@@ -524,6 +537,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
+
+    /// Copies the Visor Media extension where it can stay loaded, shows it in
+    /// Finder and says how to add it to a browser.
+    @objc private func showBrowserExtension() {
+        guard let folder = BrowserBridgeServer.copyExtension() else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([folder])
+        let alert = NSAlert()
+        alert.messageText = "Add Visor Media to your browser"
+        alert.informativeText = """
+        With it, the notch shows and controls music and video in any browser, Firefox and Zen included, \
+        and plays, pauses and skips the exact tab.
+
+        Chrome, Dia, Arc, Brave, Edge: open the Extensions page, turn on Developer mode, choose \
+        Load unpacked and pick the Extension folder now shown in Finder.
+
+        Firefox and Zen: open about:debugging, choose This Firefox (This Zen), then Load Temporary \
+        Add-on and pick manifest.json in that folder. Firefox forgets it on quit until Visor Media is on Firefox Add-ons.
+        """
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
 
     /// The standard About panel, with the links from `About` under the version.
     @objc private func showAbout() {

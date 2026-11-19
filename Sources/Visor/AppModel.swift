@@ -30,6 +30,8 @@ struct NowPlaying: Equatable {
         /// A browser tab. `tab` is the browser's tab reference; `scriptable` is
         /// false when the browser doesn't allow JavaScript from Apple Events.
         case browser(bundleID: String, tab: String, scriptable: Bool)
+        /// A tab reported by the Visor Media extension in the browser `bundleID`.
+        case `extension`(bundleID: String, tab: String)
     }
     var source: Source
     /// Shown under the controls, e.g. "Spotify" or "Chrome · YouTube".

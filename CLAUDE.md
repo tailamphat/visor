@@ -33,6 +33,7 @@ Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on
 - `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
+- `{"event":"_musicCommand","raw":{"command":"playPause|next|previous"}}` presses a music button
 
 Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook-debug.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
 
@@ -55,4 +56,5 @@ Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Vis
 - A browser plays all its tabs through one audio process, so a web call (Teams in Dia) sounds like music. While the browser uses the microphone (a call, or Teams keeping it open), sound is ambiguous: the notch shows a neutral play/pause (`NowPlaying.stateKnown` false) instead of guessing. Keeping the last shown state got stuck inverted once the video was paused on the page.
 - Dia keeps its audio stream open a few seconds after a pause; an on-page pause shows after ~3-5 s (accepted). A pause pressed in the notch shows at once (`PlaybackIntent`).
 - Media keys posted from a shell don't reach apps (no Accessibility), so they can't be used for tests.
+- The Visor Media extension (`Extension/`, Chromium and Firefox/Zen) is the browser-independent path: content scripts on media sites report to the background script, which talks native messaging to `visor-bridge` (`Contents/Helpers`), which relays lines to `browser.sock` (debug: `browser-debug.sock`). Visor writes the host manifest (`visor.media.json`) into each installed browser's `NativeMessagingHosts` on launch, so a debug run points them at `.build/debug/visor-bridge` until the release build runs again. The Chromium extension id is fixed by the manifest `key`. Browsers with the extension are never scripted. Fake a browser by running `visor-bridge` and writing framed messages to its stdin.
 - Don't use the private MediaRemote framework or adapters that load it: the user decided against it.

@@ -13,6 +13,9 @@ import VisorCore
 ///
 /// AppleScript runs on a background queue, and only against apps that are
 /// already running: scripting a closed app would launch it.
+///
+/// A browser with the Visor Media extension reports its media tabs itself
+/// (BrowserBridgeServer) and is never scripted.
 @MainActor
 final class MusicService {
     private let model: AppModel
@@ -23,6 +26,9 @@ final class MusicService {
     private var native: NowPlaying?
     private var browser: NowPlaying?
     private var browserBusy = false
+    /// The extension's pick in each browser that has it.
+    private var bridged: [String: NowPlaying] = [:]
+    private let bridge = BrowserBridgeServer()
     /// Play or pause pressed in the notch for a browser track (see PlaybackIntent).
     private var browserIntent = PlaybackIntent()
     private var lastBrowserCheck = Date.distantPast
@@ -57,6 +63,13 @@ final class MusicService {
             MainActor.assumeIsolated { self?.appQuit(id) }
         }
         for source in [NowPlaying.Source.music, .spotify] where Self.isRunning(Self.nativeIDs[source]!) { refreshNative(source) }
+
+        bridge.onTabs = { [weak self] browser, tabs in self?.extensionTabs(tabs, in: browser) }
+        bridge.onGone = { [weak self] browser in
+            self?.bridged[browser] = nil
+            self?.show()
+        }
+        try? bridge.start()
 
         // Core Audio says when anything starts or stops playing; no polling.
         audioWatcher.onChange = { [weak self] in self?.audioChanged() }
@@ -118,17 +131,28 @@ final class MusicService {
         guard let id else { return }
         if let native, Self.nativeIDs[native.source] == id { self.native = nil }
         if case .browser(let browserID, _, _) = browser?.source, browserID == id { browser = nil }
+        bridged[id] = nil
         show()
     }
 
-    /// Picks what to show: whatever is playing (the browser wins a tie, since
-    /// it was started more recently in practice), else the last thing seen.
-    private func show() {
-        let pick: NowPlaying?
-        switch (native, browser) {
-        case let (n?, b?): pick = b.isPlaying || !n.isPlaying ? b : n
-        case let (n, b): pick = n ?? b
+    /// The extension's media tabs in one browser. Its pick replaces whatever
+    /// AppleScript last read there.
+    private func extensionTabs(_ tabs: [BrowserBridge.Tab], in id: String) {
+        if case .browser(let browserID, _, _) = browser?.source, browserID == id { browser = nil }
+        bridged[id] = BrowserBridge.pick(tabs).map {
+            var media = Self.nowPlaying($0.media, browser: id, name: Self.appName(id), scriptable: true)
+            media.source = .extension(bundleID: id, tab: $0.media.tab)
+            return media
         }
+        show()
+    }
+
+    /// Picks what to show: whatever is playing (browsers win a tie, since
+    /// they were started more recently in practice), else the last thing seen.
+    private func show() {
+        let extensions = bridged.keys.sorted().compactMap { bridged[$0] }
+        let candidates = (extensions.filter(\.isPlaying) + extensions.filter { !$0.isPlaying } + [browser, native]).compactMap { $0 }
+        let pick = candidates.first(where: \.isPlaying) ?? candidates.first
         if pick != model.nowPlaying { model.nowPlaying = pick }
         updateSlowTimer()
         guard let pick else {
@@ -199,7 +223,8 @@ final class MusicService {
     private func refreshBrowsers(audible: Set<String>) {
         guard !browserBusy else { return }
         // Browsers making sound first, then the one already shown.
-        var targets = Array(audible).sorted()
+        // Browsers with the extension report on their own.
+        var targets = Array(audible.subtracting(bridged.keys)).sorted()
         if case .browser(let id, _, _) = browser?.source, !targets.contains(id), Self.isRunning(id) { targets.append(id) }
         guard !targets.isEmpty else {
             if browser?.isPlaying == true, var paused = browser {
@@ -474,7 +499,9 @@ final class MusicService {
             next.position = now.position(at: Date())
             next.positionAt = Date()
             next.isPlaying.toggle()
-            if case .browser = now.source {
+            if case .extension(let id, _) = now.source {
+                bridged[id] = next
+            } else if case .browser = now.source {
                 browser = next
                 // The browser's audio lingers after a pause; trust the press until it confirms.
                 // A press while the state is unknown says nothing about the result.
@@ -492,6 +519,8 @@ final class MusicService {
                 _ = Self.run("tell application id \"\(id)\" to \(verb)")
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.refreshNative(now.source) } }
             }
+        case .extension(let id, let tab):
+            bridge.send(command == .playPause ? .playPause : command == .next ? .next : .previous, tab: tab, browser: id)
         case .browser(let id, _, false):
             // The key was posted above; sound starts or stops a moment later,
             // so read the new state then.
@@ -633,7 +662,7 @@ final class MusicService {
             scripts.async {
                 show(Self.run("tell application id \"com.apple.Music\" to raw data of artwork 1 of current track").result?.data)
             }
-        case .browser:
+        case .browser, .extension:
             download(item.artworkURL)
         }
     }
