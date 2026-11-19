@@ -92,6 +92,9 @@
   .status { display: flex; align-items: center; gap: 8px; font: 500 11px var(--sf); color: #C3C2B7; font-variant-numeric: tabular-nums; }
   .status svg { width: 12px; height: 12px; }
   .view { margin-top: 8px; }
+  /* The office runs to the panel's edges, like in the app. */
+  .view[data-name="office"] { margin: 8px -18px 0; }
+  .view .room { display: block; width: 100%; height: auto; }
   .view[hidden] { display: none; }
   .t2 { color: #C3C2B7; } .t3 { color: #8A8980; }
 
@@ -434,6 +437,18 @@
             <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
           </div>
 
+          <div class="view" data-name="office" hidden>
+            <img class="room" src="assets/office-room.png" width="496" height="282" alt="The agent office: a table for each tool with little people at work, one waiting at your desk, one at the web hologram, one on the sofa.">
+          </div>
+
+          <div class="view" data-name="tokens" hidden>
+            <div class="tk-bar"><span class="on">Overview</span><span>Models</span><span>Daily</span><span>Tools</span><span class="rng"><i>7D</i><i class="on">30D</i><i>All</i></span></div>
+            <div class="tk-hero"><b>1.84B<small>tokens</small></b><span><em>212M</em>without cache reads</span><span><em>24</em>active days</span><span><em>186M</em>peak · 12 Nov</span></div>
+            <div class="tk-chart" aria-hidden="true"><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:14%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:18%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i></div>
+            <div class="tk-row"><div class="top"><s style="background:#D97757"></s>claude-opus-5-5 <small>Claude Code</small><em>1.52B</em></div><div class="split">In 31K · Out 6.2M · Cache read 1.48B · Cache write 35M</div></div>
+            <div class="tk-row"><div class="top"><s style="background:#A78BFA"></s>claude-sonnet-5-5 <small>Copilot CLI</small><em>288M</em></div><div class="split">In 141M · Out 1.3M · Cache read 131M · Cache write 15M</div></div>
+          </div>
+
           <div class="view" data-name="approval" hidden>
             <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
             <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
@@ -469,8 +484,10 @@
     <div class="try" role="group" aria-label="Try the notch">
       <button type="button" data-try="closed">Closed</button>
       <button type="button" data-try="agents">Agents</button>
+      <button type="button" data-try="office">Office</button>
       <button type="button" data-try="approval">Approval</button>
-      <button type="button" data-try="usage" aria-pressed="true">Usage</button>
+      <button type="button" data-try="usage">Usage</button>
+      <button type="button" data-try="tokens">Tokens</button>
       <button type="button" data-try="music">Music</button>
       <button type="button" data-try="clipboard">Clipboard</button>
     </div>
@@ -669,7 +686,9 @@
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 300], agents: [520, 292], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
+  const sizes = { closed: [300, 32], usage: [520, 300], agents: [520, 292], office: [520, 343], tokens: [520, 300], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
+  // The office lives in the Agents tab and Tokens in Usage.
+  const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
   const tabs = [...document.querySelectorAll('.tab')];
   const views = [...document.querySelectorAll('.view')];
@@ -685,14 +704,14 @@
     notch.style.setProperty('--w', w + 'px');
     notch.style.setProperty('--h', h + 'px');
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
-    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === name)));
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
   }
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
   tries.forEach(b => b.addEventListener('click', () => show(b.dataset.try)));
-  notch.addEventListener('mouseenter', () => { if (!notch.classList.contains('open')) show('usage'); });
-  show('usage');
+  notch.addEventListener('mouseenter', () => { if (!notch.classList.contains('open')) show('office'); });
+  show('office');
 
   const copy = document.getElementById('copy');
   copy.addEventListener('click', () => {
