@@ -297,13 +297,14 @@ struct TokensView: View {
         }
     }
 
-    /// A row per day with tokens, newest first.
+    /// A row per day with tokens, newest first, across the full width: the
+    /// number columns share the room left of the day.
     private func daily(_ summary: TokenSummary) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             Grid(alignment: .trailing, horizontalSpacing: 10, verticalSpacing: 4) {
                 GridRow {
                     Text("DAY").gridColumnAlignment(.leading)
-                    Text("IN"); Text("OUT"); Text("CACHE R"); Text("CACHE W"); Text("TOTAL")
+                    ForEach(["IN", "OUT", "CACHE R", "CACHE W", "TOTAL"], id: \.self) { Text($0).frame(maxWidth: .infinity, alignment: .trailing) }
                 }
                 .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
                 ForEach(summary.daily) { day in
@@ -318,6 +319,7 @@ struct TokensView: View {
                     .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                 }
             }
+            .frame(maxWidth: .infinity)
         }
     }
 
