@@ -138,6 +138,13 @@ final class AppModel {
         NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo,
                                forecast: forecast)
             .filter { quota in ConnectionProvider.allCases.contains { $0.agent == quota.agent && shows($0) } }
+            .enumerated()
+            .sorted { a, b in
+                let ia = providerOrder.firstIndex { $0.agent == a.element.agent } ?? 0
+                let ib = providerOrder.firstIndex { $0.agent == b.element.agent } ?? 0
+                return ia != ib ? ia < ib : a.offset < b.offset
+            }
+            .map(\.element)
     }
 
     // Connected accounts
@@ -179,6 +186,18 @@ final class AppModel {
 
     /// Switched on under Connected accounts.
     func chosen(_ provider: ConnectionProvider) -> Bool { !hiddenProviders.contains(provider) }
+
+    /// The tools' order, set by dragging under Connected accounts; used by Usage and the closed notch.
+    var providerOrder = ConnectionProvider.order(from: UserDefaults.standard.stringArray(forKey: "providerOrder") ?? []) {
+        didSet { UserDefaults.standard.set(providerOrder.map(\.rawValue), forKey: "providerOrder") }
+    }
+    /// The Connected accounts row being dragged, and how far.
+    var accountsDrag: (provider: ConnectionProvider, translation: CGFloat)?
+    /// Usage without a usage column: no shown tool has one, so the limits take the full width.
+    var usageLimitsOnly: Bool {
+        let shown = ConnectionProvider.allCases.filter(shows)
+        return !shown.isEmpty && !shown.contains { $0.hasUsageColumn }
+    }
 
     func installed(_ provider: ConnectionProvider) -> Bool {
         switch provider {

@@ -241,3 +241,34 @@ struct CopilotEditorAccountTests {
         #expect(CopilotEditorAccount.parse(Data("not json".utf8)).isEmpty)
     }
 }
+
+@Suite("Tool order")
+struct ToolOrderTests {
+    /// A saved order keeps known tools in place; new tools join at the end, unknown names drop.
+    @Test func savedOrder() {
+        #expect(ConnectionProvider.order(from: []) == ConnectionProvider.allCases)
+        #expect(ConnectionProvider.order(from: ["copilot", "gone", "claude"]) == [.copilot, .claude, .antigravity, .openCode])
+        #expect(ConnectionProvider.order(from: ["copilot", "copilot"]) == [.copilot, .claude, .antigravity, .openCode])
+    }
+
+    @Test func moving() {
+        let order = ConnectionProvider.allCases
+        #expect(ConnectionProvider.move(.claude, to: 2, in: order) == [.copilot, .antigravity, .claude, .openCode])
+        #expect(ConnectionProvider.move(.openCode, to: 0, in: order) == [.openCode, .claude, .copilot, .antigravity])
+        #expect(ConnectionProvider.move(.claude, to: 9, in: order) == [.copilot, .antigravity, .openCode, .claude])
+    }
+
+    /// Where a dragged row lands: rows it passes by at least half a row.
+    @Test func dropIndex() {
+        #expect(ConnectionProvider.dropIndex(from: 0, translation: 20, pitch: 48, count: 4) == 0)
+        #expect(ConnectionProvider.dropIndex(from: 0, translation: 30, pitch: 48, count: 4) == 1)
+        #expect(ConnectionProvider.dropIndex(from: 3, translation: -500, pitch: 48, count: 4) == 0)
+        #expect(ConnectionProvider.dropIndex(from: 1, translation: 500, pitch: 48, count: 4) == 3)
+    }
+
+    /// Only Claude and OpenCode have a usage column beside their limits.
+    @Test func usageColumn() {
+        #expect(ConnectionProvider.claude.hasUsageColumn && ConnectionProvider.openCode.hasUsageColumn)
+        #expect(!ConnectionProvider.copilot.hasUsageColumn && !ConnectionProvider.antigravity.hasUsageColumn)
+    }
+}

@@ -42,6 +42,31 @@ public enum ConnectionProvider: String, CaseIterable, Sendable {
     public static func store(_ hidden: Set<ConnectionProvider>) -> [String] {
         hidden.map(\.rawValue).sorted()
     }
+
+    // MARK: Order
+
+    /// The order chosen under Connected accounts, for Usage and the closed notch.
+    /// Tools missing from it (new ones) follow in their usual order.
+    public static func order(from stored: [String]) -> [ConnectionProvider] {
+        var out: [ConnectionProvider] = []
+        for name in stored { if let provider = ConnectionProvider(rawValue: name), !out.contains(provider) { out.append(provider) } }
+        return out + allCases.filter { !out.contains($0) }
+    }
+
+    public static func move(_ provider: ConnectionProvider, to index: Int, in order: [ConnectionProvider]) -> [ConnectionProvider] {
+        var out = order.filter { $0 != provider }
+        out.insert(provider, at: max(0, min(index, out.count)))
+        return out
+    }
+
+    /// The row a dragged row would drop on: it moves once it passes half a row.
+    public static func dropIndex(from index: Int, translation: Double, pitch: Double, count: Int) -> Int {
+        max(0, min(count - 1, index + Int((translation / pitch).rounded())))
+    }
+
+    /// Claude and OpenCode show what they used beside their limits; the others
+    /// are limits only.
+    public var hasUsageColumn: Bool { self == .claude || self == .openCode }
 }
 
 /// What a keychain read through `/usr/bin/security` found.

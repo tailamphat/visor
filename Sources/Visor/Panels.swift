@@ -470,18 +470,10 @@ struct UsageView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                if model.shows(.claude) { claudeRow }
-                if model.shows(.openCode) { OpenCodeBlock(model: model) }
-                // No usage column, but the meters line up with the rows above.
-                VStack(alignment: .leading, spacing: 20) {
-                    if model.shows(.copilot) { ForEach(model.copilot, id: \.host) { usage in
-                        CopilotBlock(usage: usage, forecast: usage.premiumUnlimited ? nil
-                            : model.forecast(UsageKey.copilot(usage.host), used: 100 - usage.percentLeft, resetsAt: usage.resetsAt,
-                                             window: usage.resetsAt.flatMap { BurnForecast.monthWindow(endingAt: $0) }))
-                    } }
-                    if model.shows(.antigravity) { AntigravityBlock(model: model) }
+                // In the order chosen under Connected accounts.
+                ForEach(model.providerOrder.filter(model.shows), id: \.self) { provider in
+                    section(provider)
                 }
-                .padding(.trailing, UsageColumns.usageWidth + UsageColumns.spacing)
                 if !ConnectionProvider.allCases.contains(where: model.shows) {
                     Text(ConnectionProvider.allCases.contains(where: model.installed)
                          ? "Every tool is switched off. Turn one on under Connected accounts (the gear)."
@@ -492,6 +484,28 @@ struct UsageView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    @ViewBuilder
+    private func section(_ provider: ConnectionProvider) -> some View {
+        switch provider {
+        case .claude: claudeRow
+        case .openCode: OpenCodeBlock(model: model)
+        case .copilot:
+            VStack(alignment: .leading, spacing: 20) {
+                ForEach(model.copilot, id: \.host) { usage in
+                    CopilotBlock(usage: usage, forecast: usage.premiumUnlimited ? nil
+                        : model.forecast(UsageKey.copilot(usage.host), used: 100 - usage.percentLeft, resetsAt: usage.resetsAt,
+                                         window: usage.resetsAt.flatMap { BurnForecast.monthWindow(endingAt: $0) }))
+                }
+            }
+            .padding(.trailing, limitsOnlyInset)
+        case .antigravity: AntigravityBlock(model: model).padding(.trailing, limitsOnlyInset)
+        }
+    }
+
+    /// No usage column, but the meters line up with the rows that have one.
+    /// With none to line up with, they take the full width.
+    private var limitsOnlyInset: CGFloat { model.usageLimitsOnly ? 0 : UsageColumns.usageWidth + UsageColumns.spacing }
 
     private var claudeRow: some View {
         UsageRow {
@@ -547,22 +561,69 @@ struct AccountsView: View {
                 .buttonStyle(.plain)
                 Text("Connected accounts").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
             }
-            VStack(spacing: 4) {
-                ForEach(ConnectionProvider.allCases, id: \.self) { AccountRow(model: model, provider: $0) }
+            VStack(spacing: Self.gap) {
+                ForEach(model.providerOrder, id: \.self) { provider in
+                    let dragged = model.accountsDrag?.provider == provider
+                    AccountRow(model: model, provider: provider, grip: grip(provider))
+                        .offset(y: offset(provider))
+                        .zIndex(dragged ? 1 : 0)
+                        .shadow(color: .black.opacity(dragged ? 0.5 : 0), radius: 8, y: 4)
+                }
             }
         }
     }
 }
 
-struct AccountRow: View {
+extension AccountsView {
+    static let gap: CGFloat = 4
+    /// A row (44) and the gap below it.
+    static let pitch: CGFloat = 48
+
+    /// Where a row sits while another is dragged: the dragged one follows the
+    /// pointer, the ones it passes step aside.
+    private func offset(_ provider: ConnectionProvider) -> CGFloat {
+        guard let drag = model.accountsDrag, let from = model.providerOrder.firstIndex(of: drag.provider),
+              let index = model.providerOrder.firstIndex(of: provider) else { return 0 }
+        if provider == drag.provider { return drag.translation }
+        let to = ConnectionProvider.dropIndex(from: from, translation: drag.translation, pitch: Self.pitch, count: model.providerOrder.count)
+        if from < to, index > from, index <= to { return -Self.pitch }
+        if to < from, index >= to, index < from { return Self.pitch }
+        return 0
+    }
+
+    /// The handle: drag it to reorder the tools in Usage and the closed notch.
+    private func grip(_ provider: ConnectionProvider) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Theme.textMuted)
+            .frame(width: 18, height: 26)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .onChanged { value in model.accountsDrag = (provider, value.translation.height) }
+                .onEnded { value in
+                    guard let from = model.providerOrder.firstIndex(of: provider) else { return }
+                    let to = ConnectionProvider.dropIndex(from: from, translation: value.translation.height,
+                                                          pitch: Self.pitch, count: model.providerOrder.count)
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        model.providerOrder = ConnectionProvider.move(provider, to: to, in: model.providerOrder)
+                        model.accountsDrag = nil
+                    }
+                })
+            .help("Drag to change the order in Usage and the closed notch")
+    }
+}
+
+struct AccountRow<Grip: View>: View {
     let model: AppModel
     let provider: ConnectionProvider
+    let grip: Grip
 
     var body: some View {
         // The switch is your choice; a tool that isn't installed says so in its row.
         let shown = model.chosen(provider)
         let state = model.connection(provider)
         HStack(spacing: 10) {
+            grip.padding(.trailing, -4)
             AgentMark(agent: provider.agent, size: 14)
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(AgentStyle.tile))
