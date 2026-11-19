@@ -70,7 +70,10 @@ final class OfficeLayerView: NSView {
     private var hovered: String?
 
     private final class Person {
+        /// Walks; holds the shadow, the sprite, the bubble and the name.
         let body = CALayer()
+        let sprite = CALayer()
+        let shade = CALayer()
         let screen = CALayer()
         let bubble = CALayer()
         let glyph = CATextLayer()
@@ -163,8 +166,15 @@ final class OfficeLayerView: NSView {
         let body = person.body
         body.bounds = CGRect(x: 0, y: 0, width: PixelPerson.width * s, height: PixelPerson.height * s)
         body.anchorPoint = CGPoint(x: 0.5, y: 0)
-        body.magnificationFilter = .nearest
         layer?.addSublayer(body)
+        // A soft shadow at the feet, under the sprite.
+        person.shade.frame = CGRect(x: body.bounds.midX - 8, y: -2.5, width: 16, height: 5)
+        person.shade.cornerRadius = 2.5
+        person.shade.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        body.addSublayer(person.shade)
+        person.sprite.frame = body.bounds
+        person.sprite.magnificationFilter = .nearest
+        body.addSublayer(person.sprite)
 
         person.screen.magnificationFilter = .nearest
         person.screen.anchorPoint = .zero
@@ -197,7 +207,7 @@ final class OfficeLayerView: NSView {
     /// Puts a person where it belongs and starts what it does there.
     private func settle(_ person: Person, in layout: OfficeLayout) {
         person.body.removeAnimation(forKey: "walk")
-        person.body.removeAnimation(forKey: "steps")
+        person.sprite.removeAnimation(forKey: "steps")
         person.body.position = point(person.agent.feet, in: layout)
         person.body.zPosition = CGFloat(person.agent.feet.y)
         startActivity(person, after: 0)
@@ -232,7 +242,7 @@ final class OfficeLayerView: NSView {
         steps.duration = 0.32
         steps.repeatCount = Float(duration / 0.32)
         steps.preferredFrameRateRange = CAFrameRateRange(minimum: 4, maximum: 8, preferred: 6)
-        body.add(steps, forKey: "steps")
+        person.sprite.add(steps, forKey: "steps")
         startActivity(person, after: duration)
     }
 
@@ -241,9 +251,9 @@ final class OfficeLayerView: NSView {
         let agent = person.agent
         let (pose, period) = PixelPerson.pose(for: agent)
         let frames = PixelPerson.frames(person.look, pose: pose, front: !agent.facesUp)
-        let body = person.body
-        body.contents = frames.first
-        body.removeAnimation(forKey: "loop")
+        let sprite = person.sprite
+        sprite.contents = frames.first
+        sprite.removeAnimation(forKey: "loop")
         if frames.count > 1 {
             let loop = CAKeyframeAnimation(keyPath: "contents")
             loop.values = frames
@@ -252,8 +262,9 @@ final class OfficeLayerView: NSView {
             loop.repeatCount = .infinity
             loop.beginTime = delay > 0 ? CACurrentMediaTime() + delay : 0
             loop.preferredFrameRateRange = CAFrameRateRange(minimum: 2, maximum: 8, preferred: 6)
-            body.add(loop, forKey: "loop")
+            sprite.add(loop, forKey: "loop")
         }
+        person.shade.isHidden = agent.sits
         person.tag.isHidden = !showsName(agent) && hovered != agent.id
         styleBubble(person, delay: delay)
     }
@@ -290,7 +301,7 @@ final class OfficeLayerView: NSView {
         person.glyph.font = NSFont.systemFont(ofSize: size, weight: .bold)
         person.glyph.fontSize = size
         let sink: CGFloat = agent.sits ? 3 * s : 0
-        let base = CGPoint(x: person.body.bounds.midX + 4 * s + 7, y: 9 * s - sink + 7)
+        let base = CGPoint(x: person.body.bounds.midX + 5 * s + 7, y: (PixelPerson.headTop - 3) * s - sink)
         bubble.position = base
         if agent.activity == .approval || agent.activity == .question {
             let bob = CAKeyframeAnimation(keyPath: "position.y")
@@ -492,34 +503,87 @@ final class OfficeLayerView: NSView {
 
 // MARK: Pixel art
 
-/// Draws in room pixels with y down, like the layout.
+/// Draws in room pixels with y down, like the layout. `scale` draws finer than
+/// a room pixel, for soft rounded shapes that stay smooth when shown at 2x.
 struct Pixels {
     let context: CGContext
     let height: Int
 
-    init?(width: Int, height: Int) {
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+    init?(width: Int, height: Int, scale: Int = 1) {
+        guard let context = CGContext(data: nil, width: width * scale, height: height * scale, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
         context.interpolationQuality = .none
         context.setShouldAntialias(false)
         self.context = context
         self.height = height
     }
 
+    private func rect(_ x: Double, _ y: Double, _ w: Double, _ h: Double) -> CGRect {
+        CGRect(x: x, y: Double(height) - y - h, width: w, height: h)
+    }
+
     func fill(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: NSColor) {
         context.setFillColor(color.cgColor)
-        context.fill(CGRect(x: x, y: Double(height) - y - h, width: w, height: h))
+        context.fill(rect(x, y, w, h))
     }
 
     func fill(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ hex: UInt32) { fill(x, y, w, h, NSColor(hex: hex)) }
 
+    /// A soft rounded shape, lit from above: `top` fading to `bottom`.
+    func clay(_ x: Double, _ y: Double, _ w: Double, _ h: Double, radius: Double, top: UInt32, bottom: UInt32) {
+        let path = CGPath(roundedRect: rect(x, y, w, h), cornerWidth: radius, cornerHeight: radius, transform: nil)
+        context.saveGState()
+        context.setShouldAntialias(true)
+        context.addPath(path)
+        context.clip()
+        let colors = [NSColor(hex: top).cgColor, NSColor(hex: bottom).cgColor] as CFArray
+        if let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors, locations: [0, 1]) {
+            context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: Double(height) - y), end: CGPoint(x: 0, y: Double(height) - y - h), options: [])
+        }
+        context.restoreGState()
+    }
+
+    func round(_ x: Double, _ y: Double, _ w: Double, _ h: Double, radius: Double, _ color: NSColor) {
+        context.saveGState()
+        context.setShouldAntialias(true)
+        context.setFillColor(color.cgColor)
+        context.addPath(CGPath(roundedRect: rect(x, y, w, h), cornerWidth: radius, cornerHeight: radius, transform: nil))
+        context.fillPath()
+        context.restoreGState()
+    }
+
+    /// A soft shadow under a shape, a little below it.
+    func shadow(_ x: Double, _ y: Double, _ w: Double, _ h: Double, radius: Double) {
+        round(x + 1, y + 2, w, h, radius: radius, NSColor.black.withAlphaComponent(0.28))
+    }
+
+    /// Warm light pooling around a point.
+    func glow(_ x: Double, _ y: Double, radius: Double, _ color: NSColor) {
+        let colors = [color.cgColor, color.withAlphaComponent(0).cgColor] as CFArray
+        guard let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors, locations: [0, 1]) else { return }
+        let center = CGPoint(x: x, y: Double(height) - y)
+        context.drawRadialGradient(gradient, startCenter: center, startRadius: 1, endCenter: center, endRadius: radius, options: [])
+    }
+
+    func ellipse(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: NSColor) {
+        context.saveGState()
+        context.setShouldAntialias(true)
+        context.setFillColor(color.cgColor)
+        context.fillEllipse(in: rect(x, y, w, h))
+        context.restoreGState()
+    }
+
     var image: CGImage? { context.makeImage() }
 }
 
+/// The agents as chibi people: big outlined heads, blinking eyes, rosy cheeks.
 enum PixelPerson {
     static let width = 11.0
-    static let height = 14.0
+    static let height = 17.0
+    /// How far above the feet the top of the head is, for the bubble beside it.
+    static let headTop = 15.0
 
     struct Look: Hashable {
         var shirt: UInt32
@@ -544,61 +608,75 @@ enum PixelPerson {
     static func pose(for agent: OfficeAgent) -> (Pose, CFTimeInterval) {
         switch agent.activity {
         case .typing, .running, .browsing: return (.typing, 0.32)
-        case .thinking: return (.still, 1)
-        case .reading: return (.reading, 1)
+        case .thinking, .done: return (agent.sits ? .sitting : .still, 4)
+        case .reading: return (.reading, 4)
         case .approval, .question: return (.wave, 1)
-        case .done: return (agent.sits ? .sitting : .still, 1)
-        case .idle: return (agent.sits ? .dozing : .still, 1)
+        case .idle: return (agent.sits ? .dozing : .still, 4)
         }
     }
 
     private static var cache: [String: [CGImage]] = [:]
 
-    /// The frames of a pose, facing you (`front`) or facing away.
+    /// The frames of a pose, facing you (`front`) or facing away. Still poses
+    /// that face you blink now and then: a long open frame, a short closed one.
     static func frames(_ look: Look, pose: Pose, front: Bool) -> [CGImage] {
         let key = "\(look.shirt)-\(look.hair)-\(look.skin)-\(pose)-\(front)"
         if let hit = cache[key] { return hit }
-        let count = [.typing, .wave, .walk].contains(pose) ? 2 : 1
-        let images = (0..<count).compactMap { draw(look, pose: pose, front: front, frame: $0) }
+        let images: [CGImage]
+        switch pose {
+        case .typing, .wave, .walk:
+            images = (0..<2).compactMap { draw(look, pose: pose, front: front, frame: $0, blink: false) }
+        case .still, .reading, .sitting:
+            let open = draw(look, pose: pose, front: front, frame: 0, blink: false)
+            let shut = front ? draw(look, pose: pose, front: front, frame: 0, blink: true) : nil
+            // 4 seconds: open for 15 of 16 beats, shut for one.
+            images = shut.map { shut in (0..<15).compactMap { _ in open } + [shut] } ?? [open].compactMap { $0 }
+        case .dozing:
+            images = [draw(look, pose: pose, front: front, frame: 0, blink: true)].compactMap { $0 }
+        }
         cache[key] = images
         return images
     }
 
-    private static func draw(_ look: Look, pose: Pose, front: Bool, frame: Int) -> CGImage? {
+    private static func draw(_ look: Look, pose: Pose, front: Bool, frame: Int, blink: Bool) -> CGImage? {
         guard let p = Pixels(width: Int(width), height: Int(height)) else { return nil }
-        let shirt = NSColor(hex: look.shirt), dark = shirt.blended(withFraction: 0.3, of: .black) ?? shirt
-        let hair = NSColor(hex: look.hair), skin = NSColor(hex: look.skin), legs = NSColor(hex: 0x2A2A3A)
-        let x = 5.0, y = 14.0
+        let shirt = NSColor(hex: look.shirt)
+        let hair = NSColor(hex: look.hair), skin = NSColor(hex: look.skin), line = NSColor(hex: 0x141018)
+        let x = 5.0, y = height
         let sits = pose == .sitting || pose == .dozing
         let by = sits ? 3.0 : 0
-        let walking = pose == .walk
+        let walking = pose == .walk, typing = pose == .typing
         let step = frame == 1
-        if sits {
-            p.fill(x - 2, y - 1, 2, 1, legs); p.fill(x + 1, y - 1, 2, 1, legs)
-        } else {
-            p.fill(x - 2, y - 2 - (walking && step ? 1 : 0), 2, 2, legs)
-            p.fill(x + 1, y - 2 - (walking && !step ? 1 : 0), 2, 2, legs)
+        if !sits {
+            p.fill(x - 3, y - 3 - (walking && step ? 1 : 0), 3, 3, line)
+            p.fill(x + 1, y - 3 - (walking && !step ? 1 : 0), 3, 3, line)
         }
-        p.fill(x - 3, y - 6 + by, 7, 4, shirt)
-        p.fill(x - 3, y - 3 + by, 7, 1, dark)
-        let typing = pose == .typing
-        p.fill(x - 4, y - 6 + by + (typing && step ? -1 : 0), 1, 3, dark)
+        p.fill(x - 3, y - 6 + by, 7, 4, line)
+        p.fill(x - 2, y - 6 + by, 5, 3, shirt)
+        p.fill(x - 4, y - 6 + by + (typing && step ? -1 : 0), 1, 2, line)
         if pose == .wave {
-            if step { p.fill(x + 4, y - 11, 1, 5, dark); p.fill(x + 5, y - 12, 1, 1, skin) }
-            else { p.fill(x + 4, y - 12, 1, 6, dark); p.fill(x + 4, y - 13, 1, 1, skin) }
+            let a = step ? 1.0 : 0
+            p.fill(x + 4, y - 13 + a, 1, 7 - a, line)
+            p.fill(x + 3 + a, y - 14 + a, 2, 2, skin)
         } else {
-            p.fill(x + 4, y - 6 + by + (typing && !step ? -1 : 0), 1, 3, dark)
+            p.fill(x + 4, y - 6 + by + (typing && !step ? -1 : 0), 1, 2, line)
         }
+        p.fill(x - 4, y - 15 + by, 9, 9, line)
         if front {
-            p.fill(x - 2, y - 10 + by, 5, 4, skin)
-            p.fill(x - 2, y - 11 + by, 5, 1, hair)
-            p.fill(x - 2, y - 10 + by, 1, 2, hair); p.fill(x + 2, y - 10 + by, 1, 2, hair)
-            if pose != .dozing { p.fill(x - 1, y - 8 + by, 1, 1, 0x1A1A22); p.fill(x + 1, y - 8 + by, 1, 1, 0x1A1A22) }
-            if pose == .reading { p.fill(x - 2, y - 5, 5, 3, 0xE9E3C8) }
+            p.fill(x - 3, y - 13 + by, 7, 6, skin)
+            p.fill(x - 3, y - 14 + by, 7, 2, hair)
+            p.fill(x - 3, y - 13 + by, 1, 3, hair); p.fill(x + 3, y - 13 + by, 1, 3, hair)
+            if blink {
+                p.fill(x - 2, y - 10 + by, 2, 1, line); p.fill(x + 1, y - 10 + by, 2, 1, line)
+            } else {
+                p.fill(x - 2, y - 11 + by, 2, 2, line); p.fill(x + 1, y - 11 + by, 2, 2, line)
+                p.fill(x - 2, y - 11 + by, 1, 1, .white); p.fill(x + 1, y - 11 + by, 1, 1, .white)
+            }
+            p.fill(x - 3, y - 9 + by, 1, 1, 0xF29A9A); p.fill(x + 3, y - 9 + by, 1, 1, 0xF29A9A)
+            if pose == .reading { p.fill(x - 2, y - 6, 5, 3, 0xE9E3C8) }
         } else {
-            p.fill(x - 2, y - 11 + by, 5, 5, hair)
-            p.fill(x - 2, y - 7 + by, 5, 1, skin)
-            if pose == .reading { p.fill(x - 2, y - 7, 5, 2, 0xE9E3C8) }
+            p.fill(x - 3, y - 14 + by, 7, 7, hair)
+            if pose == .reading { p.fill(x - 2, y - 8, 5, 2, 0xE9E3C8) }
         }
         return p.image
     }
@@ -626,7 +704,7 @@ enum PixelPerson {
             }
         default:
             if let p = Pixels(width: 6, height: 4) {
-                p.fill(0, 0, 6, 4, 0x1B2230)
+                p.fill(0, 0, 6, 4, 0x241C1A)
                 p.fill(2, 1, 2, 2, dark)
                 if let image = p.image { images.append(image) }
             }
@@ -636,69 +714,94 @@ enum PixelPerson {
     }
 }
 
-/// The room behind the people: floor, tables and the bottom row.
+/// The room behind the people, a cozy studio at night in soft clay: a warm
+/// wooden floor, a lamp pooling light on each table, rounded furniture lit
+/// from above with soft shadows. Drawn at 2x so the curves stay smooth.
 enum OfficeRoom {
+    static let detail = 2
+
     static func image(_ scene: OfficeScene) -> CGImage? {
         let layout = scene.layout
-        guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height)) else { return nil }
+        guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: detail) else { return nil }
         let w = OfficeLayout.width, h = layout.height
+        // Floor: warm planks, low contrast.
         var y = 0.0
         while y < h {
-            var x = 0.0
-            while x < w { p.fill(x, y, 8, 8, Int((x + y) / 8) % 2 == 1 ? 0x201E2F : 0x1D1B2A); x += 8 }
-            y += 8
+            let row = Int(y / 5)
+            p.fill(0, y, w, 5, row % 2 == 1 ? 0x2B211C : 0x2F241E)
+            var x = Double((row * 37) % 41)
+            while x < w { p.fill(x, y, 1, 5, 0x251C18); x += 41 }
+            y += 5
         }
-        // Tables: a tinted floor area, the table, and a screen for each seat.
+        // Plants at the ends of the corridor, clear of the tables' names.
+        for x in [8.0, w - 18] { plant(p, x, layout.deskBottom + 6) }
         for island in layout.islands {
             let color = AgentStyle.mark(island.agent)
-            p.fill(island.x, island.y, island.width, OfficeLayout.islandHeight, color.withAlphaComponent(0.14))
-            p.fill(island.x + 2, island.y + 18, island.width - 4, 14, 0x5B4636)
-            p.fill(island.x + 2, island.y + 32, island.width - 4, 2, 0x3F3026)
+            let mid = island.x + island.width / 2
+            p.glow(mid, island.y + 26, radius: island.width * 0.6 + 14, NSColor(hex: 0xFFC478).withAlphaComponent(0.2))
+            p.shadow(island.x, island.y, island.width, OfficeLayout.islandHeight, radius: 8)
+            p.round(island.x, island.y, island.width, OfficeLayout.islandHeight, radius: 8, color.withAlphaComponent(0.2))
+            p.shadow(island.x + 2, island.y + 18, island.width - 4, 15, radius: 5)
+            p.clay(island.x + 2, island.y + 18, island.width - 4, 15, radius: 5, top: 0xB08560, bottom: 0x7E5A3C)
+            p.fill(island.x + 6, island.y + 19, island.width - 12, 1, NSColor.white.withAlphaComponent(0.25))
             for i in 0..<island.seats {
                 let screen = layout.seat(island, i).screen
-                p.fill(screen.x - 1, screen.y - 1, 8, 6, 0x0E0E14)
+                p.round(screen.x - 1, screen.y - 1, 8, 6, radius: 1.5, NSColor(hex: 0x120E0C))
             }
+            // The lamp on the table.
+            p.ellipse(mid - 1.5, island.y + 30, 3, 2, NSColor(hex: 0xF2D08A))
         }
-        let t = layout.stationTop
-        p.fill(0, layout.deskBottom + 3, w, 1, 0x2B2740)
-        // The stations were drawn for a 242-pixel room; centre them in this one.
-        p.context.translateBy(x: (w - 242) / 2, y: 0)
-        // Terminal rack
-        p.fill(12, t, 18, 20, 0x14161F); p.fill(12, t, 18, 1, 0x3A3F52)
+        let t = layout.stationTop, o = (w - 242) / 2
+        p.fill(0, layout.deskBottom + 3, w, 1, NSColor(hex: 0x3A2C24))
+        // Terminal: a dark clay rack with green lights.
+        p.shadow(12 + o, t, 18, 20, radius: 4)
+        p.clay(12 + o, t, 18, 20, radius: 4, top: 0x3A302B, bottom: 0x241D1A)
         for i in 0..<4 {
             let row = t + 3 + Double(i) * 4
-            p.fill(14, row, 14, 3, 0x20242F); p.fill(15, row + 1, 1, 1, 0x3FBF5F); p.fill(17 + Double(i * 2 % 7), row + 1, 3, 1, 0x59D97A)
+            p.round(14 + o, row, 14, 3, radius: 1, NSColor(hex: 0x2E2622))
+            p.fill(15 + o, row + 1, 1, 1, 0x7EE08A); p.fill(17 + o + Double(i * 2 % 7), row + 1, 3, 1, 0x9BE7A2)
         }
         // Bookshelf
-        p.fill(44, t, 28, 20, 0x4A3427)
-        let books: [UInt32] = [0xC0504D, 0x4F81BD, 0x9BBB59, 0xF2C14E, 0x8064A2, 0x4BACC6]
+        p.shadow(44 + o, t, 28, 20, radius: 4)
+        p.clay(44 + o, t, 28, 20, radius: 4, top: 0x8A6440, bottom: 0x5E4228)
+        let books: [UInt32] = [0xC0504D, 0xD98F4E, 0x9BBB59, 0xF2C14E, 0x8064A2, 0x4BACC6]
         for r in 0..<3 {
-            p.fill(45, t + 6 + Double(r) * 6, 26, 1, 0x2F2119)
-            for i in 0..<8 { p.fill(46 + Double(i) * 3, t + 2 + Double(r) * 6, 2, 4, books[(i + r * 2) % books.count]) }
+            p.fill(46 + o, t + 6 + Double(r) * 6, 24, 1, 0x4A3220)
+            for i in 0..<7 { p.round(47 + o + Double(i) * 3, t + 2 + Double(r) * 6, 2, 4, radius: 0.6, NSColor(hex: books[(i + r * 2) % books.count])) }
         }
         // Your desk, its screen amber while someone waits
-        p.fill(105, t + 8, 32, 7, 0x6B5240); p.fill(105, t + 15, 32, 2, 0x4A382C)
-        p.fill(116, t + 2, 10, 7, 0x0E0E14); p.fill(117, t + 3, 8, 5, scene.waiting > 0 ? 0x5A4410 : 0x1B2230)
-        p.fill(131, t + 6, 3, 2, 0xF2C14E); p.fill(132, t + 5, 1, 1, 0xF2C14E)
+        p.shadow(105 + o, t + 8, 32, 9, radius: 4)
+        p.clay(105 + o, t + 8, 32, 9, radius: 4, top: 0xB08560, bottom: 0x7E5A3C)
+        p.round(116 + o, t + 2, 10, 7, radius: 1.5, NSColor(hex: 0x120E0C))
+        p.fill(117 + o, t + 3, 8, 5, scene.waiting > 0 ? 0x6A5012 : 0x241C1A)
+        p.ellipse(130 + o, t + 5, 3, 3, NSColor(hex: 0xF2C14E))
         // Web kiosk with a globe
-        p.fill(163, t + 4, 18, 16, 0x14161F)
-        p.context.setFillColor(NSColor(hex: 0x3186FF).cgColor)
-        p.context.fillEllipse(in: CGRect(x: 167, y: h - (t + 17), width: 10, height: 10))
-        p.fill(167, t + 12, 10, 1, 0x9CC3FF); p.fill(171, t + 7, 1, 10, 0x9CC3FF)
+        p.shadow(163 + o, t + 4, 18, 16, radius: 4)
+        p.clay(163 + o, t + 4, 18, 16, radius: 4, top: 0x3A302B, bottom: 0x241D1A)
+        p.ellipse(167 + o, t + 7, 10, 10, NSColor(hex: 0x4A90E2))
+        p.fill(167 + o, t + 12, 10, 1, 0xB5D4FF); p.fill(171 + o, t + 7, 1, 10, 0xB5D4FF)
         // Sofa back
-        p.fill(193, t + 6, 40, 8, 0x3D4C7A); p.fill(193, t + 6, 40, 1, 0x53649A)
-        p.context.translateBy(x: -(w - 242) / 2, y: 0)
+        p.shadow(193 + o, t + 6, 40, 9, radius: 4)
+        p.clay(193 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
         // The door agents come in by
-        p.fill(w - 2, layout.corridor - 12, 2, 16, 0x5B4636)
+        p.round(w - 3, layout.corridor - 12, 3, 16, radius: 1, NSColor(hex: 0x5B4636))
         return p.image
+    }
+
+    private static func plant(_ p: Pixels, _ x: Double, _ y: Double) {
+        p.shadow(x + 1, y + 6, 7, 5, radius: 2)
+        p.clay(x + 1, y + 6, 7, 5, radius: 2, top: 0xB07850, bottom: 0x7A4E31)
+        p.round(x, y + 1, 9, 6, radius: 3, NSColor(hex: 0x2F7A3E))
+        p.round(x + 2, y - 1, 5, 4, radius: 2, NSColor(hex: 0x3E9A50))
     }
 
     /// The sofa's seat and arms, drawn over whoever sits on it.
     static func sofaFront(_ layout: OfficeLayout) -> CGImage? {
-        guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height)) else { return nil }
-        let t = layout.stationTop
-        p.context.translateBy(x: (OfficeLayout.width - 242) / 2, y: 0)
-        p.fill(191, t + 18, 44, 6, 0x34416A); p.fill(191, t + 14, 3, 10, 0x2A3558); p.fill(232, t + 14, 3, 10, 0x2A3558)
+        guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: detail) else { return nil }
+        let t = layout.stationTop, o = (OfficeLayout.width - 242) / 2
+        p.clay(191 + o, t + 17, 44, 7, radius: 3, top: 0x9A5A48, bottom: 0x6A3E30)
+        p.clay(191 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
+        p.clay(231 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
         return p.image
     }
 }
