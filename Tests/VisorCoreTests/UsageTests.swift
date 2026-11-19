@@ -338,3 +338,23 @@ struct ClaudePlanNameTests {
         #expect(ClaudePlan.name(fromProfile: Data("nope".utf8)) == nil)
     }
 }
+
+@Suite("Copilot plans without premium requests")
+struct CopilotFreePlanTests {
+    /// Copilot Free: no premium requests, but chat and completions allowances worth showing.
+    @Test func freePlanKeepsChatAndCompletions() throws {
+        let json = #"{"login":"me","copilot_plan":"free","quota_snapshots":{"chat":{"entitlement":50,"remaining":20,"unlimited":false},"completions":{"entitlement":2000,"remaining":1500,"unlimited":false},"premium_interactions":{"entitlement":0,"remaining":0,"unlimited":false}}}"#
+        let usage = try #require(CopilotUsage.parse(Data(json.utf8), host: "github.com"))
+        #expect(!usage.isTracked)
+        #expect(usage.chatEntitlement == 50 && usage.chatRemaining == 20)
+        #expect(usage.completionsEntitlement == 2000 && usage.completionsRemaining == 1500)
+    }
+
+    /// GitHub's answer without a login or quotas is still an account: the login comes
+    /// from the sign-in, and no quotas means nothing to count yet.
+    @Test func lenientAboutMissingFields() throws {
+        let usage = try #require(CopilotUsage.parse(Data(#"{"copilot_plan":"business"}"#.utf8), host: "acme.ghe.com", login: "octocat"))
+        #expect(usage.login == "octocat" && usage.plan == "business" && !usage.isTracked)
+        #expect(CopilotUsage.parse(Data("[]".utf8), host: "github.com") == nil, "not an account at all")
+    }
+}

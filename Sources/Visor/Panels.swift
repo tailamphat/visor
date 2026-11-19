@@ -483,7 +483,9 @@ struct UsageView: View {
                 }
                 .padding(.trailing, UsageColumns.usageWidth + UsageColumns.spacing)
                 if !ConnectionProvider.allCases.contains(where: model.shows) {
-                    Text("Every tool is switched off. Turn one on under Connected accounts (the gear).")
+                    Text(ConnectionProvider.allCases.contains(where: model.installed)
+                         ? "Every tool is switched off. Turn one on under Connected accounts (the gear)."
+                         : "No AI tools on this Mac yet. Usage shows up once Claude Code, Copilot CLI, Antigravity or OpenCode is installed.")
                         .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                 }
             }
@@ -557,7 +559,8 @@ struct AccountRow: View {
     let provider: ConnectionProvider
 
     var body: some View {
-        let shown = model.shows(provider)
+        // The switch is your choice; a tool that isn't installed says so in its row.
+        let shown = model.chosen(provider)
         let state = model.connection(provider)
         HStack(spacing: 10) {
             AgentMark(agent: provider.agent, size: 14)
@@ -669,7 +672,20 @@ struct CopilotBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ProviderHeader(agent: "Copilot CLI", title: usage.title) { Text(usage.host) }
-            if usage.premiumUnlimited {
+            if !usage.isTracked {
+                // No premium requests on this plan (Copilot Free): its chat and completions allowances instead.
+                if usage.chatEntitlement > 0 {
+                    LimitMeter(title: "Chat messages", used: Self.used(usage.chatRemaining, of: usage.chatEntitlement),
+                               caption: allowance(usage.chatRemaining, of: usage.chatEntitlement))
+                }
+                if usage.completionsEntitlement > 0 {
+                    LimitMeter(title: "Code completions", used: Self.used(usage.completionsRemaining, of: usage.completionsEntitlement),
+                               caption: allowance(usage.completionsRemaining, of: usage.completionsEntitlement))
+                }
+                if usage.chatEntitlement == 0 && usage.completionsEntitlement == 0 {
+                    Text("No premium requests on this plan").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                }
+            } else if usage.premiumUnlimited {
                 LimitMeter(title: "Premium requests", used: 0, caption: caption, unlimited: true)
             } else {
                 LimitMeter(title: "Premium requests", used: 100 - usage.percentLeft, caption: caption,
@@ -705,6 +721,17 @@ struct CopilotBlock: View {
         .padding(.horizontal, 7).padding(.vertical, 3)
         .background(Capsule().fill(Color.white.opacity(0.07)))
         .help(symbol == "infinity" ? text : "Overage allowed: requests past the limit are billed instead of refused")
+    }
+
+    static func used(_ remaining: Int, of entitlement: Int) -> Double {
+        entitlement > 0 ? Double(entitlement - remaining) / Double(entitlement) * 100 : 0
+    }
+
+    /// "30 of 50 · Resets 1 Dec"
+    private func allowance(_ remaining: Int, of entitlement: Int) -> String {
+        var parts = ["\(max(0, entitlement - remaining).formatted()) of \(entitlement.formatted())"]
+        if let reset = usage.resetsAt { parts.append("Resets " + reset.formatted(.dateTime.day().month(.abbreviated))) }
+        return parts.joined(separator: " · ")
     }
 
     /// "83 of 15,000 · Resets 1 Dec · ~552 a day to last"

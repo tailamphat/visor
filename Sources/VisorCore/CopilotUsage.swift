@@ -16,6 +16,11 @@ public struct CopilotUsage: Equatable, Sendable {
     public var chatUnlimited: Bool
     public var completionsUnlimited: Bool
     public var resetsAt: Date?
+    /// Monthly chat messages and code completions, on plans that cap them (Copilot Free).
+    public var chatEntitlement = 0
+    public var chatRemaining = 0
+    public var completionsEntitlement = 0
+    public var completionsRemaining = 0
 
     public var premiumUsed: Int { max(0, premiumEntitlement - premiumRemaining) }
     public var percentLeft: Double {
@@ -36,10 +41,14 @@ public struct CopilotUsage: Equatable, Sendable {
         return days >= 2 ? premiumRemaining / days : nil
     }
 
-    public static func parse(_ data: Data, host: String) -> CopilotUsage? {
+    /// GitHub's answer for one account. Lenient: without a login the sign-in's
+    /// `login` is used, and without quotas there's simply nothing to count yet,
+    /// so a plan that works is never dropped for a missing field.
+    public static func parse(_ data: Data, host: String, login fallback: String = "") -> CopilotUsage? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let login = object["login"] as? String,
-              let quotas = object["quota_snapshots"] as? [String: Any] else { return nil }
+              ["login", "copilot_plan", "quota_snapshots"].contains(where: { object[$0] != nil }) else { return nil }
+        let login = object["login"] as? String ?? fallback
+        let quotas = object["quota_snapshots"] as? [String: Any] ?? [:]
         func quota(_ key: String) -> [String: Any] { quotas[key] as? [String: Any] ?? [:] }
         func int(_ q: [String: Any], _ key: String) -> Int { (q[key] as? NSNumber)?.intValue ?? 0 }
         let premium = quota("premium_interactions")
@@ -55,7 +64,11 @@ public struct CopilotUsage: Equatable, Sendable {
                             overageUsed: int(premium, "overage_count"),
                             chatUnlimited: quota("chat")["unlimited"] as? Bool ?? false,
                             completionsUnlimited: quota("completions")["unlimited"] as? Bool ?? false,
-                            resetsAt: reset)
+                            resetsAt: reset,
+                            chatEntitlement: int(quota("chat"), "entitlement"),
+                            chatRemaining: int(quota("chat"), "remaining"),
+                            completionsEntitlement: int(quota("completions"), "entitlement"),
+                            completionsRemaining: int(quota("completions"), "remaining"))
     }
 
     /// The REST API root for a host: api.github.com, or api.<company>.ghe.com.

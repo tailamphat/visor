@@ -135,7 +135,7 @@ final class AppModel {
     var quotas: [NotchQuota] {
         NotchQuotaSummary.make(plan: plan, antigravity: antigravity, copilot: copilot, openCode: openCodeGo,
                                forecast: forecast)
-            .filter { quota in !hiddenProviders.contains { $0.agent == quota.agent } }
+            .filter { quota in ConnectionProvider.allCases.contains { $0.agent == quota.agent && shows($0) } }
     }
 
     // Connected accounts
@@ -160,9 +160,12 @@ final class AppModel {
     /// What the last read of Claude Code's sign-in found; nil until it finishes.
     var claudeLookup: KeychainLookup?
     var claudeUsesAPIKey = false
+    var claudeInstalled = true
     var copilotInstalled = false
     var copilotAccounts = 0
     var copilotDenied = false
+    /// Why any Copilot account couldn't be read.
+    var copilotProblems: [CopilotProblem] = []
     var antigravityInstalled = false
     var openCodeInstalled = false
     /// Tools switched off under Connected accounts: not read, not shown.
@@ -172,15 +175,31 @@ final class AppModel {
     /// Connected accounts actions, wired by the app delegate.
     var connectionAction: ((ConnectionProvider, ConnectionState.Action) -> Void)?
 
-    func shows(_ provider: ConnectionProvider) -> Bool { !hiddenProviders.contains(provider) }
+    /// Switched on under Connected accounts.
+    func chosen(_ provider: ConnectionProvider) -> Bool { !hiddenProviders.contains(provider) }
+
+    func installed(_ provider: ConnectionProvider) -> Bool {
+        switch provider {
+        case .claude: return claudeInstalled
+        case .copilot: return copilotInstalled
+        case .antigravity: return antigravityInstalled
+        case .openCode: return openCodeInstalled
+        }
+    }
+
+    /// Read and shown: switched on, and on this Mac. A tool that isn't installed stays out of
+    /// the Usage tab and the notch; Connected accounts still lists it as not installed.
+    func shows(_ provider: ConnectionProvider) -> Bool { chosen(provider) && installed(provider) }
 
     func connection(_ provider: ConnectionProvider) -> ConnectionState {
         switch provider {
         case .claude:
+            if !claudeInstalled { return .notInstalled }
             return .claude(lookup: claudeLookup, usesAPIKey: claudeUsesAPIKey, planLoaded: plan != nil,
                            planName: planName, error: planError)
         case .copilot:
-            return .copilot(installed: copilotInstalled, accounts: copilotAccounts, usage: copilot, denied: copilotDenied)
+            return .copilot(installed: copilotInstalled, accounts: copilotAccounts, usage: copilot, denied: copilotDenied,
+                            problems: copilotProblems)
         case .antigravity:
             return .antigravity(installed: antigravityInstalled, loaded: antigravity != nil, error: antigravityError)
         case .openCode:

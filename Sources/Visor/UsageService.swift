@@ -37,6 +37,7 @@ final class UsageService {
     }
 
     func start() {
+        model.claudeInstalled = HookInstaller.hasClaudeCode
         model.antigravityInstalled = Self.agyPath != nil
         model.openCodeInstalled = Self.openCodeInstalled
         model.copilotInstalled = Self.ghPath != nil || Self.copilotPath != nil
@@ -386,6 +387,7 @@ final class UsageService {
             }
             var tokens = knownTokens
             var found: [CopilotUsage] = []
+            var problems: [CopilotProblem] = []
             var denied = false
             for host in hosts + cliHosts {
                 guard let base = CopilotUsage.apiBase(for: host) else { continue }
@@ -402,7 +404,10 @@ final class UsageService {
                                 .trimmingCharacters(in: .whitespacesAndNewlines)
                         }
                     }
-                    guard let token = tokens[host], !token.isEmpty else { break }
+                    guard let token = tokens[host], !token.isEmpty else {
+                        if !denied { problems.append(.noToken(host: host)) }
+                        break
+                    }
                     var request = URLRequest(url: base.appendingPathComponent("copilot_internal/user"))
                     request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
                     request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -410,8 +415,17 @@ final class UsageService {
                     request.timeoutInterval = 15
                     let response = Self.send(request)
                     if case .status(let code) = response, code == 401, attempt == 0 { continue }
-                    if case .ok(let data) = response, let usage = CopilotUsage.parse(data, host: host), usage.isTracked {
-                        found.append(usage)
+                    // Every account that answers is kept, with or without premium requests;
+                    // one that doesn't says why under Connected accounts.
+                    switch response {
+                    case .ok(let data):
+                        if let usage = CopilotUsage.parse(data, host: host, login: cliByHost[host]?.login ?? "") {
+                            found.append(usage)
+                        } else {
+                            problems.append(.unreadable(host: host))
+                        }
+                    case .status(0): problems.append(.offline(host: host))
+                    case .status(let code): problems.append(.refused(host: host, status: code))
                     }
                     break
                 }
@@ -427,6 +441,7 @@ final class UsageService {
                     if denied { self.copilotKeychainDenied = true }
                     self.model.copilotDenied = denied || (self.copilotKeychainDenied && found.isEmpty)
                     self.model.copilotAccounts = Set(hosts + cliAccounts.map(\.host)).count
+                    self.model.copilotProblems = problems
                     self.copilotTokens = tokens
                     // Company plans first.
                     let sorted = found.sorted { ($0.host == "github.com" ? 1 : 0) < ($1.host == "github.com" ? 1 : 0) }

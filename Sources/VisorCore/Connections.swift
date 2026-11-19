@@ -179,6 +179,23 @@ public enum ToolLocator {
     }
 }
 
+/// Why one Copilot account's usage couldn't be read.
+public enum CopilotProblem: Equatable, Sendable {
+    case noToken(host: String)
+    case refused(host: String, status: Int)
+    case unreadable(host: String)
+    case offline(host: String)
+
+    public var text: String {
+        switch self {
+        case .noToken(let host): return "\(host): no sign-in token found"
+        case .refused(let host, let status): return "\(host): GitHub refused the request (\(status))"
+        case .unreadable(let host): return "\(host): couldn't read GitHub's answer"
+        case .offline(let host): return "\(host): couldn't reach GitHub"
+        }
+    }
+}
+
 /// A row under Connected accounts: whether Visor can read a tool's usage, and why not.
 public enum ConnectionState: Equatable, Sendable {
     case connected(String)
@@ -234,14 +251,18 @@ public enum ConnectionState: Equatable, Sendable {
         }
     }
 
-    /// `accounts`: signed-in accounts across gh and Copilot CLI.
-    public static func copilot(installed: Bool, accounts: Int, usage: [CopilotUsage], denied: Bool) -> ConnectionState {
+    /// `accounts`: signed-in accounts across gh and Copilot CLI; `problems`: why
+    /// any of them couldn't be read, so the row says what happened.
+    public static func copilot(installed: Bool, accounts: Int, usage: [CopilotUsage], denied: Bool,
+                               problems: [CopilotProblem] = []) -> ConnectionState {
         if !usage.isEmpty {
-            return .connected(usage.map { "\($0.login) on \($0.host)" }.joined(separator: " · "))
+            let read = usage.map { "\($0.login.isEmpty ? "Signed in" : $0.login) on \($0.host)" }
+            return .connected((read + problems.map(\.text)).joined(separator: " · "))
         }
         if denied { return .denied }
         if !installed { return .notInstalled }
-        return accounts == 0 ? .notSignedIn : .failed("No plan with premium requests")
+        if accounts == 0 { return .notSignedIn }
+        return .failed(problems.isEmpty ? "GitHub sent no Copilot usage" : problems.map(\.text).joined(separator: " · "))
     }
 
     public static func antigravity(installed: Bool, loaded: Bool, error: String?) -> ConnectionState {

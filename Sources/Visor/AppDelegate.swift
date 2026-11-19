@@ -477,7 +477,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Agents: a tick means connected; choosing one connects or disconnects it.
         menu.addItem(.sectionHeader(title: "Agents"))
-        addToggle(to: menu, "Claude Code", on: claude, #selector(toggleClaude))
+        let claudeItem = addToggle(to: menu, "Claude Code", on: claude, #selector(toggleClaude))
+        if !HookInstaller.hasClaudeCode && !claude {
+            // Nothing to connect: greyed out, and says why.
+            claudeItem.action = nil
+            claudeItem.toolTip = "Claude Code isn't installed on this Mac"
+        }
         if HookInstaller.hasCopilotCLI {
             addToggle(to: menu, "Copilot CLI", on: HookInstaller.copilotInstalled, #selector(toggleCopilot))
         }

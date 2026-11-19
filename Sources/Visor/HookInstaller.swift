@@ -71,6 +71,12 @@ enum HookInstaller {
     static var legacyCopilotHooksURL: URL { copilotDirectory.appendingPathComponent("hooks/notchboard.json") }
 
     static var hasCopilotCLI: Bool { FileManager.default.fileExists(atPath: copilotDirectory.path) }
+    /// Claude Code is on this Mac: its folder, or the `claude` command.
+    static var hasClaudeCode: Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return ([home + "/.claude"] + ToolLocator.candidates("claude", home: home))
+            .contains { FileManager.default.fileExists(atPath: $0) }
+    }
     static var copilotInstalled: Bool {
         FileManager.default.fileExists(atPath: copilotHooksURL.path) || FileManager.default.fileExists(atPath: legacyCopilotHooksURL.path)
     }

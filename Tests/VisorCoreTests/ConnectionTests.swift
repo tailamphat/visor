@@ -124,7 +124,26 @@ struct ConnectionStateTests {
         #expect(ConnectionState.copilot(installed: false, accounts: 0, usage: [], denied: false) == .notInstalled)
         #expect(ConnectionState.copilot(installed: true, accounts: 0, usage: [], denied: false) == .notSignedIn)
         #expect(ConnectionState.copilot(installed: true, accounts: 1, usage: [], denied: true) == .denied)
-        #expect(ConnectionState.copilot(installed: true, accounts: 1, usage: [], denied: false) == .failed("No plan with premium requests"))
+        #expect(ConnectionState.copilot(installed: true, accounts: 1, usage: [], denied: false) == .failed("GitHub sent no Copilot usage"))
+        // Why it failed, per account, instead of a guess.
+        #expect(ConnectionState.copilot(installed: true, accounts: 2, usage: [], denied: false,
+                                        problems: [.refused(host: "github.com", status: 403), .noToken(host: "acme.ghe.com")])
+                == .failed("github.com: GitHub refused the request (403) · acme.ghe.com: no sign-in token found"))
+        // A plan without premium requests is still a connected account.
+        let free = CopilotUsage(login: "me", plan: "free", host: "github.com", premiumEntitlement: 0, premiumRemaining: 0,
+                                premiumUnlimited: false, overagePermitted: false, overageUsed: 0,
+                                chatUnlimited: false, completionsUnlimited: false, resetsAt: nil)
+        #expect(ConnectionState.copilot(installed: true, accounts: 1, usage: [free], denied: false) == .connected("me on github.com"))
+        // One account read, another not: both said.
+        #expect(ConnectionState.copilot(installed: true, accounts: 2, usage: [free], denied: false, problems: [.refused(host: "acme.ghe.com", status: 403)])
+                == .connected("me on github.com · acme.ghe.com: GitHub refused the request (403)"))
+    }
+
+    @Test func copilotProblemsSayWhatHappened() {
+        #expect(CopilotProblem.noToken(host: "github.com").text == "github.com: no sign-in token found")
+        #expect(CopilotProblem.refused(host: "github.com", status: 404).text == "github.com: GitHub refused the request (404)")
+        #expect(CopilotProblem.unreadable(host: "github.com").text == "github.com: couldn't read GitHub's answer")
+        #expect(CopilotProblem.offline(host: "github.com").text == "github.com: couldn't reach GitHub")
     }
 
     @Test func antigravityAndOpenCodeStates() {
