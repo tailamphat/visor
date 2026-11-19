@@ -1,0 +1,15 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Visor</title>
+        <item>
+            <title>0.6.4</title>
+            <pubDate>Thu, 19 Nov 2026 16:09:31 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>113</sparkle:version>
+            <sparkle:shortVersionString>0.6.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.6.4/Visor-0.6.4.zip" length="4919720" type="application/octet-stream" sparkle:edSignature="GbQ5hTEoVd9qRE1lzpkn+32h7g2+PcxEY9Rmy0qoUaxh+QL7CfuQTpAe6ug4D6lOFHukRXmOPSwQv6gCbjzUBQ=="/>
+        </item>
+    </channel>
+</rss>
