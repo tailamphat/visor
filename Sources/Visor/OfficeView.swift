@@ -64,6 +64,8 @@ final class OfficeLayerView: NSView {
     private var sessions: [String: AgentSession] = [:]
     private let room = CALayer()
     private let sofaFront = CALayer()
+    /// The web station's hologram: two rings turning opposite ways.
+    private let rings = [CALayer(), CALayer()]
     private var labels: [CALayer] = []
     private var people: [String: Person] = [:]
     private var tip: CALayer?
@@ -95,6 +97,17 @@ final class OfficeLayerView: NSView {
             layer.anchorPoint = .zero
             self.layer?.addSublayer(layer)
         }
+        for (i, ring) in rings.enumerated() {
+            ring.contents = OfficeRoom.ring(outer: i == 0)
+            ring.bounds = CGRect(x: 0, y: 0, width: 20 * s, height: 20 * s)
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.byValue = i == 0 ? -2 * Double.pi : 2 * Double.pi
+            spin.duration = i == 0 ? 9 : 5
+            spin.repeatCount = .infinity
+            spin.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 20, preferred: 15)
+            ring.add(spin, forKey: "spin")
+            self.layer?.addSublayer(ring)
+        }
     }
 
     required init?(coder: NSCoder) { nil }
@@ -123,6 +136,10 @@ final class OfficeLayerView: NSView {
         sofaFront.frame = room.frame
         sofaFront.contents = OfficeRoom.sofaFront(layout)
         sofaFront.zPosition = CGFloat(layout.stationTop + 22.5)
+        for ring in rings {
+            ring.position = point(OfficePoint(x: OfficeLayout.webX, y: layout.stationTop + 9), in: layout)
+            ring.zPosition = CGFloat(layout.stationTop + 9)
+        }
         if old?.layout != layout || old?.hidden != next.hidden { buildLabels(next) }
         // A taller or shorter room, or tables moving, moves everyone: place them at once rather than walk.
         let snap = old?.layout != layout
@@ -775,16 +792,58 @@ enum OfficeRoom {
         p.round(116 + o, t + 2, 10, 7, radius: 1.5, NSColor(hex: 0x120E0C))
         p.fill(117 + o, t + 3, 8, 5, scene.waiting > 0 ? 0x6A5012 : 0x241C1A)
         p.ellipse(130 + o, t + 5, 3, 3, NSColor(hex: 0xF2C14E))
-        // Web kiosk with a globe
-        p.shadow(163 + o, t + 4, 18, 16, radius: 4)
-        p.clay(163 + o, t + 4, 18, 16, radius: 4, top: 0x3A302B, bottom: 0x241D1A)
-        p.ellipse(167 + o, t + 7, 10, 10, NSColor(hex: 0x4A90E2))
-        p.fill(167 + o, t + 12, 10, 1, 0xB5D4FF); p.fill(171 + o, t + 7, 1, 10, 0xB5D4FF)
+        // Web: a hologram projector; its rings turn above it (`OfficeRoom.ring`).
+        p.glow(OfficeLayout.webX, t + 9, radius: 14, NSColor(hex: 0x5EF2FF).withAlphaComponent(0.22))
+        p.ellipse(OfficeLayout.webX - 9, t + 16, 18, 5, NSColor.black.withAlphaComponent(0.3))
+        p.clay(OfficeLayout.webX - 8, t + 15, 16, 4, radius: 2, top: 0x3A302B, bottom: 0x241D1A)
+        p.fill(OfficeLayout.webX - 5, t + 15, 10, 1, NSColor(hex: 0x5EF2FF).withAlphaComponent(0.8))
+        p.ellipse(OfficeLayout.webX - 1.5, t + 7.5, 3, 3, NSColor(hex: 0xE6FDFF))
         // Sofa back
         p.shadow(193 + o, t + 6, 40, 9, radius: 4)
         p.clay(193 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
         // The door agents come in by
         p.round(w - 3, layout.corridor - 12, 3, 16, radius: 1, NSColor(hex: 0x5B4636))
+        return p.image
+    }
+
+    /// One ring of the web hologram, 20 x 20 room pixels drawn finely: the
+    /// outer one in long arcs with ticks, the inner one dashed.
+    static func ring(outer: Bool) -> CGImage? {
+        guard let p = Pixels(width: 20, height: 20, scale: 4) else { return nil }
+        let c = p.context
+        c.setShouldAntialias(true)
+        c.setLineCap(.round)
+        let cyan = NSColor(hex: 0x5EF2FF)
+        let center = CGPoint(x: 10, y: 10)
+        if outer {
+            c.setStrokeColor(cyan.withAlphaComponent(0.9).cgColor)
+            c.setLineWidth(1.1)
+            for start in stride(from: 0.0, to: 360.0, by: 120.0) {
+                c.addArc(center: center, radius: 8.6, startAngle: (start + 10) * .pi / 180, endAngle: (start + 95) * .pi / 180, clockwise: false)
+                c.strokePath()
+            }
+            c.setLineWidth(0.6)
+            c.setStrokeColor(cyan.withAlphaComponent(0.6).cgColor)
+            for angle in stride(from: 0.0, to: 360.0, by: 30.0) {
+                let a = angle * .pi / 180
+                c.move(to: CGPoint(x: 10 + cos(a) * 6.6, y: 10 + sin(a) * 6.6))
+                c.addLine(to: CGPoint(x: 10 + cos(a) * 7.4, y: 10 + sin(a) * 7.4))
+                c.strokePath()
+            }
+        } else {
+            c.setStrokeColor(cyan.withAlphaComponent(0.75).cgColor)
+            c.setLineWidth(0.8)
+            c.setLineDash(phase: 0, lengths: [2.2, 1.4])
+            c.addArc(center: center, radius: 5, startAngle: 0, endAngle: 2 * .pi, clockwise: false)
+            c.strokePath()
+            c.setLineDash(phase: 0, lengths: [])
+            c.setStrokeColor(cyan.withAlphaComponent(0.5).cgColor)
+            c.setLineWidth(0.5)
+            c.addArc(center: center, radius: 3, startAngle: 0.3, endAngle: 2.6, clockwise: false)
+            c.strokePath()
+            c.addArc(center: center, radius: 3, startAngle: 3.4, endAngle: 5.7, clockwise: false)
+            c.strokePath()
+        }
         return p.image
     }
 
