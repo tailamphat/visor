@@ -5,7 +5,8 @@
 #   scripts/release.sh 0.2.0       # explicit version
 #
 # The zip is build/Visor-<version>.zip. Upload it to the matching GitHub
-# release, then put the version and sha256 in the Homebrew cask.
+# release, commit and push appcast.xml (installed apps update from it), then
+# put the version and sha256 in the Homebrew cask.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,6 +22,18 @@ rm -f "$OUT"
 # Drop resource forks and extended attributes so the zip has no AppleDouble
 # ._ files, which Homebrew's extractor does not expect inside an app bundle.
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$OUT"
+
+# Sparkle appcast: signs the zip with the EdDSA key in the login Keychain
+# (Sparkle's generate_keys) and adds this version to appcast.xml, keeping
+# older ones. Installed apps read it from main, so push it after the release.
+STAGE=build/appcast
+rm -rf "$STAGE" && mkdir -p "$STAGE"
+cp "$OUT" "$STAGE/"
+[[ -f appcast.xml ]] && cp appcast.xml "$STAGE/appcast.xml"
+.build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+  --download-url-prefix "https://github.com/tailamphat/visor/releases/download/v$VERSION/" \
+  --link https://tailamphat.github.io/visor/ "$STAGE"
+cp "$STAGE/appcast.xml" appcast.xml
 
 echo
 echo "Version:  $VERSION ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist"))"

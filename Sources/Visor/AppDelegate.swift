@@ -2,6 +2,7 @@ import AppKit
 import Darwin
 import VisorCore
 import ServiceManagement
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -9,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var notch = NotchController(model: model)
     private lazy var usage = UsageService(model: model)
     private lazy var music = MusicService(model: model)
+    /// In-app updates from the appcast in Info.plist (SUFeedURL), signed with
+    /// the EdDSA key in SUPublicEDKey. Only an app bundle can update itself,
+    /// so a bare debug binary doesn't start it.
+    private lazy var updater = SPUStandardUpdaterController(
+        startingUpdater: Bundle.main.bundleURL.pathExtension == "app", updaterDelegate: UpdateFeed.shared, userDriverDelegate: nil)
     private lazy var bar = BarService(model: model)
     private lazy var clipboard = ClipboardService(model: model)
     private var clipboardHotKey: HotKey?
@@ -88,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = updater  // starts the daily update check
         HookServer.migrateFromNotchboard()
         model.hooksInstalled = HookInstaller.isInstalled
         model.antigravityHooksInstalled = HookInstaller.antigravityInstalled
@@ -485,6 +492,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menu.addItem(withTitle: "About Visor", action: #selector(showAbout), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Check for Updates\u{2026}", action: #selector(checkForUpdates), keyEquivalent: "").target = self
         menu.addItem(.separator())
         let claude = HookInstaller.isInstalled
         let antigravity = HookInstaller.antigravityInstalled
@@ -566,6 +574,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// The standard About panel, with the links from `About` under the version.
+    @objc private func checkForUpdates() {
+        NSApp.activate(ignoringOtherApps: true)
+        updater.checkForUpdates(nil)
+    }
+
     @objc private func showAbout() {
         let credits = NSMutableAttributedString()
         for (i, link) in About.links.enumerated() {
@@ -688,5 +701,15 @@ enum ProcessTree {
             current = Int32(info.pbi_ppid)
         }
         return pid
+    }
+}
+
+/// Where updates come from: Info.plist's SUFeedURL, or VISOR_UPDATE_FEED to
+/// try an update from a local appcast before releasing it.
+final class UpdateFeed: NSObject, SPUUpdaterDelegate {
+    static let shared = UpdateFeed()
+
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        ProcessInfo.processInfo.environment["VISOR_UPDATE_FEED"]
     }
 }

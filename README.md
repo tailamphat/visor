@@ -44,7 +44,7 @@ Needs macOS 14+ and the Command Line Tools (Xcode not required).
 ./scripts/bundle.sh --open     # builds build/Visor.app and launches it
 scripts/test.sh                # unit tests (Swift Testing)
 swift scripts/make-icon.swift  # redraws the app and menu bar icons
-scripts/release.sh 0.1.0       # universal zip and sha256 for a GitHub release
+scripts/release.sh 0.1.0       # universal zip, sha256, and the signed Sparkle appcast.xml
 ```
 
 Then choose **Connect your agents** in the notch (or the menu bar icon).

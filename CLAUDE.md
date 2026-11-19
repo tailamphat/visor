@@ -37,6 +37,13 @@ Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on
 
 Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook-debug.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
 
+## Updates and releases
+
+- Check for Updates… is Sparkle 2 (`SPUStandardUpdaterController` in `AppDelegate`), reading `appcast.xml` from `main` (SUFeedURL). Updates are verified with the EdDSA key whose public half is SUPublicEDKey; the private key is in the login Keychain (shared with Treatly) and never in the repo. On a new Mac, import it with `.build/artifacts/sparkle/Sparkle/bin/generate_keys -f <exported-key-file>` before releasing.
+- Release: tag, `scripts/release.sh <version>` (zip plus a new `appcast.xml` entry), push `main` with `appcast.xml`, `gh release create` with the zip, then bump the tap's `Casks/visor.rb`. Add `auto_updates true` to the cask only once the version with Sparkle (0.6.4) has been out a while: with it, plain `brew upgrade` skips Visor, which would strand anyone still on 0.6.3 (no updater).
+- CFBundleVersion is the commit count, which Sparkle compares; never build a release from a commit behind the last one.
+- Try an update before releasing: bundle a higher version, `generate_appcast --download-url-prefix http://127.0.0.1:8765/` into a folder, serve it with `python3 -m http.server`, and run an older bundle with `VISOR_UPDATE_FEED=http://127.0.0.1:8765/appcast.xml`. With `SULastCheckTime` set in the past it downloads at launch and installs on quit.
+
 ## Agents, approvals and questions
 
 - Hooks: `HookInstaller` writes `agent-hook.sh`; only `PermissionRequest` connections stay open (nc `-w 110`), everything else is fire-and-forget. macOS `/usr/bin/nc` half-closes after stdin EOF, so EOF does not mean the hook is gone; `HookServer` checks the hook's pid instead.

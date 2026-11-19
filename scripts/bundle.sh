@@ -26,8 +26,11 @@ BIN="$(swift build -c release ${ARCHS[@]+"${ARCHS[@]}"} --show-bin-path)/Visor"
 
 APP=build/Visor.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/Visor"
+# Sparkle (Check for Updates) is a framework the app loads from Contents/Frameworks.
+ditto "$(dirname "$BIN")/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Visor" 2>/dev/null || true
 # Started by browsers for the Visor Media extension, which ships alongside.
 cp "$(dirname "$BIN")/visor-bridge" "$APP/Contents/Helpers/visor-bridge"
 cp -R Extension "$APP/Contents/Resources/Extension"
@@ -47,13 +50,20 @@ cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
 # Create it once with scripts/make-signing-identity.sh.
 IDENTITY="Notchboard Local Signing"
 if security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
-  codesign --force --sign "$IDENTITY" "$APP/Contents/Helpers/visor-bridge"
-  codesign --force --sign "$IDENTITY" "$APP"
+  SIGN=(codesign --force --sign "$IDENTITY")
 else
   echo "note: no \"$IDENTITY\" certificate; signing ad hoc (permissions reset on every build)" >&2
-  codesign --force --sign - "$APP/Contents/Helpers/visor-bridge"
-  codesign --force --sign - "$APP"
+  SIGN=(codesign --force --sign -)
 fi
+# Inside out: Sparkle's helpers, then the framework and the bridge, then the app.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+"${SIGN[@]}" "$SPARKLE/XPCServices/Installer.xpc"
+"${SIGN[@]}" --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+"${SIGN[@]}" "$SPARKLE/Autoupdate"
+"${SIGN[@]}" "$SPARKLE/Updater.app"
+"${SIGN[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
+"${SIGN[@]}" "$APP/Contents/Helpers/visor-bridge"
+"${SIGN[@]}" "$APP"
 
 echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/Visor"))"
 if [[ $OPEN == 1 ]]; then
