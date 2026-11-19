@@ -146,6 +146,11 @@
   .sess .t div:first-child span { font-size: 10.5px; color: #8A8980; margin-left: 4px; }
   .sess .t div:nth-child(2) { font-size: 11.5px; color: #C3C2B7; margin-top: 1px; }
   .sess .time { font-size: 10.5px; color: #8A8980; font-variant-numeric: tabular-nums; align-self: flex-start; }
+  /* Like the app: the time sits on the name line, so the rows below it (and the context bar) run the full width. */
+  .sess { position: relative; }
+  .sess:has(.wait) { box-shadow: inset 0 0 0 1px rgba(250,178,25,.35); }
+  .sess .time { position: absolute; right: 10px; top: 8px; }
+  .sess .t > div:first-child { padding-right: 36px; }
   .tile { width: 26px; height: 26px; border-radius: 7px; background: rgba(255,255,255,.08); display: grid; place-items: center; flex: none; position: relative; }
   .tile svg { width: 15px; height: 15px; }
   .tile .live { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: #5FD35F; outline: 2px solid #1A1A19; }
@@ -167,7 +172,9 @@
   .btn.allow { background: #97E0A9; color: #05200F; border: 1px solid #97E0A9; }
   .btn kbd { font: 600 9.5px var(--sf); padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); }
   .sess .t .ctx { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 10px; color: #8A8980; }
-  .sess .t .ctx .bar { flex: 0 0 90px; height: 3px; margin: 0; }
+  /* Like the app: the bar fills the row, the percentage keeps its width at the end. */
+  .sess .t .ctx .bar { flex: 1 1 auto; min-width: 0; height: 3px; margin: 0; }
+  .sess .t .ctx { white-space: nowrap; }
   .sess .t .ctx.warn { color: var(--amber); }
   .search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.07); border-radius: 8px; height: 28px; padding: 0 10px; color: #8A8980; font-size: 12px; }
   .search .r { margin-left: auto; font-size: 10.5px; display: flex; gap: 8px; }
