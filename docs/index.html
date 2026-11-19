@@ -714,7 +714,6 @@
   const views = [...document.querySelectorAll('.view')];
   const tries = [...document.querySelectorAll('[data-try]')];
   const glow = document.getElementById('glow');
-  const agentsIcon = document.querySelector('.agents-icon');
   const gear = document.querySelector('.status .gear');
 
   function show(name) {
@@ -727,9 +726,7 @@
     notch.style.setProperty('--h', h + 'px');
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
-    // Like the app: the Agents tab shows the view it's in, and Usage has its gear.
-    agentsIcon.classList.toggle('s-building', name === 'office');
-    agentsIcon.classList.toggle('s-sparkles', name !== 'office');
+    // Like the app: Usage has its gear.
     gear.hidden = !(name === 'usage' || name === 'tokens');
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';

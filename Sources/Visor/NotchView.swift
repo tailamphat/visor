@@ -436,7 +436,6 @@ struct ExpandedView: View {
         HStack(spacing: 4) {
             ForEach(Array(list), id: \.self) { tab in
                 TabButton(tab: tab, selected: model.tab == tab && !model.showsCard,
-                          symbol: tab == .agents && model.agentsOffice ? "building.2" : nil,
                           help: tab == .agents ? (model.agentsOffice ? "Agents: the office. Click again for the list"
                                                                      : "Agents: the list. Click again for the office") : nil) {
                     // Agents again, while on it: switch between the list and the office.
@@ -491,14 +490,12 @@ struct ExpandedView: View {
 struct TabButton: View {
     let tab: Tab
     let selected: Bool
-    /// In place of the tab's own symbol (Agents shows the view it's in).
-    var symbol: String?
     var help: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol ?? tab.symbol)
+            Image(systemName: tab.symbol)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(selected ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: 30, height: 22)
