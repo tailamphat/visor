@@ -25,6 +25,10 @@ final class UsageService {
     /// "Allow access" under Connected accounts.
     private var claudeKeychainDenied = false
     private var copilotKeychainDenied = false
+    /// Every token used, by day, tool and model; saved, so history outlives the tools' logs.
+    private var ledger = TokenLedger()
+    /// When Copilot's session store last changed, so it's only queried after it does.
+    private var copilotTokensStamp: Date?
 
     init(model: AppModel) {
         self.model = model
@@ -35,11 +39,16 @@ final class UsageService {
         model.openCodeInstalled = Self.openCodeInstalled
         model.copilotInstalled = Self.ghPath != nil || Self.copilotPath != nil
             || FileManager.default.fileExists(atPath: Self.copilotConfig.path)
+        loadLedger()
         scanTranscripts()
+        refreshCopilotTokens()
         refreshPlan()
         refreshOpenCode()
         timers.append(Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.scanTranscripts() }
+            MainActor.assumeIsolated {
+                self?.scanTranscripts()
+                self?.refreshCopilotTokens()
+            }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshPlan() }
@@ -113,16 +122,92 @@ final class UsageService {
     private func scanTranscripts() {
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects")
         let transcripts = transcripts
+        let first = model.spend == nil
         work.async {
             let changed = transcripts.scan(root: root)
             // Recompute at least once a minute so "today" rolls over at midnight.
             let summary = SpendSummary.make(from: transcripts.records)
+            let tokens = changed || first ? TokenLedger.daily(claude: transcripts.records) : nil
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     if changed || self.model.spend != summary { self.model.spend = summary }
+                    if let tokens { self.addTokens(tokens) }
                 }
             }
         }
+    }
+
+    // MARK: Tokens
+
+    private nonisolated static var ledgerURL: URL {
+        #if DEBUG
+        HookServer.directory.appendingPathComponent("tokens-debug.json")
+        #else
+        HookServer.directory.appendingPathComponent("tokens.json")
+        #endif
+    }
+
+    private func loadLedger() {
+        work.async {
+            guard let data = try? Data(contentsOf: Self.ledgerURL),
+                  let saved = try? JSONDecoder().decode(TokenLedger.self, from: data) else { return }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    var merged = saved
+                    merged.merge(self.ledger.days)
+                    self.ledger = merged
+                    self.model.tokenLedger = merged
+                }
+            }
+        }
+    }
+
+    /// What a tool's logs say now; the ledger keeps the larger count for each day.
+    private func addTokens(_ fresh: [String: [String: TokenCount]]) {
+        guard ledger.merge(fresh) else { return }
+        model.tokenLedger = ledger
+        let snapshot = ledger
+        work.async {
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            try? data.write(to: Self.ledgerURL, options: .atomic)
+        }
+    }
+
+    /// Copilot CLI's session store, read again only after it changes.
+    func refreshCopilotTokens() {
+        let known = copilotTokensStamp
+        work.async {
+            let db = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".copilot/session-store.db")
+            let stamp = [db.path, db.path + "-wal"].compactMap {
+                (try? FileManager.default.attributesOfItem(atPath: $0))?[.modificationDate] as? Date
+            }.max()
+            guard let stamp, stamp != known, let data = Self.sqlite(db.path, TokenLedger.copilotQuery),
+                  let fresh = TokenLedger.daily(copilot: data) else { return }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self.copilotTokensStamp = stamp
+                    self.addTokens(fresh)
+                }
+            }
+        }
+    }
+
+    /// OpenCode's tokens by day and model, all time.
+    private nonisolated static func readOpenCodeTokens() -> [String: [String: TokenCount]] {
+        var out: [String: [String: TokenCount]] = [:]
+        let dir = openCodeDataDir()
+        for name in ["opencode.db", "opencode-next.db"] {
+            let path = dir.appendingPathComponent(name).path
+            guard FileManager.default.fileExists(atPath: path),
+                  let tablesData = sqlite(path, "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('message', 'session_message')"),
+                  let tables = try? JSONSerialization.jsonObject(with: tablesData) as? [[String: Any]],
+                  let query = TokenLedger.openCodeQuery(tables: Set(tables.compactMap { $0["name"] as? String })),
+                  let data = sqlite(path, query), let days = TokenLedger.daily(openCode: data) else { continue }
+            for (day, entries) in days {
+                for (key, count) in entries { out[day, default: [:]][key] = (out[day]?[key] ?? TokenCount()) + count }
+            }
+        }
+        return out
     }
 
     func refreshPlan() {
@@ -298,6 +383,7 @@ final class UsageService {
         fetchingOpenCode = true
         work.async {
             let local = Self.readOpenCodeUsage()
+            let tokens = Self.readOpenCodeTokens()
             let go = Self.openCodeGoToken().flatMap { Self.fetchOpenCodeGo($0) }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -306,6 +392,7 @@ final class UsageService {
                     self.model.openCodeError = local.error
                     self.model.openCodeGo = go
                     if local.usage != nil { self.model.openCodeUpdated = Date() }
+                    self.addTokens(tokens)
                     self.checkLimitsBack()
                 }
             }

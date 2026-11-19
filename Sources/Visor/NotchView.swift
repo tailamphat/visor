@@ -58,14 +58,19 @@ struct NotchLayout {
                 return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: fitting(Self.compactMusicContent))
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
+            if model.tab == .usage && model.usageTokens { return CGSize(width: Self.expandedSize.width, height: fitting(TokensView.height)) }
             if model.tab == .usage {
+                // Plan limits sit under a bar with the switch to Tokens.
+                let bar = UsageBar.height + UsageBar.gap
+                func taller(_ size: CGSize) -> CGSize { CGSize(width: size.width, height: size.height + bar) }
                 if model.shows(.antigravity) && (model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading) {
-                    return Self.usageWithAntigravitySize
+                    return taller(Self.usageWithAntigravitySize)
                 }
                 if model.shows(.openCode) && (model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil) {
-                    return Self.usageWithOpenCodeSize
+                    return taller(Self.usageWithOpenCodeSize)
                 }
-                if model.shows(.copilot) && !model.copilot.isEmpty { return Self.usageWithCopilotSize }
+                if model.shows(.copilot) && !model.copilot.isEmpty { return taller(Self.usageWithCopilotSize) }
+                return taller(Self.expandedSize)
             }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.showsOffice {
@@ -387,7 +392,15 @@ struct ExpandedView: View {
                         } else {
                             AgentsView(model: model)
                         }
-                    case .usage: if model.showAccounts { AccountsView(model: model) } else { UsageView(model: model) }
+                    case .usage:
+                        if model.showAccounts { AccountsView(model: model) }
+                        else if model.usageTokens { TokensView(model: model) }
+                        else {
+                            VStack(spacing: UsageBar.gap) {
+                                UsageBar(model: model)
+                                UsageView(model: model)
+                            }
+                        }
                     case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
                     case .clipboard: ClipboardView(model: model)

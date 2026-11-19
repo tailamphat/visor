@@ -158,20 +158,3 @@ public struct OpenCodeGoUsage: Equatable, Sendable {
         return limits.isEmpty ? nil : OpenCodeGoUsage(limits: limits)
     }
 }
-
-/// Short token counts for the usage panel: 1.2K, 303K, 4.2M.
-public enum TokenCount {
-    public static func compact(_ value: Int) -> String {
-        let magnitude = Double(abs(value))
-        let sign = value < 0 ? "-" : ""
-        if magnitude >= 1_000_000_000 { return sign + scaled(magnitude / 1_000_000_000) + "B" }
-        if magnitude >= 1_000_000 { return sign + scaled(magnitude / 1_000_000) + "M" }
-        if magnitude >= 1_000 { return sign + scaled(magnitude / 1_000) + "K" }
-        return "\(value)"
-    }
-
-    private static func scaled(_ value: Double) -> String {
-        let text = value < 100 ? String(format: "%.1f", value) : String(format: "%.0f", value)
-        return text.hasSuffix(".0") ? String(text.dropLast(2)) : text
-    }
-}

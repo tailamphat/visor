@@ -3,6 +3,10 @@ import SwiftUI
 import VisorCore
 import Observation
 
+enum TokensPage: String, CaseIterable {
+    case overview, models, daily, tools
+}
+
 enum Tab: String, CaseIterable {
     case agents, usage, music, bar, clipboard
 
@@ -141,6 +145,16 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// The Usage tab's Tokens view instead of plan limits; remembered.
+    var usageTokens = UserDefaults.standard.bool(forKey: "usageTokens") {
+        didSet { UserDefaults.standard.set(usageTokens, forKey: "usageTokens") }
+    }
+    /// Every token used, by day, tool and model.
+    var tokenLedger = TokenLedger()
+    /// The Tokens view's page, range (days; nil for all time) and the chart day under the pointer.
+    var tokensPage: TokensPage = .overview
+    var tokensRange: Int? = nil
+    var tokensHover: String?
     /// Whether the Agents tab shows the office right now: chosen, and someone to show.
     var showsOffice: Bool { tab == .agents && agentsOffice && !board.sessions.isEmpty }
     /// What the last read of Claude Code's sign-in found; nil until it finishes.
