@@ -169,19 +169,17 @@ final class ClipboardService {
         save()
     }
 
-    /// Empties the history and the macOS clipboard; pinned items stay unless asked.
+    /// Empties the history and the macOS clipboard; pinned items stay (unpin one to let it go).
     func clearAll() {
         let alert = NSAlert()
         alert.messageText = "Clear clipboard history?"
-        alert.informativeText = "This also clears what is on the clipboard now. It can't be undone."
+        alert.informativeText = "Pinned items stay. This also clears what is on the clipboard now. It can't be undone."
         alert.addButton(withTitle: "Clear")
         alert.addButton(withTitle: "Cancel")
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "Also remove pinned items"
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         var history = model.clips
-        history.clear(keepPinned: alert.suppressionButton?.state != .on)
+        history.clear(keepPinned: true)
         model.clips = history
         pasteboard.clearContents()
         lastCount = pasteboard.changeCount
