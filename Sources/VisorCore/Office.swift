@@ -40,7 +40,8 @@ public struct OfficeIsland: Equatable, Sendable {
 /// the rows and walkways down both sides; below them a corridor where agents
 /// wait at your desk, and a fixed row of stations.
 public struct OfficeLayout: Equatable, Sendable {
-    public static let width = 242.0
+    /// The panel's full width at 2 points a pixel: the room runs edge to edge.
+    public static let width = 248.0
     public static let cell = 22.0
     public static let islandHeight = 52.0
     static let rowPitch = 58.0
@@ -52,12 +53,12 @@ public struct OfficeLayout: Equatable, Sendable {
     static let maxColumns = Int((width - 2 * margin - 8) / cell)
 
     // The bottom row's stations, and the gaps between them to walk through.
-    public static let terminalX = 21.0
-    public static let docsX = 58.0
-    public static let youX = 121.0
-    public static let webX = 172.0
-    public static let sofaX = 212.0
-    static let lanes = [37.0, 88.0, 150.0, 187.0]
+    public static let terminalX = 24.0
+    public static let docsX = 61.0
+    public static let youX = 124.0
+    public static let webX = 175.0
+    public static let sofaX = 215.0
+    static let lanes = [40.0, 91.0, 153.0, 190.0]
     static let walkway = 4.0
     /// Seats on the sofa; whoever else is done stays at their desk.
     public static let sofaSeats = 3
@@ -100,7 +101,8 @@ public struct OfficeLayout: Equatable, Sendable {
     public var stationTop: Double { corridor + 8 }
     /// The line agents stand on at the terminal, the docs and the web.
     public var stationLine: Double { stationTop + 32 }
-    public var height: Double { stationLine + 4 }
+    /// Room below the station line for the names of whoever stands there.
+    public var height: Double { stationLine + 9 }
 
     /// A seat at a table: where the agent sits, which way it faces, the aisle
     /// it reaches it from, and the top-left of its screen.

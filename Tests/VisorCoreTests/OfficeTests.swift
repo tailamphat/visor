@@ -22,23 +22,23 @@ struct OfficeTests {
         #expect(islands.map(\.x) == [8, 68, 106, 144])
         #expect(islands.map(\.width) == [52, 30, 30, 30])
         #expect(islands.allSatisfy { $0.y == 10 })
-        #expect(scene.layout.rows == 1 && scene.layout.height == 120)
+        #expect(scene.layout.rows == 1 && scene.layout.height == 125)
 
-        let wide = Office.place(sessions([("Claude Code", 9), ("Copilot CLI", 9)])).layout.islands
+        let wide = Office.place(sessions([("Claude Code", 11), ("Copilot CLI", 11)])).layout.islands
         #expect(wide.map(\.x) == [8, 8] && wide.map(\.y) == [10, 68], "the second table doesn't fit beside the first")
     }
 
     /// A tool with more sessions than one table holds gets a second table.
     @Test func bigGroupsSplit() {
-        let islands = Office.place(sessions([("Claude Code", 20)])).layout.islands
-        #expect(islands.map(\.seats) == [18, 2])
-        #expect(islands.map(\.total) == [20, 20])
+        let islands = Office.place(sessions([("Claude Code", 22)])).layout.islands
+        #expect(islands.map(\.seats) == [20, 2])
+        #expect(islands.map(\.total) == [22, 22])
     }
 
     /// Two rows of tables at most; the rest are counted, not drawn.
     @Test func overflowIsCounted() {
-        let scene = Office.place(sessions([("Claude Code", 18), ("Copilot CLI", 18), ("Antigravity", 18)]))
-        #expect(scene.layout.rows == 2 && scene.agents.count == 36 && scene.hidden == 18)
+        let scene = Office.place(sessions([("Claude Code", 20), ("Copilot CLI", 20), ("Antigravity", 20)]))
+        #expect(scene.layout.rows == 2 && scene.agents.count == 40 && scene.hidden == 20)
     }
 
     /// Seats alternate: top of the table facing you, bottom facing the table.
@@ -119,7 +119,7 @@ struct OfficeTests {
         let lower = OfficePoint(x: 23, y: 60)
         let you = OfficePoint(x: OfficeLayout.youX, y: layout.corridor)
         #expect(layout.route(from: lower, access: 65, to: you, access: layout.corridor)
-                == [OfficePoint(x: 23, y: 65), OfficePoint(x: 88, y: 65), OfficePoint(x: 88, y: layout.corridor), you])
+                == [OfficePoint(x: 23, y: 65), OfficePoint(x: 91, y: 65), OfficePoint(x: 91, y: layout.corridor), you])
 
         let along = OfficePoint(x: 100, y: layout.stationLine)
         #expect(layout.route(from: terminal, access: layout.stationLine, to: along, access: layout.stationLine) == [along])

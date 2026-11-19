@@ -69,7 +69,9 @@ struct NotchLayout {
             }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.showsOffice {
-                return CGSize(width: Self.expandedSize.width, height: fitting(OfficeView.height(for: model.board.sessions)))
+                // The room runs to the panel's bottom edge: no room below it.
+                return CGSize(width: Self.expandedSize.width,
+                              height: notch.height + Self.contentTop + OfficeView.height(for: model.board.sessions))
             }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
@@ -364,6 +366,11 @@ struct ExpandedView: View {
     @Bindable var model: AppModel
     let layout: NotchLayout
 
+    /// The office runs to the panel's edges; everything else sits inside the inset.
+    private var fullBleed: Bool {
+        model.showsOffice && model.approvals.isEmpty && model.limitBack == nil && !model.compactMusic
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header.frame(height: layout.notch.height)
@@ -388,9 +395,10 @@ struct ExpandedView: View {
                 }
             }
             // The same room on every tab: the sides and bottom match the header's tabs.
-            .padding(.horizontal, NotchLayout.inset)
+            // The office runs edge to edge; its own bar keeps the inset.
+            .padding(.horizontal, fullBleed ? 0 : NotchLayout.inset)
             .padding(.top, NotchLayout.contentTop)
-            .padding(.bottom, NotchLayout.inset)
+            .padding(.bottom, fullBleed ? 0 : NotchLayout.inset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }

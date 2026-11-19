@@ -26,6 +26,7 @@ struct OfficeView: View {
                 AgentsViewSwitch(model: model)
             }
             .frame(height: Self.barHeight)
+            .padding(.horizontal, NotchLayout.inset)
             OfficeCanvas(model: model)
                 .frame(width: CGFloat(OfficeLayout.width * Self.scale), height: CGFloat(scene.layout.height * Self.scale))
         }
@@ -660,6 +661,8 @@ enum OfficeRoom {
         }
         let t = layout.stationTop
         p.fill(0, layout.deskBottom + 3, w, 1, 0x2B2740)
+        // The stations were drawn for a 242-pixel room; centre them in this one.
+        p.context.translateBy(x: (w - 242) / 2, y: 0)
         // Terminal rack
         p.fill(12, t, 18, 20, 0x14161F); p.fill(12, t, 18, 1, 0x3A3F52)
         for i in 0..<4 {
@@ -684,6 +687,7 @@ enum OfficeRoom {
         p.fill(167, t + 12, 10, 1, 0x9CC3FF); p.fill(171, t + 7, 1, 10, 0x9CC3FF)
         // Sofa back
         p.fill(193, t + 6, 40, 8, 0x3D4C7A); p.fill(193, t + 6, 40, 1, 0x53649A)
+        p.context.translateBy(x: -(w - 242) / 2, y: 0)
         // The door agents come in by
         p.fill(w - 2, layout.corridor - 12, 2, 16, 0x5B4636)
         return p.image
@@ -693,6 +697,7 @@ enum OfficeRoom {
     static func sofaFront(_ layout: OfficeLayout) -> CGImage? {
         guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height)) else { return nil }
         let t = layout.stationTop
+        p.context.translateBy(x: (OfficeLayout.width - 242) / 2, y: 0)
         p.fill(191, t + 18, 44, 6, 0x34416A); p.fill(191, t + 14, 3, 10, 0x2A3558); p.fill(232, t + 14, 3, 10, 0x2A3558)
         return p.image
     }
