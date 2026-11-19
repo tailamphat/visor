@@ -80,6 +80,11 @@ final class OfficeLayerView: NSView {
         let bubble = CALayer()
         let glyph = CATextLayer()
         let tag = CATextLayer()
+        /// How long it has waited for you, under its name at your desk.
+        let clock = CATextLayer()
+        /// How full its context is, a bar over its head like a health bar.
+        let health = CALayer()
+        let healthFill = CALayer()
         var agent: OfficeAgent
         let look: PixelPerson.Look
         init(_ agent: OfficeAgent, look: PixelPerson.Look) {
@@ -168,7 +173,11 @@ final class OfficeLayerView: NSView {
             placeScreen(people[agent.id]!, in: layout)
         }
         // Who else is at a spot decides whether a name fits.
-        for person in people.values { person.tag.isHidden = !showsName(person.agent) && hovered != person.agent.id }
+        for person in people.values {
+            person.tag.isHidden = !showsName(person.agent) && hovered != person.agent.id
+            showHealth(person)
+        }
+        tickClocks()
         CATransaction.commit()
         if let hovered, let person = people[hovered] { showTip(person) } else { hideTip() }
     }
@@ -219,6 +228,24 @@ final class OfficeLayerView: NSView {
         person.tag.contentsScale = scale
         person.tag.frame = CGRect(x: body.bounds.midX - 40, y: -11, width: 80, height: 10)
         body.addSublayer(person.tag)
+
+        person.clock.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)
+        person.clock.fontSize = 8
+        person.clock.alignmentMode = .center
+        person.clock.foregroundColor = NSColor(hex: 0xFAB219).cgColor
+        person.clock.shadowColor = NSColor.black.cgColor
+        person.clock.shadowOpacity = 1
+        person.clock.shadowRadius = 1.5
+        person.clock.shadowOffset = .zero
+        person.clock.contentsScale = scale
+        person.clock.frame = CGRect(x: body.bounds.midX - 40, y: -21, width: 80, height: 10)
+        body.addSublayer(person.clock)
+
+        person.health.backgroundColor = NSColor(hex: 0x141018).cgColor
+        person.health.cornerRadius = 1
+        person.healthFill.anchorPoint = .zero
+        person.health.addSublayer(person.healthFill)
+        body.addSublayer(person.health)
     }
 
     /// Puts a person where it belongs and starts what it does there.
@@ -354,6 +381,51 @@ final class OfficeLayerView: NSView {
 
     /// Names show for whoever waits for you, and for anyone alone at a station;
     /// at tables and in a crowd they show on hover, so nothing overlaps.
+    /// The bar over the head: how full the context is, amber from 80% when it's about to compact.
+    private func showHealth(_ person: Person) {
+        guard let percent = person.agent.context else { person.health.isHidden = true; return }
+        let sink: CGFloat = person.agent.sits ? 3 * s : 0
+        let width: CGFloat = 12 * s
+        person.health.isHidden = false
+        person.health.frame = CGRect(x: person.body.bounds.midX - width / 2, y: (PixelPerson.headTop + 2) * s - sink, width: width, height: 3 * s)
+        person.healthFill.frame = CGRect(x: s, y: s, width: max(1, (width - 2 * s) * CGFloat(min(percent, 100)) / 100), height: s)
+        person.healthFill.backgroundColor = NSColor(hex: percent >= 80 ? 0xFAB219 : 0x5AA2F0).cgColor
+    }
+
+    /// Ticks once a second while anyone waits at your desk, and only then.
+    private var ticker: Timer?
+
+    private func tickClocks() {
+        let waiting = people.values.filter { $0.agent.spot == .you }
+        for person in people.values where person.agent.spot != .you { person.clock.isHidden = true }
+        guard !waiting.isEmpty, window != nil else { ticker?.invalidate(); ticker = nil; return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for person in waiting {
+            person.clock.isHidden = false
+            person.clock.string = Self.elapsed(since: person.agent.since)
+        }
+        CATransaction.commit()
+        if ticker == nil {
+            ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.tickClocks() }
+            }
+            ticker?.tolerance = 0.2
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { ticker?.invalidate(); ticker = nil } else { tickClocks() }
+    }
+
+    /// "0:38", "4:12", "1:05:09".
+    static func elapsed(since: Date, now: Date = Date()) -> String {
+        let seconds = max(0, Int(now.timeIntervalSince(since)))
+        let h = seconds / 3600, m = seconds / 60 % 60, sec = seconds % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
+    }
+
     private func showsName(_ agent: OfficeAgent) -> Bool {
         switch agent.spot {
         case .you: return true
@@ -386,7 +458,8 @@ final class OfficeLayerView: NSView {
             let color = AgentStyle.mark(island.agent)
             let width = island.width * s - 4
             let x = (island.x + 1) * s
-            let top = (layout.height - island.y + 8) * s
+            // Above the table, clear of the context bars over the top row's heads.
+            let top = (layout.height - island.y + 15) * s
             let font = NSFont.systemFont(ofSize: 7, weight: .bold)
             let fits = { (name: String) in NSAttributedString(string: name, attributes: [.font: font]).size().width <= width }
             let name = [island.total > 1 ? "\(island.agent.uppercased()) · \(island.total)" : nil, island.agent.uppercased()]
@@ -474,10 +547,14 @@ final class OfficeLayerView: NSView {
         add(session.project, 12, .semibold, .white)
         add("  " + [session.agent, session.host].compactMap { $0 }.joined(separator: " · "), 10, .regular, NSColor(hex: 0x8A8980))
         add("\n" + Self.detail(session), 11, .regular, NSColor(hex: 0xE9E8E2))
+        add("\n" + Self.time(session), 10, .medium, session.state.attention != nil ? NSColor(hex: 0xFAB219) : NSColor(hex: 0x8A8980))
         if let percent = session.contextPercent {
             let high = percent >= 80
             add("\n" + (high ? "\(Int(percent))% context · compacts soon" : "\(Int(percent))% context"), 10, .medium,
                 high ? NSColor(hex: 0xFAB219) : NSColor(hex: 0x8A8980))
+        }
+        if let task = session.task, !Self.detail(session).contains(task) {
+            add("\nAsked: \"\(task)\"", 10, .regular, NSColor(hex: 0x8A8980))
         }
         let width: CGFloat = 220
         let size = lines.boundingRect(with: CGSize(width: width - 20, height: 200), options: [.usesLineFragmentOrigin]).size
@@ -504,6 +581,19 @@ final class OfficeLayerView: NSView {
         layer?.addSublayer(box)
         CATransaction.commit()
         tip = box
+    }
+
+    /// How long it has been like this, like the list row's time: a clock while it's busy or
+    /// waiting, "5 min ago" once it's done or idle.
+    static func time(_ session: AgentSession) -> String {
+        let clock = elapsed(since: session.since)
+        switch session.state {
+        case .needsApproval, .asking, .needsInput: return "Waiting \(clock)"
+        case .working: return "Working \(clock)"
+        case .done, .idle:
+            let ago = RelativeDateTimeFormatter().localizedString(for: session.since, relativeTo: Date())
+            return session.state == .done ? "Finished \(ago)" : "Ready since \(ago)"
+        }
     }
 
     static func detail(_ session: AgentSession) -> String {

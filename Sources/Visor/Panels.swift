@@ -71,7 +71,7 @@ struct AgentsViewSwitch: View {
     var body: some View {
         HStack(spacing: 0) {
             option("list.bullet", office: false, help: "Show as a list")
-            option("building.2", office: true, help: "Show as an office")
+            option("gamecontroller.fill", office: true, help: "Show as an office")
         }
         .padding(1)
         .background(Capsule().fill(Color.white.opacity(0.08)))

@@ -21,11 +21,11 @@ struct OfficeTests {
         #expect(islands.map(\.agent) == ["Claude Code", "Copilot CLI", "Antigravity", "OpenCode"])
         #expect(islands.map(\.x) == [8, 68, 106, 144])
         #expect(islands.map(\.width) == [52, 30, 30, 30])
-        #expect(islands.allSatisfy { $0.y == 10 })
-        #expect(scene.layout.rows == 1 && scene.layout.height == 125)
+        #expect(islands.allSatisfy { $0.y == 18 }, "room above the first tables for their names and the bars over heads")
+        #expect(scene.layout.rows == 1 && scene.layout.height == 133)
 
         let wide = Office.place(sessions([("Claude Code", 11), ("Copilot CLI", 11)])).layout.islands
-        #expect(wide.map(\.x) == [8, 8] && wide.map(\.y) == [10, 68], "the second table doesn't fit beside the first")
+        #expect(wide.map(\.x) == [8, 8] && wide.map(\.y) == [18, 84], "the second table doesn't fit beside the first")
     }
 
     /// A tool with more sessions than one table holds gets a second table.
@@ -45,10 +45,10 @@ struct OfficeTests {
     @Test func seatsFaceEachOther() {
         let scene = Office.place(sessions([("Claude Code", 3)], state: .working("Edit: a.swift")))
         let a = scene.agents
-        #expect(a[0].feet == OfficePoint(x: 23, y: 24) && !a[0].facesUp && a[0].access == 7)
-        #expect(a[1].feet == OfficePoint(x: 23, y: 60) && a[1].facesUp && a[1].access == 65)
+        #expect(a[0].feet == OfficePoint(x: 23, y: 32) && !a[0].facesUp && a[0].access == 15)
+        #expect(a[1].feet == OfficePoint(x: 23, y: 68) && a[1].facesUp && a[1].access == 73)
         #expect(a[2].feet.x == 45 && !a[2].facesUp)
-        #expect(a[0].screen == OfficePoint(x: 20, y: 30) && a[1].screen == OfficePoint(x: 20, y: 37))
+        #expect(a[0].screen == OfficePoint(x: 20, y: 38) && a[1].screen == OfficePoint(x: 20, y: 45))
     }
 
     /// What an agent is doing decides where it goes.
@@ -64,6 +64,19 @@ struct OfficeTests {
         #expect(Office.spot(for: .needsInput) == (.you, .question))
         #expect(Office.spot(for: .done) == (.sofa, .done))
         #expect(Office.spot(for: .idle) == (.desk, .idle), "ready and waiting: dozing at its desk")
+    }
+
+    /// Each agent carries its context (whole percent, for the bar over its head) and
+    /// when its state began (for the time it's been waiting).
+    @Test func agentsCarryContextAndSince() {
+        var s = session("a", "Claude Code", .needsApproval("Bash: git push"))
+        s.contextTokens = 172_000
+        s.contextWindow = 200_000
+        let since = Date(timeIntervalSince1970: 1_000)
+        s.since = since
+        let agent = Office.place([s, session("b", "Copilot CLI")]).agents
+        #expect(agent[0].context == 86 && agent[0].since == since)
+        #expect(agent[1].context == nil, "no context known: no bar")
     }
 
     /// Tools Visor knows first, in the notch's order; others after, by name.
@@ -111,15 +124,15 @@ struct OfficeTests {
     /// Between the corridor and the stations: through the gaps between stations.
     @Test func routesGoAroundTables() {
         let layout = Office.place(sessions([("Claude Code", 2)])).layout
-        let seat = OfficePoint(x: 23, y: 24)
+        let seat = OfficePoint(x: 23, y: 32)
         let terminal = OfficePoint(x: OfficeLayout.terminalX, y: layout.stationLine)
-        #expect(layout.route(from: seat, access: 7, to: terminal, access: layout.stationLine)
-                == [OfficePoint(x: 23, y: 7), OfficePoint(x: 4, y: 7), OfficePoint(x: 4, y: layout.stationLine), terminal])
+        #expect(layout.route(from: seat, access: 15, to: terminal, access: layout.stationLine)
+                == [OfficePoint(x: 23, y: 15), OfficePoint(x: 4, y: 15), OfficePoint(x: 4, y: layout.stationLine), terminal])
 
-        let lower = OfficePoint(x: 23, y: 60)
+        let lower = OfficePoint(x: 23, y: 68)
         let you = OfficePoint(x: OfficeLayout.youX, y: layout.corridor)
-        #expect(layout.route(from: lower, access: 65, to: you, access: layout.corridor)
-                == [OfficePoint(x: 23, y: 65), OfficePoint(x: 91, y: 65), OfficePoint(x: 91, y: layout.corridor), you])
+        #expect(layout.route(from: lower, access: 73, to: you, access: layout.corridor)
+                == [OfficePoint(x: 23, y: 73), OfficePoint(x: 91, y: 73), OfficePoint(x: 91, y: layout.corridor), you])
 
         let along = OfficePoint(x: 100, y: layout.stationLine)
         #expect(layout.route(from: terminal, access: layout.stationLine, to: along, access: layout.stationLine) == [along])

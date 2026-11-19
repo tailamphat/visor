@@ -44,8 +44,9 @@ public struct OfficeLayout: Equatable, Sendable {
     public static let width = 248.0
     public static let cell = 22.0
     public static let islandHeight = 52.0
-    static let rowPitch = 58.0
-    static let firstRow = 10.0
+    /// Rows of tables leave room above each for its name and the bars over heads.
+    static let rowPitch = 66.0
+    static let firstRow = 18.0
     static let margin = 8.0
     static let gap = 8.0
     public static let maxRows = 2
@@ -156,6 +157,10 @@ public struct OfficeAgent: Equatable, Sendable, Identifiable {
     public var sits: Bool
     /// Its own screen at its table, kept while it's away: the top-left of 6 x 4 pixels.
     public var screen: OfficePoint
+    /// How full its context window is, in whole percent; nil when unknown.
+    public var context: Int?
+    /// When its current state began: how long it has waited, worked or rested.
+    public var since: Date
 }
 
 public struct OfficeScene: Equatable, Sendable {
@@ -247,7 +252,8 @@ public enum Office {
             }
             agents.append(OfficeAgent(id: session.id, agent: session.agent, project: session.project, spot: where_,
                                       activity: activity, feet: feet, access: access, facesUp: facesUp, sits: sits,
-                                      screen: seat.screen))
+                                      screen: seat.screen, context: session.contextPercent.map { Int($0.rounded()) },
+                                      since: session.since))
         }
         return OfficeScene(layout: layout, agents: agents, hidden: ordered.count - agents.count)
     }
