@@ -623,8 +623,8 @@
   </section>
 
   <section>
-    <h2>Your clipboard and your music, a hover away</h2>
-    <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. And whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect.</p>
+    <h2>Your clipboard and your music, a hover away <span class="tag">Any browser new in 0.6</span></h2>
+    <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. And whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect. Add the <b>Visor Media</b> browser extension and that works in any browser, Firefox and Zen included: it sees every music and video tab and plays, pauses and skips exactly the one you mean.</p>
     <div class="split">
       <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
         <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search</div>
@@ -636,7 +636,7 @@
       <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
         <div class="song" style="margin-top:0"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
           <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
-          <div class="src">Safari · YouTube</div>
+          <div class="src">Zen · YouTube Music</div>
           <div class="ctrls" aria-hidden="true">
             <svg viewBox="0 0 16 16"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg>
             <span class="pp"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg></span>
@@ -661,6 +661,11 @@
     <h2>What else is new</h2>
     <p>Small things that add up, in Visor 0.4 to 0.6.</p>
     <ul class="more">
+      <li><h3>Copilot from your editor, no <code>gh</code> needed</h3><p>Signed in to Copilot in JetBrains, Neovim or Xcode? The Usage tab now reads that sign-in, so you no longer need to install <code>gh</code> and log in. (VS Code keeps its sign-in to itself, so VS Code-only users still need <code>gh auth login</code>.)</p></li>
+      <li><h3>Your tools, in your order</h3><p>Drag a tool by its handle under Connected accounts (the gear on Usage) to move it up or down. The Usage tab and the closed notch follow.</p></li>
+      <li><h3>Says why Copilot is missing</h3><p>When an account can't be read, Connected accounts now says why, per account: no sign-in found, GitHub refused it, or GitHub couldn't be reached. Plans without premium requests, like Copilot Free, show their chat and completions limits.</p></li>
+      <li><h3>Only the tools you have</h3><p>Tools that aren't on your Mac stay out of the Usage tab and the notch. With only Copilot or Antigravity, the limits use the whole width.</p></li>
+      <li><h3>Play means play, even in a background tab</h3><p>Dia freezes background tabs, so pressing play in the notch used to stay silent until you opened the YouTube tab. Now Visor shows the tab for a moment until the sound starts, then puts you back where you were.</p></li>
       <li><h3>Switch Copilot accounts, no restart</h3><p>Change the active account with <code>gh auth switch</code> or in Copilot CLI and the Usage tab follows within two minutes, or at once when you open it.</p></li>
       <li><h3>About Visor</h3><p>The menu bar menu now opens an About panel with the version, and links to this site, GitHub and a new issue.</p></li>
       <li><h3>No more "playing" in silence</h3><p>A YouTube tab the browser hadn't loaded yet no longer shows as playing in the notch.</p></li>
@@ -695,6 +700,7 @@
           <li><b>Automation</b>, for play, pause and skip: click <b>Allow</b> when macOS asks if Visor may control Spotify, Music or your browser.</li>
           <li><b>Keychain</b>, for the sign-ins your AI tools already saved: if macOS asks whether <b>security</b> may use "Claude Code-credentials" or "copilot-cli", click <b>Always Allow</b>.</li>
         </ul></div></li>
+      <li><div><h3>Music in any browser (optional)</h3><p>Choose <b>Browser Extension for Music…</b> in the menu bar icon. Visor shows the extension's folder and how to add it: in Chrome, Dia, Arc, Brave or Edge, turn on Developer mode under Extensions and choose <b>Load unpacked</b>; in Firefox or Zen, open <code>about:debugging</code> and choose <b>Load Temporary Add-on</b>.</p></div></li>
       <li><div><h3>Hover the notch</h3><p>Usage fills in from the tools you're signed in to. If one is missing, the gear on the Usage tab says why, with one button to fix it.</p></div></li>
     </ol>
     <p class="small">Turned something down by mistake? Every permission can be changed in System Settings → Privacy &amp; Security. Uninstall with <code>brew uninstall --cask visor</code>.</p>
