@@ -10,17 +10,45 @@ struct OfficeTests {
         return s
     }
 
-    /// Rows of 8 desks, one row taller per 8 sessions; past 16, rows of 10; never more than 3 rows.
-    @Test func roomGrowsWithSessions() {
-        let one = OfficeLayout(sessions: 1)
-        #expect(one.rows == 1 && one.perRow == 8 && one.height == 110)
-        #expect(OfficeLayout(sessions: 8).rows == 1)
-        #expect(OfficeLayout(sessions: 9).rows == 2)
-        let many = OfficeLayout(sessions: 17)
-        #expect(many.perRow == 10 && many.rows == 2 && many.cellWidth == 22)
-        let crowd = OfficeLayout(sessions: 40)
-        #expect(crowd.rows == 3 && crowd.capacity == 30 && crowd.height == 182)
-        #expect(OfficeLayout(sessions: 0).rows == 1)
+    func sessions(_ counts: [(String, Int)], state: AgentState = .working("Thinking")) -> [AgentSession] {
+        counts.flatMap { agent, n in (0..<n).map { session("\(agent)-\($0)", agent, state) } }
+    }
+
+    /// Each tool is a table, two seats per column; tables flow left to right and wrap.
+    @Test func islandsFlowAndWrap() {
+        let scene = Office.place(sessions([("Claude Code", 3), ("Copilot CLI", 2), ("Antigravity", 2), ("OpenCode", 1)]))
+        let islands = scene.layout.islands
+        #expect(islands.map(\.agent) == ["Claude Code", "Copilot CLI", "Antigravity", "OpenCode"])
+        #expect(islands.map(\.x) == [8, 68, 106, 144])
+        #expect(islands.map(\.width) == [52, 30, 30, 30])
+        #expect(islands.allSatisfy { $0.y == 10 })
+        #expect(scene.layout.rows == 1 && scene.layout.height == 120)
+
+        let wide = Office.place(sessions([("Claude Code", 9), ("Copilot CLI", 9)])).layout.islands
+        #expect(wide.map(\.x) == [8, 8] && wide.map(\.y) == [10, 68], "the second table doesn't fit beside the first")
+    }
+
+    /// A tool with more sessions than one table holds gets a second table.
+    @Test func bigGroupsSplit() {
+        let islands = Office.place(sessions([("Claude Code", 20)])).layout.islands
+        #expect(islands.map(\.seats) == [18, 2])
+        #expect(islands.map(\.total) == [20, 20])
+    }
+
+    /// Two rows of tables at most; the rest are counted, not drawn.
+    @Test func overflowIsCounted() {
+        let scene = Office.place(sessions([("Claude Code", 18), ("Copilot CLI", 18), ("Antigravity", 18)]))
+        #expect(scene.layout.rows == 2 && scene.agents.count == 36 && scene.hidden == 18)
+    }
+
+    /// Seats alternate: top of the table facing you, bottom facing the table.
+    @Test func seatsFaceEachOther() {
+        let scene = Office.place(sessions([("Claude Code", 3)], state: .working("Edit: a.swift")))
+        let a = scene.agents
+        #expect(a[0].feet == OfficePoint(x: 23, y: 24) && !a[0].facesUp && a[0].access == 7)
+        #expect(a[1].feet == OfficePoint(x: 23, y: 60) && a[1].facesUp && a[1].access == 65)
+        #expect(a[2].feet.x == 45 && !a[2].facesUp)
+        #expect(a[0].screen == OfficePoint(x: 20, y: 30) && a[1].screen == OfficePoint(x: 20, y: 37))
     }
 
     /// What an agent is doing decides where it goes.
@@ -38,62 +66,27 @@ struct OfficeTests {
         #expect(Office.spot(for: .idle) == (.desk, .idle), "ready and waiting: dozing at its desk")
     }
 
-    /// Desks are grouped by tool, Claude Code first, any other tool after the known ones,
-    /// and each run of a tool's desks in a row is one labelled rug.
-    @Test func desksGroupByToolAndWrap() {
-        let sessions = [
-            session("a", "Copilot CLI"), session("b", "Claude Code"), session("c", "Antigravity"),
-            session("d", "Claude Code"), session("e", "OpenCode"), session("f", "Copilot CLI"),
-            session("g", "Claude Code"), session("h", "Antigravity"), session("i", "Codex"),
-        ]
-        let scene = Office.place(sessions)
-        #expect(scene.agents.map(\.id) == ["b", "d", "g", "a", "f", "c", "h", "i", "e"])
-        #expect(scene.segments == [
-            OfficeSegment(agent: "Claude Code", row: 0, column: 0, length: 3, count: 3),
-            OfficeSegment(agent: "Copilot CLI", row: 0, column: 3, length: 2, count: 2),
-            OfficeSegment(agent: "Antigravity", row: 0, column: 5, length: 2, count: 2),
-            OfficeSegment(agent: "Codex", row: 0, column: 7, length: 1, count: 1),
-            OfficeSegment(agent: "OpenCode", row: 1, column: 0, length: 1, count: 1),
-        ])
-        // Each session keeps its desk, wherever it is.
-        #expect(scene.agents[0].desk == OfficePoint(x: 9 + 14, y: 16))
-        #expect(scene.agents[8].desk == OfficePoint(x: 9 + 14, y: 52))
+    /// Tools Visor knows first, in the notch's order; others after, by name.
+    @Test func toolsInOrder() {
+        let scene = Office.place([session("a", "OpenCode"), session("b", "Copilot CLI"), session("c", "Claude Code"), session("d", "Codex")])
+        #expect(scene.agents.map(\.id) == ["c", "b", "d", "a"])
     }
 
-    /// Agents at the same place stand side by side; at a desk an agent sits facing it.
+    /// Agents at the same station stand side by side.
     @Test func sharedSpotsSpreadOut() {
         let scene = Office.place([
             session("a", "Claude Code", .working("Bash: npm test")),
             session("b", "Claude Code", .working("Bash: swift test")),
-            session("c", "Claude Code", .working("Edit: a.swift")),
             session("d", "Claude Code", .needsApproval("Bash: git push")),
             session("e", "Claude Code", .done),
         ])
         let layout = scene.layout
-        let a = scene.agents[0], b = scene.agents[1], c = scene.agents[2], d = scene.agents[3], e = scene.agents[4]
-        #expect(a.feet.y == layout.stationLine && b.feet.y == layout.stationLine)
+        let a = scene.agents[0], b = scene.agents[1], d = scene.agents[2], e = scene.agents[3]
+        #expect(a.feet.y == layout.stationLine && b.feet.y == layout.stationLine && a.facesUp)
         #expect(a.feet.x == OfficeLayout.terminalX - 5.5 && b.feet.x == OfficeLayout.terminalX + 5.5)
-        #expect(a.facesUp && !a.sits)
-        #expect(c.feet == OfficePoint(x: c.desk.x, y: c.desk.y + 33) && c.facesUp)
         #expect(d.feet == OfficePoint(x: OfficeLayout.youX, y: layout.corridor) && !d.facesUp)
         #expect(e.sits && !e.facesUp)
         #expect(scene.waiting == 1)
-    }
-
-    /// Walkways down both sides reach the desks; gaps between stations join the bottom row.
-    @Test func routesUseWalkways() {
-        let layout = OfficeLayout(sessions: 4)
-        let desk = OfficePoint(x: 30, y: 49)
-        let terminal = OfficePoint(x: OfficeLayout.terminalX, y: layout.stationLine)
-        #expect(layout.route(from: desk, to: terminal) == [OfficePoint(x: 4, y: 49), OfficePoint(x: 4, y: layout.stationLine), terminal])
-        let sofa = OfficePoint(x: OfficeLayout.sofaX, y: layout.stationTop + 22)
-        let path = layout.route(from: terminal, to: sofa)
-        #expect(path.count == 3 && path[0].y == terminal.y && path[1].y == sofa.y && path[0].x == path[1].x)
-        let along = OfficePoint(x: 100, y: layout.stationLine)
-        #expect(layout.route(from: terminal, to: along) == [along])
-        // From the right half, the right walkway.
-        let farDesk = OfficePoint(x: 220, y: 49)
-        #expect(layout.route(from: farDesk, to: OfficePoint(x: 200, y: layout.corridor)).first == OfficePoint(x: OfficeLayout.width - 4, y: 49))
     }
 
     /// The sofa seats three; whoever else is done stays at their desk.
@@ -114,10 +107,21 @@ struct OfficeTests {
         #expect(Set(xs).count == 8, "still side by side")
     }
 
-    /// More sessions than desks: the rest are counted, not drawn.
-    @Test func overflowIsCounted() {
-        let sessions = (0..<34).map { session("s\($0)", "Claude Code") }
-        let scene = Office.place(sessions)
-        #expect(scene.agents.count == 30 && scene.hidden == 4)
+    /// From a seat: out to its aisle, along it to a walkway at the side, down, then across.
+    /// Between the corridor and the stations: through the gaps between stations.
+    @Test func routesGoAroundTables() {
+        let layout = Office.place(sessions([("Claude Code", 2)])).layout
+        let seat = OfficePoint(x: 23, y: 24)
+        let terminal = OfficePoint(x: OfficeLayout.terminalX, y: layout.stationLine)
+        #expect(layout.route(from: seat, access: 7, to: terminal, access: layout.stationLine)
+                == [OfficePoint(x: 23, y: 7), OfficePoint(x: 4, y: 7), OfficePoint(x: 4, y: layout.stationLine), terminal])
+
+        let lower = OfficePoint(x: 23, y: 60)
+        let you = OfficePoint(x: OfficeLayout.youX, y: layout.corridor)
+        #expect(layout.route(from: lower, access: 65, to: you, access: layout.corridor)
+                == [OfficePoint(x: 23, y: 65), OfficePoint(x: 88, y: 65), OfficePoint(x: 88, y: layout.corridor), you])
+
+        let along = OfficePoint(x: 100, y: layout.stationLine)
+        #expect(layout.route(from: terminal, access: layout.stationLine, to: along, access: layout.stationLine) == [along])
     }
 }

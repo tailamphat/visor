@@ -21,14 +21,35 @@ public enum OfficeActivity: Equatable, Sendable {
     case typing, thinking, reading, running, browsing, approval, question, done, idle
 }
 
-/// The office's size, from the number of sessions. Room pixels; the view
-/// draws each one 2 points wide. A wall, rows of desks, a corridor where
-/// agents wait at your desk, and a fixed bottom row of stations.
+/// One tool's table: two seats per column, facing each other across it.
+public struct OfficeIsland: Equatable, Sendable {
+    public var agent: String
+    /// Top-left corner, room pixels.
+    public var x: Double
+    public var y: Double
+    public var columns: Int
+    /// Sessions at this table, and the tool's sessions in the whole office.
+    public var seats: Int
+    public var total: Int
+
+    public var width: Double { Double(columns) * OfficeLayout.cell + 8 }
+}
+
+/// The office, in room pixels; the view draws each one 2 points wide. Tables
+/// for each tool flow left to right in up to two rows, with aisles between
+/// the rows and walkways down both sides; below them a corridor where agents
+/// wait at your desk, and a fixed row of stations.
 public struct OfficeLayout: Equatable, Sendable {
     public static let width = 242.0
-    public static let maxRows = 3
-    public static let rowHeight = 36.0
-    public static let firstRow = 16.0
+    public static let cell = 22.0
+    public static let islandHeight = 52.0
+    static let rowPitch = 58.0
+    static let firstRow = 10.0
+    static let margin = 8.0
+    static let gap = 8.0
+    public static let maxRows = 2
+    /// The most columns a table can have: the room's width.
+    static let maxColumns = Int((width - 2 * margin - 8) / cell)
 
     // The bottom row's stations, and the gaps between them to walk through.
     public static let terminalX = 21.0
@@ -37,26 +58,43 @@ public struct OfficeLayout: Equatable, Sendable {
     public static let webX = 172.0
     public static let sofaX = 212.0
     static let lanes = [37.0, 88.0, 150.0, 187.0]
+    static let walkway = 4.0
     /// Seats on the sofa; whoever else is done stays at their desk.
     public static let sofaSeats = 3
     /// How wide a crowd at a station may spread before it packs closer.
     static func span(_ spot: OfficeSpot) -> Double { spot == .you ? 80 : 28 }
-    static let walkway = 4.0
 
-    public let perRow: Int
-    public let cellWidth: Double
+    public let islands: [OfficeIsland]
     public let rows: Int
 
-    public init(sessions: Int) {
-        perRow = sessions > 16 ? 10 : 8
-        cellWidth = perRow == 10 ? 22 : 28
-        rows = max(1, min(Self.maxRows, Int((Double(sessions) / Double(perRow)).rounded(.up))))
+    /// Tables for each tool's sessions, in order. A tool with more sessions
+    /// than a table holds gets another; tables past the second row are left out.
+    public init(groups: [(agent: String, count: Int)]) {
+        var islands: [OfficeIsland] = []
+        var x = Self.margin, row = 0
+        placing: for (agent, count) in groups {
+            var left = count
+            while left > 0 {
+                let seats = min(left, Self.maxColumns * 2)
+                var island = OfficeIsland(agent: agent, x: x, y: 0, columns: (seats + 1) / 2, seats: seats, total: count)
+                if x > Self.margin && x + island.width > Self.width - Self.margin {
+                    row += 1
+                    x = Self.margin
+                    island.x = x
+                }
+                guard row < Self.maxRows else { break placing }
+                island.y = Self.firstRow + Double(row) * Self.rowPitch
+                islands.append(island)
+                x += island.width + Self.gap
+                left -= seats
+            }
+        }
+        self.islands = islands
+        rows = max(1, (islands.last.map { Int(($0.y - Self.firstRow) / Self.rowPitch) } ?? 0) + 1)
     }
 
-    public var capacity: Int { perRow * Self.maxRows }
-    /// Where the first desk starts, centring the rows.
-    public var left: Double { (Self.width - Double(perRow) * cellWidth) / 2 }
-    public var deskBottom: Double { Self.firstRow + Double(rows) * Self.rowHeight }
+    public var capacity: Int { islands.reduce(0) { $0 + $1.seats } }
+    public var deskBottom: Double { Self.firstRow + Double(rows) * Self.rowPitch - (Self.rowPitch - Self.islandHeight) }
     /// The line agents stand on when they wait at your desk.
     public var corridor: Double { deskBottom + 14 }
     public var stationTop: Double { corridor + 8 }
@@ -64,25 +102,41 @@ public struct OfficeLayout: Equatable, Sendable {
     public var stationLine: Double { stationTop + 32 }
     public var height: Double { stationLine + 4 }
 
-    /// A desk's centre and the top of its row.
-    public func desk(_ index: Int) -> OfficePoint {
-        let row = index / perRow, column = index % perRow
-        return OfficePoint(x: left + Double(column) * cellWidth + cellWidth / 2, y: Self.firstRow + Double(row) * Self.rowHeight)
+    /// A seat at a table: where the agent sits, which way it faces, the aisle
+    /// it reaches it from, and the top-left of its screen.
+    public func seat(_ island: OfficeIsland, _ index: Int) -> (feet: OfficePoint, facesUp: Bool, access: Double, screen: OfficePoint) {
+        let x = island.x + 4 + Double(index / 2) * Self.cell + Self.cell / 2
+        if index % 2 == 0 {
+            return (OfficePoint(x: x, y: island.y + 14), false, island.y - 3, OfficePoint(x: x - 3, y: island.y + 20))
+        }
+        return (OfficePoint(x: x, y: island.y + 50), true, island.y + Self.islandHeight + 3, OfficePoint(x: x - 3, y: island.y + 27))
     }
 
-    /// The way from one place to another: along the line it's on to a
-    /// walkway at the side (or a gap between stations), then along the
-    /// target's line. Rows of desks are open at both ends.
-    public func route(from: OfficePoint, to: OfficePoint) -> [OfficePoint] {
-        if abs(from.y - to.y) < 2 { return [to] }
-        let middle = (from.x + to.x) / 2
-        let x: Double
-        if from.y >= corridor - 1 && to.y >= corridor - 1 {
-            x = Self.lanes.min { abs($0 - middle) < abs($1 - middle) } ?? middle
-        } else {
-            x = middle < Self.width / 2 ? Self.walkway : Self.width - Self.walkway
+    /// The way from one place to another. Each place is reached from a line
+    /// that's open end to end (`access`): an aisle beside its table, the
+    /// corridor, or a station's line. Aisles meet at the walkways down the
+    /// sides; below the tables, the gaps between the stations join the lines.
+    public func route(from: OfficePoint, access fromLine: Double, to: OfficePoint, access toLine: Double) -> [OfficePoint] {
+        var path: [OfficePoint] = []
+        var at = from
+        func go(_ p: OfficePoint) {
+            if abs(p.x - at.x) > 0.01 || abs(p.y - at.y) > 0.01 { path.append(p); at = p }
         }
-        return [OfficePoint(x: x, y: from.y), OfficePoint(x: x, y: to.y), to]
+        let middle = (from.x + to.x) / 2
+        go(OfficePoint(x: at.x, y: fromLine))
+        if abs(fromLine - toLine) > 0.5 {
+            let x: Double
+            if fromLine >= deskBottom && toLine >= deskBottom {
+                x = Self.lanes.min { abs($0 - middle) < abs($1 - middle) } ?? middle
+            } else {
+                x = middle < Self.width / 2 ? Self.walkway : Self.width - Self.walkway
+            }
+            go(OfficePoint(x: x, y: fromLine))
+            go(OfficePoint(x: x, y: toLine))
+        }
+        go(OfficePoint(x: to.x, y: toLine))
+        go(to)
+        return path
     }
 }
 
@@ -93,37 +147,19 @@ public struct OfficeAgent: Equatable, Sendable, Identifiable {
     public var project: String
     public var spot: OfficeSpot
     public var activity: OfficeActivity
-    /// Where it stands (or sits).
+    /// Where it stands (or sits), and the open line it's reached from.
     public var feet: OfficePoint
+    public var access: Double
     public var facesUp: Bool
     public var sits: Bool
-    /// Its own desk, kept while it's away: the desk's centre and its row's top.
-    public var desk: OfficePoint
-}
-
-/// A run of one tool's desks in a row, drawn as one rug with the tool's name.
-public struct OfficeSegment: Equatable, Sendable {
-    public var agent: String
-    public var row: Int
-    public var column: Int
-    public var length: Int
-    /// The tool's sessions in the whole office.
-    public var count: Int
-
-    public init(agent: String, row: Int, column: Int, length: Int, count: Int) {
-        self.agent = agent
-        self.row = row
-        self.column = column
-        self.length = length
-        self.count = count
-    }
+    /// Its own screen at its table, kept while it's away: the top-left of 6 x 4 pixels.
+    public var screen: OfficePoint
 }
 
 public struct OfficeScene: Equatable, Sendable {
     public var layout: OfficeLayout
     public var agents: [OfficeAgent]
-    public var segments: [OfficeSegment]
-    /// Sessions past the last desk.
+    /// Sessions past the last table.
     public var hidden: Int
 
     public var waiting: Int { agents.filter { $0.spot == .you }.count }
@@ -157,11 +193,27 @@ public enum Office {
             let rb = (toolRank[b.element.agent] ?? toolRank.count, b.element.agent)
             return ra != rb ? ra < rb : a.offset < b.offset
         }.map(\.element)
-        let layout = OfficeLayout(sessions: ordered.count)
-        let shown = Array(ordered.prefix(layout.capacity))
+        var groups: [(agent: String, count: Int)] = []
+        for session in ordered {
+            if groups.last?.agent == session.agent { groups[groups.count - 1].count += 1 } else { groups.append((session.agent, 1)) }
+        }
+        let layout = OfficeLayout(groups: groups)
 
-        // Who shares each place, so they can stand side by side.
-        var spots = shown.map { spot(for: $0.state) }
+        // Seat each tool's sessions at its tables, in order.
+        var seats: [(session: AgentSession, seat: (feet: OfficePoint, facesUp: Bool, access: Double, screen: OfficePoint))] = []
+        var next: [String: Int] = [:]
+        let byAgent = Dictionary(grouping: ordered, by: \.agent)
+        for island in layout.islands {
+            let start = next[island.agent, default: 0]
+            let list = byAgent[island.agent] ?? []
+            for i in 0..<island.seats where start + i < list.count {
+                seats.append((list[start + i], layout.seat(island, i)))
+            }
+            next[island.agent] = start + island.seats
+        }
+
+        // Who goes where; the sofa seats three, the rest stay at their desks.
+        var spots = seats.map { spot(for: $0.session.state) }
         var seated = 0
         for i in spots.indices where spots[i].0 == .sofa {
             if seated < OfficeLayout.sofaSeats { seated += 1 } else { spots[i].0 = .desk }
@@ -171,18 +223,18 @@ public enum Office {
         var taken: [OfficeSpot: Int] = [:]
 
         var agents: [OfficeAgent] = []
-        for (index, session) in shown.enumerated() {
+        for (index, (session, seat)) in seats.enumerated() {
             let (where_, activity) = spots[index]
-            let desk = layout.desk(index)
             var feet: OfficePoint
+            var access: Double
             var facesUp = true, sits = false
             switch where_ {
-            case .desk: feet = OfficePoint(x: desk.x, y: desk.y + 33)
-            case .terminal: feet = OfficePoint(x: OfficeLayout.terminalX, y: layout.stationLine)
-            case .docs: feet = OfficePoint(x: OfficeLayout.docsX, y: layout.stationLine)
-            case .web: feet = OfficePoint(x: OfficeLayout.webX, y: layout.stationLine)
-            case .you: feet = OfficePoint(x: OfficeLayout.youX, y: layout.corridor); facesUp = false
-            case .sofa: feet = OfficePoint(x: OfficeLayout.sofaX, y: layout.stationTop + 22); facesUp = false; sits = true
+            case .desk: feet = seat.feet; access = seat.access; facesUp = seat.facesUp
+            case .terminal: feet = OfficePoint(x: OfficeLayout.terminalX, y: layout.stationLine); access = feet.y
+            case .docs: feet = OfficePoint(x: OfficeLayout.docsX, y: layout.stationLine); access = feet.y
+            case .web: feet = OfficePoint(x: OfficeLayout.webX, y: layout.stationLine); access = feet.y
+            case .you: feet = OfficePoint(x: OfficeLayout.youX, y: layout.corridor); access = feet.y; facesUp = false
+            case .sofa: feet = OfficePoint(x: OfficeLayout.sofaX, y: layout.stationTop + 22); access = feet.y; facesUp = false; sits = true
             }
             if where_ != .desk {
                 let n = sharing[where_] ?? 1, i = taken[where_, default: 0]
@@ -192,19 +244,9 @@ public enum Office {
                 feet.x = min(max(feet.x, 6), OfficeLayout.width - 6)
             }
             agents.append(OfficeAgent(id: session.id, agent: session.agent, project: session.project, spot: where_,
-                                      activity: activity, feet: feet, facesUp: facesUp, sits: sits, desk: desk))
+                                      activity: activity, feet: feet, access: access, facesUp: facesUp, sits: sits,
+                                      screen: seat.screen))
         }
-
-        let counts = Dictionary(grouping: shown, by: \.agent).mapValues(\.count)
-        var segments: [OfficeSegment] = []
-        for (index, session) in shown.enumerated() {
-            let row = index / layout.perRow, column = index % layout.perRow
-            if let last = segments.last, last.agent == session.agent, last.row == row {
-                segments[segments.count - 1].length += 1
-            } else {
-                segments.append(OfficeSegment(agent: session.agent, row: row, column: column, length: 1, count: counts[session.agent] ?? 1))
-            }
-        }
-        return OfficeScene(layout: layout, agents: agents, segments: segments, hidden: ordered.count - shown.count)
+        return OfficeScene(layout: layout, agents: agents, hidden: ordered.count - agents.count)
     }
 }

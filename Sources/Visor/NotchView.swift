@@ -69,8 +69,7 @@ struct NotchLayout {
             }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.showsOffice {
-                let room = OfficeLayout(sessions: model.board.sessions.count).height * OfficeView.scale
-                return CGSize(width: Self.expandedSize.width, height: fitting(CGFloat(room)))
+                return CGSize(width: Self.expandedSize.width, height: fitting(OfficeView.height(for: model.board.sessions)))
             }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and a row per session, then scroll.
@@ -378,7 +377,6 @@ struct ExpandedView: View {
                     case .agents:
                         if model.showsOffice {
                             OfficeView(model: model)
-                                .overlay(alignment: .topTrailing) { AgentsViewSwitch(model: model).padding(.top, 4).padding(.trailing, 6) }
                         } else {
                             AgentsView(model: model)
                         }
