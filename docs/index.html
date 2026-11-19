@@ -117,6 +117,9 @@
 
   /* Shared pieces of the app's panels (hero and figures) */
   .ucols { display: grid; grid-template-columns: 1fr 190px; gap: 24px; }
+  /* Between tools: a band of grey diagonal stripes, like the app. */
+  .tooldiv { height: 6px; margin: 16px 0; border-radius: 3px; background: repeating-linear-gradient(-45deg, rgba(255,255,255,.16) 0 1.5px, transparent 1.5px 5px); }
+  .solo { padding-right: 214px; }
   .phdr { display: flex; align-items: center; gap: 6px; }
   .phdr svg { width: 15px; height: 15px; }
   .phdr b { font-size: 12px; font-weight: 600; }
@@ -315,6 +318,7 @@
     .signals { grid-template-columns: 1fr 1fr; row-gap: 18px; }
     .split, .numbers { grid-template-columns: 1fr; }
     .ucols { grid-template-columns: 1fr; }
+    .solo { padding-right: 0; }
     .ucols > div:last-child, .menubar .l span:nth-child(n+3) { display: none; }
     .stage { height: 440px; }
     nav .links a:not(:last-child) { display: none; }
@@ -451,8 +455,6 @@
                 <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
                 <div class="meter"><div class="top"><span>Session (5h)</span><b>91% <small>left</small></b></div><div class="bar"><i style="width:9%"></i></div><div class="cap"><span class="ok">On pace</span> · ~70% left when it resets in 3h 40m</div></div>
                 <div class="meter"><div class="top"><span>Weekly</span><b>58% <small>left</small></b></div><div class="bar"><i style="width:42%"></i></div><div class="cap"><span class="ok">On pace</span> · ~12% left when it resets Fri 09:00</div></div>
-                <div class="phdr" style="margin-top:16px"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note">acme.ghe.com</span></div>
-                <div class="meter"><div class="top"><span>Premium requests <span style="color:#FAB219">⚠︎</span></span><b>13% <small>left</small></b></div><div class="bar"><i class="warn" style="width:87%"></i></div><div class="cap"><span class="hot">Runs out ~Sat 14 Nov</span> · 17 days before reset · 261 of 300</div></div>
               </div>
               <div>
                 <div class="phdr"><b>Claude spend</b><span class="t2" style="font-size:10.5px">API value</span></div>
@@ -464,6 +466,11 @@
                 </svg>
                 <div class="axis"><span>29 Oct</span><span>2 Nov</span><span>6 Nov</span><b>Today</b></div>
               </div>
+            </div>
+            <div class="tooldiv" aria-hidden="true"></div>
+            <div class="solo">
+                <div class="phdr"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note">acme.ghe.com</span></div>
+                <div class="meter"><div class="top"><span>Premium requests <span style="color:#FAB219">⚠︎</span></span><b>13% <small>left</small></b></div><div class="bar"><i class="warn" style="width:87%"></i></div><div class="cap"><span class="hot">Runs out ~Sat 14 Nov</span> · 17 days before reset · 261 of 300</div></div>
             </div>
           </div>
 
@@ -661,6 +668,8 @@
     <h2>What else is new</h2>
     <p>Small things that add up, in Visor 0.4 to 0.6.</p>
     <ul class="more">
+      <li><h3>A clear break between tools</h3><p>In the Usage tab, a band of grey stripes now separates each tool, so Claude, Copilot, Antigravity and OpenCode each read as their own block.</p></li>
+      <li><h3>Pin from the clipboard</h3><p>Hover an item for a pin next to ✕. Pinned items keep a small green pin and survive Clear and the 200-item / 30-day cleanup. Hovering down the list is smoother too.</p></li>
       <li><h3>Copilot from your editor, no <code>gh</code> needed</h3><p>Signed in to Copilot in JetBrains, Neovim or Xcode? The Usage tab now reads that sign-in, so you no longer need to install <code>gh</code> and log in. (VS Code keeps its sign-in to itself, so VS Code-only users still need <code>gh auth login</code>.)</p></li>
       <li><h3>Your tools, in your order</h3><p>Drag a tool by its handle under Connected accounts (the gear on Usage) to move it up or down. The Usage tab and the closed notch follow.</p></li>
       <li><h3>Says why Copilot is missing</h3><p>When an account can't be read, Connected accounts now says why, per account: no sign-in found, GitHub refused it, or GitHub couldn't be reached. Plans without premium requests, like Copilot Free, show their chat and completions limits.</p></li>
@@ -722,7 +731,7 @@
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 324], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
+  const sizes = { closed: [300, 32], usage: [520, 326], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
