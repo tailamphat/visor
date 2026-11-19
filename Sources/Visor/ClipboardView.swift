@@ -100,27 +100,36 @@ struct ClipRow: View {
                     .padding(.horizontal, 5).overlay(Capsule().strokeBorder(ConsentButton.mint.opacity(0.35), lineWidth: 1))
             }
             Spacer(minLength: 6)
-            if hovered {
-                // Pinned items stay through Clear and the 200-item / 30-day cleanup.
-                Button { model.clipboardActions?.togglePin(item.id) } label: {
-                    Image(systemName: item.pinned ? "pin.fill" : "pin").font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(item.pinned ? ConsentButton.mint : Theme.textSecondary)
-                        .frame(width: 18, height: 18)
-                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.08)))
+            // Hover only fades: the buttons are always laid out over the app name,
+            // so moving between rows changes no layout and the highlight keeps up.
+            ZStack(alignment: .trailing) {
+                HStack(spacing: 4) {
+                    if item.pinned {
+                        Image(systemName: "pin.fill").font(.system(size: 8.5, weight: .semibold)).foregroundStyle(ConsentButton.mint)
+                    }
+                    Text(item.app).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 }
-                .buttonStyle(.plain).help(item.pinned ? "Unpin" : "Pin: keep it through Clear and cleanup")
-                Button { model.clipboardActions?.delete(item.id) } label: {
-                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(hex: 0xFF9D95))
-                        .frame(width: 18, height: 18)
-                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color(hex: 0xFF8F86).opacity(0.14)))
+                .opacity(hovered ? 0 : 1)
+                HStack(spacing: 4) {
+                    // Pinned items stay through Clear and the 200-item / 30-day cleanup.
+                    Button { model.clipboardActions?.togglePin(item.id) } label: {
+                        Image(systemName: item.pinned ? "pin.fill" : "pin").font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(item.pinned ? ConsentButton.mint : Theme.textSecondary)
+                            .frame(width: 18, height: 18)
+                            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain).help(item.pinned ? "Unpin" : "Pin: keep it through Clear and cleanup")
+                    Button { model.clipboardActions?.delete(item.id) } label: {
+                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(hex: 0xFF9D95))
+                            .frame(width: 18, height: 18)
+                            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color(hex: 0xFF8F86).opacity(0.14)))
+                    }
+                    .buttonStyle(.plain).help("Delete")
                 }
-                .buttonStyle(.plain).help("Delete")
-            } else {
-                if item.pinned {
-                    Image(systemName: "pin.fill").font(.system(size: 8.5, weight: .semibold)).foregroundStyle(ConsentButton.mint)
-                }
-                Text(item.app).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                .opacity(hovered ? 1 : 0)
+                .allowsHitTesting(hovered)
             }
+            .transaction { $0.animation = nil }
         }
         .padding(.horizontal, 8)
         .frame(height: 26)
