@@ -29,6 +29,8 @@ final class UsageService {
     private var ledger = TokenLedger()
     /// When Copilot's session store last changed, so it's only queried after it does.
     private var copilotTokensStamp: Date?
+    /// Codex, Gemini CLI and Antigravity logs already read, by file: used on `work` only.
+    private nonisolated(unsafe) static var tokenFiles: [String: (stamp: Date, days: [String: [String: TokenCount]])] = [:]
 
     init(model: AppModel) {
         self.model = model
@@ -42,12 +44,14 @@ final class UsageService {
         loadLedger()
         scanTranscripts()
         refreshCopilotTokens()
+        scanTokenLogs()
         refreshPlan()
         refreshOpenCode()
         timers.append(Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.scanTranscripts()
                 self?.refreshCopilotTokens()
+                self?.scanTokenLogs()
             }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
@@ -190,6 +194,96 @@ final class UsageService {
                 }
             }
         }
+    }
+
+    /// Codex CLI, Gemini CLI and Antigravity CLI logs. Only files that changed
+    /// since the last look are read again.
+    func scanTokenLogs() {
+        work.async {
+            let fresh = autoreleasepool { Self.codexTokens().merging(Self.geminiTokens(), uniquingKeysWith: Self.sum)
+                .merging(Self.antigravityTokens(), uniquingKeysWith: Self.sum) }
+            guard !fresh.isEmpty else { return }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self.addTokens(fresh) } }
+        }
+    }
+
+    private nonisolated static func sum(_ a: [String: TokenCount], _ b: [String: TokenCount]) -> [String: TokenCount] {
+        a.merging(b) { $0 + $1 }
+    }
+
+    /// A file's tokens, read again only when it changed (`stamp` covers a database's -wal too).
+    private nonisolated static func tokens(of path: String, stamp: Date, read: () -> [String: [String: TokenCount]]?) -> [String: [String: TokenCount]] {
+        if let cached = tokenFiles[path], cached.stamp == stamp { return cached.days }
+        guard let days = read() else { return tokenFiles[path]?.days ?? [:] }
+        tokenFiles[path] = (stamp, days)
+        return days
+    }
+
+    private nonisolated static func modified(_ paths: String...) -> Date? {
+        paths.compactMap { (try? FileManager.default.attributesOfItem(atPath: $0))?[.modificationDate] as? Date }.max()
+    }
+
+    private nonisolated static func files(under root: URL, matching keep: (URL) -> Bool) -> [URL] {
+        guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
+        return walker.compactMap { $0 as? URL }.filter(keep)
+    }
+
+    /// Every file's days added together.
+    private nonisolated static func total(_ parts: [[String: [String: TokenCount]]]) -> [String: [String: TokenCount]] {
+        parts.reduce(into: [:]) { out, days in out.merge(days, uniquingKeysWith: sum) }
+    }
+
+    /// Codex rollouts: $CODEX_HOME (or ~/.codex)/sessions and archived_sessions.
+    private nonisolated static func codexTokens() -> [String: [String: TokenCount]] {
+        let home = ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+        let rollouts = ["sessions", "archived_sessions"].flatMap {
+            files(under: home.appendingPathComponent($0)) { $0.pathExtension == "jsonl" }
+        }
+        return total(rollouts.compactMap { url in
+            guard let stamp = modified(url.path) else { return nil }
+            return tokens(of: url.path, stamp: stamp) {
+                (try? Data(contentsOf: url, options: .mappedIfSafe)).map { TokenLedger.daily(codex: $0) }
+            }
+        })
+    }
+
+    /// Gemini CLI chats: ~/.gemini/tmp/<project>/chats/*.json(l), and older session-*.json files.
+    private nonisolated static func geminiTokens() -> [String: [String: TokenCount]] {
+        let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/tmp")
+        let chats = files(under: root) { url in
+            ["json", "jsonl"].contains(url.pathExtension)
+                && (url.deletingLastPathComponent().lastPathComponent == "chats" || url.lastPathComponent.hasPrefix("session-"))
+        }
+        return total(chats.compactMap { url in
+            guard let stamp = modified(url.path) else { return nil }
+            return tokens(of: url.path, stamp: stamp) {
+                (try? Data(contentsOf: url, options: .mappedIfSafe)).map { TokenLedger.daily(gemini: $0, fallback: stamp) }
+            }
+        })
+    }
+
+    /// Antigravity CLI conversations: ~/.gemini/antigravity-cli/conversations/*.db,
+    /// opened read-only without touching agy's write-ahead log.
+    private nonisolated static func antigravityTokens() -> [String: [String: TokenCount]] {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/antigravity-cli/conversations")
+        let databases = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?
+            .filter { $0.pathExtension == "db" } ?? []
+        return total(databases.compactMap { url in
+            guard let stamp = modified(url.path, url.path + "-wal") else { return nil }
+            return tokens(of: url.path, stamp: stamp) {
+                let uri = "file:\(url.path)?immutable=1"
+                func blobs(_ query: String) -> [Data]? {
+                    guard let data = sqlite(uri, query),
+                          let rows = data.isEmpty ? [] : try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+                    return rows.compactMap { ($0["h"] as? String).flatMap(Data.init(hex:)) }
+                }
+                guard let created = blobs("SELECT hex(data) AS h FROM trajectory_metadata_blob LIMIT 1")?.first
+                        .flatMap(TokenLedger.antigravityCreated) ?? modified(url.path),
+                      let generations = blobs("SELECT hex(data) AS h FROM gen_metadata ORDER BY idx") else { return nil }
+                return TokenLedger.daily(antigravity: generations, created: created)
+            }
+        })
     }
 
     /// OpenCode's tokens by day and model, all time.
@@ -721,5 +815,25 @@ final class UsageService {
         }.resume()
         done.wait()
         return result
+    }
+}
+
+private extension Data {
+    /// Bytes from sqlite's hex(): "0A1F..." -> [0x0A, 0x1F, ...].
+    init?(hex: String) {
+        var bytes = [UInt8]()
+        bytes.reserveCapacity(hex.utf8.count / 2)
+        var high: UInt8?
+        for c in hex.utf8 {
+            let v: UInt8
+            switch c {
+            case 48...57: v = c - 48
+            case 65...70: v = c - 55
+            case 97...102: v = c - 87
+            default: return nil
+            }
+            if let h = high { bytes.append(h << 4 | v); high = nil } else { high = v }
+        }
+        self.init(bytes)
     }
 }

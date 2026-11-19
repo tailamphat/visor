@@ -288,6 +288,8 @@ enum AgentStyle {
         case "Copilot CLI": return NSColor(hex: 0xA78BFA)
         case "Antigravity": return NSColor(hex: 0x3186FF)
         case "OpenCode": return NSColor(hex: 0xEDEDED)
+        case "Codex CLI": return NSColor(hex: 0x10A37F)
+        case "Gemini CLI": return NSColor(hex: 0xE879F9)
         default: return NSColor(hex: 0xD97757)
         }
     }
