@@ -452,18 +452,20 @@ struct ExpandedView: View {
         if model.narrowMusic {
             let room = NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width)
             let right = Array(Tab.shown.dropFirst(2)) + (model.plugins.isEmpty ? [] : [Tab.plugins])
+            // With three on the right, every tab gets the same slot and gap, so both sides match.
+            let same = model.plugins.isEmpty ? nil : NotchEars.musicTab
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2), fit: room).padding(.leading, NotchLayout.inset)
+                tabs(Tab.shown.prefix(2), fit: room, size: same).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(right[...], fit: room).padding(.trailing, NotchLayout.inset)
+                tabs(right[...], fit: room, size: same).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
         }
     }
 
-    private func tabs(_ list: ArraySlice<Tab>, fit room: Double? = nil) -> some View {
-        let size = room.map { NotchEars.tabLayout(count: list.count, room: $0) } ?? (width: 30, spacing: 4)
+    private func tabs(_ list: ArraySlice<Tab>, fit room: Double? = nil, size fixed: (width: Double, spacing: Double)? = nil) -> some View {
+        let size = fixed ?? room.map { NotchEars.tabLayout(count: list.count, room: $0) } ?? (width: 30, spacing: 4)
         return HStack(spacing: size.spacing) {
             ForEach(Array(list), id: \.self) { tab in
                 TabButton(tab: tab, selected: model.tab == tab && !model.showsCard, width: size.width,

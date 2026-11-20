@@ -129,13 +129,12 @@ struct CompactMusicTests {
         #expect(NotchEars.musicWidth(notch: 174) == 174 + 2 * (64 + 18 + 1 + 12))
     }
 
-    /// With Plugins, three tabs right of the camera (Music, Clipboard, Plugins) at 22 pt, 2 apart.
+    /// With Plugins, three tabs right of the camera (Music, Clipboard, Plugins) at 22 pt, 4 apart.
     @Test func roomForThreeTabsWithPlugins() {
         let width = NotchEars.musicWidth(notch: 185, tabsRight: 3)
-        let side: Double = 3 * 22 + 2 * 2 + 18 + 4.5 + 12
+        let side: Double = 3 * 22 + 2 * 4 + 18 + 4.5 + 12
         #expect(width == 185 + 2 * side)
-        let fit = NotchEars.tabLayout(count: 3, room: NotchEars.tabRoom(panel: width, notch: 185))
-        #expect(fit.width >= 22)
+        #expect(3 * NotchEars.musicTab.width + 2 * NotchEars.musicTab.spacing <= NotchEars.tabRoom(panel: width, notch: 185))
         #expect(NotchEars.musicWidth(notch: 185, tabsRight: 2) == NotchEars.musicWidth(notch: 185))
     }
 }

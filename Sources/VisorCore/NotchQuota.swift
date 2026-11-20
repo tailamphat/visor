@@ -168,10 +168,13 @@ public enum NotchEars {
     }
 
     /// The music panel with `tabsRight` tabs right of the camera: with Plugins,
-    /// three at 22 pt, 2 apart, so the panel stays narrow.
+    /// three at 22 pt, 4 apart (`musicTab`), so the panel stays narrow.
+    /// Every tab in the music panel when Plugins makes three on the right: the same on both sides.
+    public static let musicTab = (width: 22.0, spacing: 4.0)
+
     public static func musicWidth(notch: Double, tabsRight: Int) -> Double {
         guard tabsRight > 2 else { return musicWidth(notch: notch) }
-        let tabs = Double(tabsRight) * 22 + Double(tabsRight - 1) * 2
+        let tabs = Double(tabsRight) * musicTab.width + Double(tabsRight - 1) * musicTab.spacing
         return max(musicWidth(notch: notch), notch + 2 * (tabs + panelInset + 4.5 + 12))
     }
 }
