@@ -177,10 +177,6 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
-    /// The open header's icons left and right of the camera, measured: the panel
-    /// slides by half the difference so both end the same distance from it.
-    var headerLeft: CGFloat = 0
-    var headerRight: CGFloat = 0
     /// The office's world picker is open over the room.
     var officePicker = false
     /// How the office looks: the night studio or a film world; remembered.

@@ -13,9 +13,8 @@ struct NotchLayout {
 
     /// Moves the closed shape sideways when its ears differ, keeping the notch covered.
     func shift(_ model: AppModel) -> CGFloat {
-        // Open: slide toward the fuller side of the header, so its icons, packed from
-        // both outer edges, end the same distance from the camera.
-        if model.expanded { return CGFloat(NotchEars.shift(left: Double(model.headerLeft), right: Double(model.headerRight))) }
+        // Open, the panel stays centred: every header has the same three slots each side.
+        if model.expanded { return 0 }
         guard showsEars(model) else { return 0 }
         return CGFloat(NotchEars.shift(left: Double(leftEar(model)), right: Double(rightEar(model))))
     }
@@ -59,8 +58,8 @@ struct NotchLayout {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.narrowMusic {
-                // Narrow, with the tabs split around the camera (Plugins makes three on the right).
-                let width = CGFloat(NotchEars.musicWidth(notch: Double(notch.width), tabsRight: model.plugins.isEmpty ? 2 : 3))
+                // Narrow: just wide enough for the header's three slots each side.
+                let width = CGFloat(NotchEars.musicWidth(notch: Double(notch.width), tabsRight: 3))
                 return CGSize(width: width, height: model.compactMusic ? fitting(Self.compactMusicContent) : Self.musicSize.height)
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
@@ -159,7 +158,6 @@ struct NotchView: View {
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
         .offset(x: layout.shift(model))
         .animation(Theme.spring, value: model.expanded)
-        .animation(Theme.spring, value: layout.shift(model))
         .animation(Theme.spring, value: size)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
@@ -449,42 +447,26 @@ struct ExpandedView: View {
         }
     }
 
-    /// The least room between the camera and the header on each side.
-    static let cameraGap: CGFloat = 4
-
-    /// A header side at its own width, reported so the panel can slide to even the gaps.
-    /// The right side isn't fixed: it takes the room that's left, so "% left" makes way
-    /// for the badge instead of pushing past the panel's padding.
-    private func measuredSide<Content: View>(_ content: Content, fixed: Bool = true, _ report: @escaping (CGFloat) -> Void) -> some View {
-        content
-            .fixedSize(horizontal: fixed, vertical: false)
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report($0) }
-    }
-
-    /// Tabs left of the hardware notch, a glanceable status right of it. Now
-    /// Playing's narrow panel has no room for the status: its tabs sit two a side,
-    /// with Plugins as a third on the right once one is installed.
-    @ViewBuilder private var header: some View {
-        if model.narrowMusic {
-            let room = NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width)
-            let right = Array(Tab.shown.dropFirst(2)) + (model.plugins.isEmpty ? [] : [Tab.plugins])
-            // With three on the right, every tab gets the same slot and gap, so both sides match.
-            let same = model.plugins.isEmpty ? nil : NotchEars.musicTab
-            // Packed from the outer edges; the panel slides so both end the same distance from the camera.
-            HStack(spacing: 0) {
-                measuredSide(tabs(Tab.shown.prefix(2), fit: room, size: same)) { model.headerLeft = $0 }
-                Spacer(minLength: layout.notch.width)
-                measuredSide(tabs(right[...], fit: room, size: same)) { model.headerRight = $0 }
+    /// The same header on every panel: three slots each side of the camera, packed
+    /// from the outer edges, so the panel stays centred and both sides end the same
+    /// distance from the camera. Left: Agents, Usage, Music. Right: Clipboard,
+    /// Plugins and the agents' badge, which keeps its slot even when nothing runs.
+    private var header: some View {
+        let size = NotchEars.musicTab
+        return HStack(spacing: 0) {
+            tabs([Tab.agents, .usage, .music][...], size: size)
+            Spacer(minLength: layout.notch.width)
+            HStack(spacing: size.spacing) {
+                tabs([Tab.clipboard, .plugins][...], size: size)
+                AgentSlot(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
+                    .frame(width: size.width, height: 22)
             }
-            .padding(.horizontal, NotchLayout.inset)
-        } else {
-            fullHeader
         }
+        .padding(.horizontal, NotchLayout.inset)
     }
 
-    private func tabs(_ list: ArraySlice<Tab>, fit room: Double? = nil, size fixed: (width: Double, spacing: Double)? = nil) -> some View {
-        let size = fixed ?? room.map { NotchEars.tabLayout(count: list.count, room: $0) } ?? (width: 30, spacing: 4)
-        return HStack(spacing: size.spacing) {
+    private func tabs(_ list: ArraySlice<Tab>, size: (width: Double, spacing: Double)) -> some View {
+        HStack(spacing: size.spacing) {
             ForEach(Array(list), id: \.self) { tab in
                 TabButton(tab: tab, selected: model.tab == tab && !model.showsCard, width: size.width,
                           help: tab == .agents ? (model.agentsOffice ? "Agents: the office. Click again for the list"
@@ -502,64 +484,28 @@ struct ExpandedView: View {
             }
         }
     }
+}
 
-    @ViewBuilder private var badge: some View {
-        if model.hasActivity {
-            AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
-                .fixedSize()
-        }
-    }
+/// The agents' badge in its header slot, one tab wide: the mark of the agent
+/// that needs you (or has the most sessions) and how many are running.
+struct AgentSlot: View {
+    let board: AgentBoard
+    let approvals: Set<String>
 
-    @ViewBuilder private var percentLeft: some View {
-        if let session = model.plan?.session, model.shows(.claude) {
-            Text("\(Int(session.percentLeft.rounded()))% left")
-                .font(.system(size: 11, weight: .medium).monospacedDigit())
-                .lineLimit(1).fixedSize()
-                .foregroundStyle(Theme.textSecondary)
-        }
-    }
-
-    private var fullHeader: some View {
-        HStack(spacing: 0) {
-            // The main tabs left of the camera; they shrink only if ever more than fit.
-            // Packed from the outer edges; the panel slides (`NotchLayout.shift`) so both
-            // sides end the same distance from the camera, in every panel.
-            measuredSide(tabs(Tab.shown[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))) {
-                model.headerLeft = $0
-            }
-            Spacer(minLength: layout.notch.width + 2 * Self.cameraGap)
-            measuredSide(HStack(spacing: 8) {
-                // The badge never squeezes; with many agents "% left" makes way (it's on the Usage tab too).
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        badge
-                        percentLeft
+    var body: some View {
+        let marks = NotchMarks.make(board, approvalsFrom: approvals)
+        let total = board.working + board.waiting
+        if let first = marks.shown.first {
+            PulsingSymbol(name: "", logo: first.agent, color: AgentStyle.mark(first.agent), size: 12, active: !first.waiting)
+                .id("\(first.agent)\(String(describing: first.attention))")
+                .overlay(alignment: .bottomTrailing) {
+                    if total > 1 {
+                        Text("\(total)").font(.system(size: 8, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                            .offset(x: 6, y: 3)
                     }
-                    badge
                 }
-                if model.tab == .usage && !model.showsCard {
-                    Button {
-                        model.showAccounts.toggle()
-                        if model.showAccounts { model.refreshPlan?() }
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(model.showAccounts ? Theme.textPrimary : Theme.textMuted)
-                            .frame(width: 24, height: 22)
-                            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(model.showAccounts ? Color.white.opacity(0.14) : .clear))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Connected accounts")
-                }
-                // Plugins sit apart from the built-in tabs, at the far right, once one is installed.
-                if !model.plugins.isEmpty {
-                    tabs([Tab.plugins][...])
-                }
-            }, fixed: false) { model.headerRight = $0 }
+                .help((marks.shown.map { "\($0.agent): \($0.count)" } + marks.more).joined(separator: ", "))
         }
-        .padding(.horizontal, NotchLayout.inset)
     }
 }
 

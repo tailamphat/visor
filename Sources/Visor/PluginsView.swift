@@ -48,6 +48,11 @@ struct PluginsView: View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: Self.gap) {
+                    if model.plugins.isEmpty {
+                        EmptyState(symbol: "puzzlepiece.extension", title: "No plugins yet",
+                                   detail: "Put a plugin's folder in the Plugins folder, or see how to write one.")
+                            .frame(height: 110)
+                    }
                     ForEach(model.plugins) { info in block(info) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

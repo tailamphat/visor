@@ -40,6 +40,20 @@ struct UsageBar: View {
             Text("Plans & limits").font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
                 .foregroundStyle(Theme.textMuted)
             Spacer(minLength: 8)
+            // Connected accounts, beside the switch (the header's slots are the same on every tab).
+            Button {
+                model.showAccounts = true
+                model.refreshPlan?()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .frame(width: 24, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Connected accounts")
+            .padding(.trailing, 6)
             UsageViewSwitch(model: model)
         }
         .frame(height: Self.height)
