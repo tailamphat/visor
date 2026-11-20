@@ -509,34 +509,45 @@ struct UsageView: View {
     private var limitsOnlyInset: CGFloat { model.usageLimitsOnly ? 0 : UsageColumns.usageWidth + UsageColumns.spacing }
 
     private var claudeRow: some View {
-        UsageRow {
-            VStack(alignment: .leading, spacing: 12) {
-                ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
-                    if let updated = model.planUpdated {
-                        (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+        // The heading spans the panel and starts the section; limits and spend sit below it.
+        VStack(alignment: .leading, spacing: 10) {
+            ProviderHeader(agent: "Claude Code", title: model.planName ?? "Claude") {
+                if let updated = model.planUpdated {
+                    // Short ("1m ago") and on one line beside the title; "Updated" goes when it's tight.
+                    // Ticks every 15 s, only while the panel is open.
+                    TimelineView(.periodic(from: .now, by: 15)) { context in
+                        let ago = ShortAgo.text(updated, now: context.date)
+                        ViewThatFits(in: .horizontal) {
+                            Text("Updated \(ago)").lineLimit(1).fixedSize()
+                            Text(ago).lineLimit(1).fixedSize()
+                        }
                     }
-                }
-                if let plan = model.plan {
-                    ForEach(plan.limits.prefix(3)) { limit in
-                        LimitMeter(title: limit.title, used: limit.percentUsed,
-                                   caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" },
-                                   forecast: model.forecast(UsageKey.claude(limit.kind), used: limit.percentUsed, resetsAt: limit.resetsAt,
-                                                            window: BurnForecast.window(claude: limit.kind)),
-                                   resetsAt: limit.resetsAt)
-                    }
-                    if let extra = plan.extra {
-                        Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
-                    }
-                } else {
-                    Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                }
-                if let error = model.planError, model.plan != nil {
-                    Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
                 }
             }
-        } usage: {
-            SpendView(model: model)
+            UsageRow {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let plan = model.plan {
+                        ForEach(plan.limits.prefix(3)) { limit in
+                            LimitMeter(title: limit.title, used: limit.percentUsed,
+                                       caption: limit.resetsAt.map { "Resets \(LimitMeter.resetText($0))" },
+                                       forecast: model.forecast(UsageKey.claude(limit.kind), used: limit.percentUsed, resetsAt: limit.resetsAt,
+                                                                window: BurnForecast.window(claude: limit.kind)),
+                                       resetsAt: limit.resetsAt)
+                        }
+                        if let extra = plan.extra {
+                            Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
+                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        }
+                    } else {
+                        Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    }
+                    if let error = model.planError, model.plan != nil {
+                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                    }
+                }
+            } usage: {
+                SpendView(model: model)
+            }
         }
     }
 
@@ -724,7 +735,7 @@ struct ToolDivider: View {
 }
 
 enum UsageColumns {
-    static let usageWidth: CGFloat = 190
+    static let usageWidth: CGFloat = 210
     static let spacing: CGFloat = 24
 }
 
@@ -742,17 +753,42 @@ struct UsageRow<Limits: View, Usage: View>: View {
 }
 
 /// A provider's mark and name, with a muted note on the right.
+/// Short times for headings: "just now", "12s ago", "4m ago", "2h ago", "3d ago".
+enum ShortAgo {
+    static func text(_ date: Date, now: Date) -> String {
+        let seconds = max(0, Int(now.timeIntervalSince(date)))
+        if seconds < 10 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
+        if seconds < 3600 { return "\(seconds / 60)m ago" }
+        if seconds < 86400 { return "\(seconds / 3600)h ago" }
+        return "\(seconds / 86400)d ago"
+    }
+}
+
 struct ProviderHeader<Note: View>: View {
     let agent: String
     let title: String
+    /// The note right after the title (an account's host) instead of at the far right ("Updated … ago").
+    var inlineNote = false
     @ViewBuilder var note: Note
 
     var body: some View {
-        HStack(spacing: 6) {
-            AgentMark(agent: agent, size: 15)
-            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-            Spacer()
-            note.font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+        HStack(spacing: 7) {
+            AgentMark(agent: agent, size: 18)
+            if inlineNote {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1).fixedSize()
+                    note.font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            } else {
+                // The title never wraps; the note beside it gives way.
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1).fixedSize()
+                Spacer(minLength: 8)
+                note.font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            }
         }
     }
 }
@@ -763,8 +799,8 @@ struct CopilotBlock: View {
     var forecast: BurnForecast?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ProviderHeader(agent: "Copilot CLI", title: usage.title) { Text(usage.host) }
+        VStack(alignment: .leading, spacing: 10) {
+            ProviderHeader(agent: "Copilot CLI", title: usage.title, inlineNote: true) { Text(usage.host) }
             if !usage.isTracked {
                 // No premium requests on this plan (Copilot Free): its chat and completions allowances instead.
                 if usage.chatEntitlement > 0 {
@@ -844,7 +880,7 @@ struct AntigravityBlock: View {
 
     var body: some View {
         if model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 ProviderHeader(agent: "Antigravity", title: "Antigravity") {
                     if model.antigravityLoading {
                         Text("Checking…")
@@ -880,13 +916,17 @@ struct OpenCodeBlock: View {
 
     var body: some View {
         if model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil {
-            UsageRow {
-                VStack(alignment: .leading, spacing: 12) {
-                    ProviderHeader(agent: "OpenCode", title: "OpenCode") {
-                        if let updated = model.openCodeUpdated {
-                            (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
-                        }
+            // The heading spans the panel and starts the section; limits and tokens sit below it.
+            VStack(alignment: .leading, spacing: 10) {
+            ProviderHeader(agent: "OpenCode", title: "OpenCode") {
+                if let updated = model.openCodeUpdated {
+                    TimelineView(.periodic(from: .now, by: 15)) { context in
+                        Text("Updated \(ShortAgo.text(updated, now: context.date))").lineLimit(1).fixedSize()
                     }
+                }
+            }
+            UsageRow {
+                VStack(alignment: .leading, spacing: 10) {
                     if let go = model.openCodeGo {
                         ForEach(go.limits) { limit in
                             LimitMeter(title: limit.title, used: limit.percentUsed,
@@ -907,6 +947,7 @@ struct OpenCodeBlock: View {
                 if let usage = model.openCode {
                     OpenCodeTokensView(model: model, usage: usage)
                 }
+            }
             }
         }
     }
@@ -987,9 +1028,9 @@ struct LimitMeter: View {
             }
             .frame(height: 6)
             if let forecast, let resetsAt {
-                forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(1)
+                forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             } else if let caption, !caption.isEmpty {
-                Text(caption).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                Text(caption).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)

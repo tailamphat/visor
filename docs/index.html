@@ -116,13 +116,14 @@
   .t2 { color: #C3C2B7; } .t3 { color: #8A8980; }
 
   /* Shared pieces of the app's panels (hero and figures) */
-  .ucols { display: grid; grid-template-columns: 1fr 190px; gap: 24px; }
+  .ucols { display: grid; grid-template-columns: 1fr 210px; gap: 24px; }
   /* Between tools: space alone, like the app. */
   .tooldiv { height: 28px; }
-  .solo { padding-right: 214px; }
+  .solo { padding-right: 234px; }
   .phdr { display: flex; align-items: center; gap: 6px; }
-  .phdr svg { width: 15px; height: 15px; }
-  .phdr b { font-size: 12px; font-weight: 600; }
+  .phdr svg { width: 18px; height: 18px; }
+  .phdr b { font-size: 14px; font-weight: 600; }
+  .phdr .note.after { margin-left: 2px; }
   .phdr .note { margin-left: auto; font-size: 10px; color: #8A8980; }
   .meter { margin-top: 10px; }
   .meter .top { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; color: #C3C2B7; }
@@ -470,14 +471,14 @@
 
           <div class="view" data-name="usage">
             <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
+            <div class="phdr" style="margin-bottom:10px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12s ago</span></div>
             <div class="ucols">
               <div>
-                <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
                 <div class="meter"><div class="top"><span>Session (5h)</span><b>91% <small>left</small></b></div><div class="bar"><i style="width:9%"></i></div><div class="cap"><span class="ok">On pace</span> · ~70% left when it resets in 3h 40m</div></div>
                 <div class="meter"><div class="top"><span>Weekly</span><b>58% <small>left</small></b></div><div class="bar"><i style="width:42%"></i></div><div class="cap"><span class="ok">On pace</span> · ~12% left when it resets Fri 09:00</div></div>
               </div>
               <div>
-                <div class="phdr"><b>Claude spend</b><span class="t2" style="font-size:10.5px">API value</span></div>
+                <div class="phdr"><b style="font-size:12px">Claude spend</b><span class="t2" style="font-size:10.5px">API value</span></div>
                 <div class="figs"><div class="f big"><b>$10.61</b><span>Today</span></div><div class="f"><b>$292</b><span>7 days</span></div><div class="f"><b>$877</b><span>30 days</span></div></div>
                 <svg class="spark" viewBox="0 0 190 40" preserveAspectRatio="none" aria-label="Spend over the last 14 days">
                   <path d="M4 38 L18 31 L33 30 L47 12 L62 21 L76 27 L91 31 L105 27 L120 31 L134 25 L149 14 L163 23 L178 28 L186 30 L186 40 L4 40 Z" fill="rgba(57,135,229,.22)"/>
@@ -489,7 +490,7 @@
             </div>
             <div class="tooldiv" aria-hidden="true"></div>
             <div class="solo">
-                <div class="phdr"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note">acme.ghe.com</span></div>
+                <div class="phdr"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note after">acme.ghe.com</span></div>
                 <div class="meter"><div class="top"><span>Premium requests <span style="color:#FAB219">⚠︎</span></span><b>13% <small>left</small></b></div><div class="bar"><i class="warn" style="width:87%"></i></div><div class="cap"><span class="hot">Runs out ~Sat 14 Nov</span> · 17 days before reset · 261 of 300</div></div>
             </div>
           </div>
@@ -788,7 +789,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 316], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
+  const sizes = { closed: [300, 32], usage: [520, 350], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
