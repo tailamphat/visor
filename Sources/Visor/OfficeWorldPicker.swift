@@ -67,7 +67,8 @@ enum OfficeThumbnail {
 
     static func image(_ world: OfficeWorld) -> CGImage? {
         if let hit = cache[world] { return hit }
-        let scene = Office.place(sample)
+        let placed = Office.place(sample)
+        let scene = world == .studio ? placed : placed.aroundTheTable()
         let layout = scene.layout
         let scale = 2.0
         guard let room = OfficeRoom.image(scene, world: world),
@@ -89,7 +90,8 @@ enum OfficeThumbnail {
             if let screen = PixelPerson.screen(look, activity: agent.spot == .desk ? agent.activity : nil, device: FilmRoom.device(at: agent.screen)).first {
                 context.draw(screen, in: CGRect(x: agent.screen.x * scale, y: (layout.height - agent.screen.y - 4) * scale, width: 6 * scale, height: 4 * scale))
             }
-            let (pose, _) = PixelPerson.pose(for: agent)
+            var (pose, _) = PixelPerson.pose(for: agent)
+            if world != .studio && agent.spot == .sofa { pose = .playing }
             guard let sprite = PixelPerson.frames(look, pose: pose, front: !agent.facesUp).first else { continue }
             let w = PixelPerson.width * scale, h = PixelPerson.height * scale
             context.draw(sprite, in: CGRect(x: agent.feet.x * scale - w / 2, y: (layout.height - agent.feet.y) * scale, width: w, height: h))
@@ -111,7 +113,7 @@ enum OfficeThumbnail {
             s("api", "Claude Code", .working("Bash: npm test")), s("mobile", "Claude Code", .working("Read: App.swift")),
             s("site", "Claude Code", .working("Thinking")), s("shop", "Claude Code", .needsApproval("Bash: git push")),
             s("docs", "Copilot CLI", .working("WebFetch: example.com")), s("cli", "Copilot CLI", .working("Edit: main.go")),
-            s("infra", "Antigravity", .working("Thinking")), s("notes", "Antigravity", .done),
+            s("infra", "Antigravity", .done), s("notes", "Antigravity", .done),
         ]
     }
 }

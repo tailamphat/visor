@@ -148,7 +148,9 @@ final class OfficeLayerView: NSView {
 
     // MARK: Scene
 
-    func show(_ next: OfficeScene, sessions list: [AgentSession], world nextWorld: OfficeWorld) {
+    func show(_ placed: OfficeScene, sessions list: [AgentSession], world nextWorld: OfficeWorld) {
+        // The film worlds play at a game table on break instead of sitting on the sofa.
+        let next = nextWorld == .studio ? placed : placed.aroundTheTable()
         sessions = Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         if nextWorld != world {
             // Another world: a new room and a new cast, placed at once.
@@ -338,7 +340,8 @@ final class OfficeLayerView: NSView {
     /// The person's loop where it is (typing, waving, dozing) and its bubble.
     private func startActivity(_ person: Person, after delay: CFTimeInterval) {
         let agent = person.agent
-        let (pose, period) = PixelPerson.pose(for: agent)
+        var (pose, period) = PixelPerson.pose(for: agent)
+        if world != .studio && agent.spot == .sofa { (pose, period) = (.playing, 4) }
         let frames = PixelPerson.frames(person.look, pose: pose, front: !agent.facesUp)
         let sprite = person.sprite
         sprite.contents = frames.first
@@ -812,6 +815,8 @@ enum PixelPerson {
 
     enum Pose: Hashable {
         case typing, still, reading, wave, sitting, dozing, walk
+        /// On break in a film world: at the game table, cards in hand on the starship.
+        case playing
     }
 
     static let hairs: [UInt32] = [0x3B2A20, 0xE8D27A, 0x1E1E1E, 0x8B4A2B, 0xC9C9D1, 0x5A3A7A, 0x2E4A2E]
@@ -849,7 +854,7 @@ enum PixelPerson {
         switch pose {
         case .typing, .wave, .walk:
             images = (0..<2).compactMap { draw(look, pose: pose, front: front, frame: $0, blink: false) }
-        case .still, .reading, .sitting:
+        case .still, .reading, .sitting, .playing:
             let open = draw(look, pose: pose, front: front, frame: 0, blink: false)
             let shut = front ? draw(look, pose: pose, front: front, frame: 0, blink: true) : nil
             // 4 seconds: open for 15 of 16 beats, shut for one.
@@ -865,7 +870,8 @@ enum PixelPerson {
         guard let p = Pixels(width: Int(width), height: Int(height)) else { return nil }
         if let figure = look.figure {
             return FilmCast.image(figure, .init(front: front, sits: pose == .sitting || pose == .dozing, blink: blink, frame: frame,
-                                                typing: pose == .typing, waving: pose == .wave, reading: pose == .reading))
+                                                typing: pose == .typing, waving: pose == .wave, reading: pose == .reading,
+                                                cards: pose == .playing && look.world == .starfleet))
         }
         let shirt = NSColor(hex: look.shirt)
         let hair = NSColor(hex: look.hair), skin = NSColor(hex: look.skin), line = NSColor(hex: 0x141018)

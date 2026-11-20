@@ -18,6 +18,8 @@ enum FilmCast {
         var typing: Bool
         var waving: Bool
         var reading: Bool
+        /// A fan of playing cards in hand, at the starship's poker table.
+        var cards = false
     }
 
     static func image(_ figure: PixelPerson.Figure, _ pose: Pose) -> CGImage? {
@@ -80,6 +82,15 @@ private struct Clay {
             ell(x + 2.5, y - 4 - (pose.frame == 1 ? 0.6 : 0), 1, 0.8, skin)
         }
         if pose.reading { clay(x - 2.5, y - 6, 5, 3.5, 0.6, 0xF2EBD6, 0xD9CFB4, hl: 0) }
+        if pose.cards && pose.front {
+            for (k, tilt) in [-1.2, 0, 1.2].enumerated() {
+                let cx = x - 3.6 + Double(k) * 1.3
+                p.polygon([(cx, y - 7.5 + abs(tilt) * 0.3), (cx + 2, y - 7.8 + abs(tilt) * 0.3), (cx + 2.2 + tilt * 0.3, y - 4.4), (cx + 0.2 + tilt * 0.3, y - 4.2)],
+                          NSColor(hex: 0xF4F1EA))
+                dot(cx + 0.7, y - 6.8, 0.7, 0.7, k == 1 ? 0x1E1E26 : 0xC8463C)
+            }
+            ell(x - 2, y - 4.3, 1, 0.8, skin)
+        }
         if pose.waving {
             let up = pose.frame == 1 ? 1.0 : 0
             clay(x + 4, y - 14 - up, 1.6, 6, 0.8, 0xD6D2C8, 0xB8B4AA, hl: 0)
