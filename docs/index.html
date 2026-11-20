@@ -84,9 +84,11 @@
   .q-col.warn { color: var(--amber); }
   .panel { opacity: 0; transition: opacity .2s .12s; padding: 6px 18px 18px; position: absolute; inset: 0; }
   .notch.open .panel { opacity: 1; }
+  /* Like the app: the same header on every panel, three 22 pt slots each side of the camera,
+     packed from the outer edges, so the panel stays centred and never slides between tabs. */
   .phead { display: flex; justify-content: space-between; align-items: center; height: 32px; }
   .tabs { display: flex; gap: 4px; align-items: center; }
-  .tab { width: 30px; height: 22px; border-radius: 7px; border: 0; background: transparent; color: #8A8980; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .tab { width: 22px; height: 22px; border-radius: 7px; border: 0; background: transparent; color: #8A8980; display: grid; place-items: center; cursor: pointer; padding: 0; }
   .tab svg { width: 13px; height: 13px; }
   .tab[aria-selected="true"] { background: rgba(255,255,255,.14); color: #fff; }
   /* The app's own SF Symbols, rendered from macOS, tinted with the text colour. */
@@ -99,15 +101,11 @@
   .sw2 > span { width: 24px; height: 15px; border-radius: 99px; display: grid; place-items: center; color: #8A8980; }
   .sw2 > span.on { background: rgba(255,255,255,.16); color: #fff; }
   .sw2 .sym { width: 9px; height: 9px; }
+  .ugear { width: 11px; height: 11px; color: #8A8980; margin: 0 10px 0 auto; }
   .ubar { display: flex; align-items: center; justify-content: space-between; height: 18px; margin-bottom: 6px; font: 600 10.5px var(--sf); letter-spacing: .06em; color: #8A8980; }
-  .badge { display: flex; align-items: center; gap: 2px; margin-right: 2px; }
-  .badge b { font: 700 10px var(--sf); color: #C3C2B7; margin-right: 4px; }
-  .status .gear { width: 11px; height: 11px; color: #8A8980; margin-left: 4px; }
-  .status .gear[hidden] { display: none; }
-  .badge .plus { display: inline-flex; align-items: center; align-self: center; height: 14px; line-height: 14px; font-size: 9px; font-weight: 700; color: #C3C2B7; background: rgba(255,255,255,.12); border-radius: 99px; padding: 1px 4px; margin-right: 4px; }
-  .badge .plus[hidden] { display: none; }
-  .status { display: flex; align-items: center; gap: 8px; font: 500 11px var(--sf); color: #C3C2B7; font-variant-numeric: tabular-nums; }
-  .status svg { width: 12px; height: 12px; }
+  .aslot { position: relative; width: 22px; height: 22px; display: grid; place-items: center; }
+  .aslot svg { width: 12px; height: 12px; }
+  .aslot b { position: absolute; right: -3px; bottom: 0; font: 700 8px/1 var(--sf); color: #C3C2B7; font-variant-numeric: tabular-nums; }
   .view { margin-top: 8px; }
   /* The office runs to the panel's edges, like in the app. */
   .view[data-name="office"] { margin: 8px -18px 0; }
@@ -672,13 +670,16 @@
               <button class="tab" role="tab" data-view="agents" aria-selected="false" aria-label="Agents"><span class="sym s-sparkles agents-icon" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="usage" aria-selected="true" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="music" aria-selected="false" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></button>
-              <button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></button>
             </div>
-            <div class="status"><span class="badge"><svg><use href="#claude"/></svg><b class="n-claude">2</b><svg><use href="#copilot"/></svg><b class="n-copilot"></b><span class="plus" hidden>+1</span></span><span>91% left</span><span class="sym s-gear gear" aria-hidden="true"></span><button class="tab" role="tab" data-view="plugins" aria-selected="false" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></button></div>
+            <div class="tabs">
+              <button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></button>
+              <button class="tab" role="tab" data-view="plugins" aria-selected="false" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></button>
+              <span class="aslot" title="Claude Code and Copilot CLI sessions"><svg><use href="#claude"/></svg><b class="n-agents">3</b></span>
+            </div>
           </div>
 
           <div class="view" data-name="usage">
-            <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
+            <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="ugear sym s-gear" aria-hidden="true"></span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
             <div class="phdr" style="margin-bottom:10px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12s ago</span></div>
             <div class="ucols">
               <div>
@@ -1034,10 +1035,12 @@ end)</pre>
   <section id="new" class="feat">
   <div class="f-text">
     <h2>What else is new</h2>
-    <p>Small things that add up, in Visor 0.4 to 0.6.</p>
+    <p>Small things that add up, in Visor 0.4 to 0.7.</p>
   </div>
   <div class="f-media">
     <ul class="more">
+      <li><h3>One header, balanced around the camera</h3><p>Every panel now has the same header: Agents, Usage and Music left of the camera; Clipboard, Plugins and your agents right of it. The panel stays put as you switch tabs, and the Usage gear moved into its own bar.</p></li>
+      <li><h3>Now Playing, snug around the camera</h3><p>Music gets a narrow panel, just wide enough for the header, with the artwork beside the title and controls.</p></li>
       <li><h3>Room between tools</h3><p>In the Usage tab, each tool gets more space before the next, so Claude, Copilot, Antigravity and OpenCode each read as their own group, headed by their mark and name.</p></li>
       <li><h3>Pin from the clipboard</h3><p>Hover an item for a pin next to ✕. Pinned items keep a small green pin and survive Clear and the 200-item / 30-day cleanup. Hovering down the list is smoother too.</p></li>
       <li><h3>Copilot from your editor, no <code>gh</code> needed</h3><p>Signed in to Copilot in JetBrains, Neovim or Xcode? The Usage tab now reads that sign-in, so you no longer need to install <code>gh</code> and log in. (VS Code keeps its sign-in to itself, so VS Code-only users still need <code>gh auth login</code>.)</p></li>
@@ -1121,7 +1124,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 362], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 362], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [385, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
@@ -1129,10 +1132,7 @@ end)</pre>
   const views = [...document.querySelectorAll('.view')];
   const tries = [...document.querySelectorAll('[data-try]')];
   const glow = document.getElementById('glow');
-  const gear = document.querySelector('.status .gear');
-  const badgeClaude = document.querySelector('.badge .n-claude');
-  const badgeCopilot = document.querySelector('.badge .n-copilot');
-  const badgeMore = document.querySelector('.badge .plus');
+  const agentCount = document.querySelector('.aslot .n-agents');
 
   function show(name) {
     const open = name !== 'closed';
@@ -1144,12 +1144,8 @@ end)</pre>
     notch.style.setProperty('--h', h + 'px');
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
-    // Like the app: the badge counts the agents in view (the office picture has more), and Usage has its gear.
-    const office = name === 'office';
-    badgeClaude.textContent = office ? '8' : '2';
-    badgeCopilot.textContent = office ? '2' : '';
-    badgeMore.hidden = !office;
-    gear.hidden = !(name === 'usage' || name === 'tokens');
+    // Like the app: the agents' slot counts the sessions in view (the office picture has more).
+    agentCount.textContent = name === 'office' ? '11' : '3';
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
     document.querySelector('.dock .wpick').hidden = name !== 'office';
