@@ -13,7 +13,10 @@ struct NotchLayout {
 
     /// Moves the closed shape sideways when its ears differ, keeping the notch covered.
     func shift(_ model: AppModel) -> CGFloat {
-        guard !model.expanded, showsEars(model) else { return 0 }
+        // Open: slide toward the fuller side of the header, so its icons, packed from
+        // both outer edges, end the same distance from the camera.
+        if model.expanded { return CGFloat(NotchEars.shift(left: Double(model.headerLeft), right: Double(model.headerRight))) }
+        guard showsEars(model) else { return 0 }
         return CGFloat(NotchEars.shift(left: Double(leftEar(model)), right: Double(rightEar(model))))
     }
 
@@ -156,6 +159,7 @@ struct NotchView: View {
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
         .offset(x: layout.shift(model))
         .animation(Theme.spring, value: model.expanded)
+        .animation(Theme.spring, value: layout.shift(model))
         .animation(Theme.spring, value: size)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
@@ -445,8 +449,15 @@ struct ExpandedView: View {
         }
     }
 
-    /// Room between the camera and the header on each side: the same on both, in every panel.
+    /// The least room between the camera and the header on each side.
     static let cameraGap: CGFloat = 4
+
+    /// A header side at its own width, reported so the panel can slide to even the gaps.
+    private func measuredSide<Content: View>(_ content: Content, _ report: @escaping (CGFloat) -> Void) -> some View {
+        content
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report($0) }
+    }
 
     /// Tabs left of the hardware notch, a glanceable status right of it. Now
     /// Playing's narrow panel has no room for the status: its tabs sit two a side,
@@ -457,11 +468,11 @@ struct ExpandedView: View {
             let right = Array(Tab.shown.dropFirst(2)) + (model.plugins.isEmpty ? [] : [Tab.plugins])
             // With three on the right, every tab gets the same slot and gap, so both sides match.
             let same = model.plugins.isEmpty ? nil : NotchEars.musicTab
-            // Each side hugs the camera with the same 4 pt gap, so both are the same distance from it.
+            // Packed from the outer edges; the panel slides so both end the same distance from the camera.
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2), fit: room, size: same).frame(maxWidth: .infinity, alignment: .trailing)
-                Color.clear.frame(width: layout.notch.width + 2 * Self.cameraGap)
-                tabs(right[...], fit: room, size: same).frame(maxWidth: .infinity, alignment: .leading)
+                measuredSide(tabs(Tab.shown.prefix(2), fit: room, size: same)) { model.headerLeft = $0 }
+                Spacer(minLength: layout.notch.width)
+                measuredSide(tabs(right[...], fit: room, size: same)) { model.headerRight = $0 }
             }
             .padding(.horizontal, NotchLayout.inset)
         } else {
@@ -509,11 +520,13 @@ struct ExpandedView: View {
     private var fullHeader: some View {
         HStack(spacing: 0) {
             // The main tabs left of the camera; they shrink only if ever more than fit.
-            // Each side hugs the camera with the same gap (`cameraGap`), in every panel.
-            tabs(Tab.shown[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            Color.clear.frame(width: layout.notch.width + 2 * Self.cameraGap)
-            HStack(spacing: 8) {
+            // Packed from the outer edges; the panel slides (`NotchLayout.shift`) so both
+            // sides end the same distance from the camera, in every panel.
+            measuredSide(tabs(Tab.shown[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))) {
+                model.headerLeft = $0
+            }
+            Spacer(minLength: layout.notch.width + 2 * Self.cameraGap)
+            measuredSide(HStack(spacing: 8) {
                 // The badge never squeezes; with many agents "% left" makes way (it's on the Usage tab too).
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
@@ -542,8 +555,7 @@ struct ExpandedView: View {
                 if !model.plugins.isEmpty {
                     tabs([Tab.plugins][...])
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            }) { model.headerRight = $0 }
         }
         .padding(.horizontal, NotchLayout.inset)
     }

@@ -151,6 +151,18 @@ struct NotchTabTests {
         #expect(NotchEars.tabRoom(panel: 520, notch: 185) == 133.5)
     }
 
+    /// An open panel slides toward its fuller side by half the difference, so icons
+    /// packed from both outer edges end the same distance from the camera.
+    @Test func openPanelSlidesTowardItsFullerSide() {
+        #expect(NotchEars.shift(left: 48, right: 74) == 13, "music: 2 tabs left, 3 right")
+        #expect(NotchEars.shift(left: 102, right: 92) == -5)
+        let w = 402.0, camera = 185.0, left = 48.0, right = 74.0
+        let shift = NotchEars.shift(left: left, right: right)
+        // Sliding right takes room from the left side and gives it to the right; less its icons, the gaps match.
+        let leftGap = (w - camera) / 2 - shift - left, rightGap = (w - camera) / 2 + shift - right
+        #expect(leftGap == rightGap)
+    }
+
     /// The 460 pt panel: four tabs a little narrower, still beside the camera.
     @Test func fourTabsFitTheNarrowPanel() {
         let room = NotchEars.tabRoom(panel: 460, notch: 185)
