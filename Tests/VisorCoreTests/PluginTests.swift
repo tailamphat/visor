@@ -235,7 +235,7 @@ struct ExamplePluginTests {
         let p = try load("hello", host: host)
         try p.start()
         #expect(host.errors.isEmpty)
-        #expect(host.peeks.first?.title == "Hello from a plugin")
+        #expect(host.peeks.first?.title == "Your first plugin is running")
         #expect(host.outputs.last?.sections.first?.rows.first?.title == "octocat/visor")
         #expect(host.outputs.last?.badge?.count == 1)
     }
