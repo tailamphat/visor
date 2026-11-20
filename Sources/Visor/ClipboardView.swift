@@ -141,8 +141,6 @@ struct ClipRow: View {
         }
         .onTapGesture { model.pasteClip?(item, false) }
         .contextMenu {
-            Button("Paste") { model.pasteClip?(item, false) }
-            Button("Paste as Plain Text") { model.pasteClip?(item, true) }
             Button("Copy") { model.clipboardActions?.copy(item) }
             Button(item.pinned ? "Unpin" : "Pin") { model.clipboardActions?.togglePin(item.id) }
             Divider()
