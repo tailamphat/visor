@@ -195,7 +195,9 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
     // MARK: PluginHost
 
     func request(_ request: PluginRequest) -> PluginResponse {
-        var urlRequest = URLRequest(url: request.url, timeoutInterval: 20)
+        // Visor keeps its own ETag cache below; the system cache would hide changes for
+        // up to Cache-Control's max-age (60 s on GitHub), so it's skipped.
+        var urlRequest = URLRequest(url: request.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
         urlRequest.httpMethod = request.method
         urlRequest.httpBody = request.body
         for (name, value) in request.headers { urlRequest.setValue(value, forHTTPHeaderField: name) }
