@@ -61,6 +61,7 @@ struct NotchLayout {
                 return CGSize(width: Self.approvalSize.width,
                               height: Self.approvalSize.height + (first.alwaysAllowLabel == nil ? 0 : Self.approvalAlwaysExtra))
             }
+            if model.welcome { return CGSize(width: Self.width, height: fitting(WelcomeView.height)) }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.narrowMusic {
                 // Narrow: just wide enough for the header's three slots each side.
@@ -423,6 +424,8 @@ struct ExpandedView: View {
             Group {
                 if let approval = model.approvals.first {
                     ApprovalView(model: model, request: approval)
+                } else if model.welcome {
+                    WelcomeView(model: model)
                 } else if let back = model.limitBack {
                     LimitBackView(back: back)
                 } else {

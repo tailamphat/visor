@@ -93,3 +93,15 @@ public struct AgentsDigest: Equatable, Sendable {
             && a.idle.map(\.agent) == b.idle.map(\.agent) && a.idle.map(\.count) == b.idle.map(\.count)
     }
 }
+
+/// Whether the first-launch intro plays: once ever, unless VISOR_INTRO forces it
+/// on ("1") or off ("0").
+public enum IntroGate {
+    public static func shouldPlay(seen: Bool, environment: [String: String]) -> Bool {
+        switch environment["VISOR_INTRO"] {
+        case "1": return true
+        case "0": return false
+        default: return !seen
+        }
+    }
+}

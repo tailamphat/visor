@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         startingUpdater: Bundle.main.bundleURL.pathExtension == "app", updaterDelegate: UpdateFeed.shared, userDriverDelegate: nil)
     private lazy var bar = BarService(model: model)
     private lazy var clipboard = ClipboardService(model: model)
+    private let intro = IntroController()
     private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
     private var statusItem: NSStatusItem?
@@ -95,6 +96,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "approvalsInNotch") }
     }
 
+    /// The intro on the screen with the notch, then the hello in the open notch.
+    private func playIntro() {
+        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
+        intro.play(on: screen) { [weak self] in
+            guard let self else { return }
+            self.model.welcome = true
+            self.model.pinned = true
+            self.notch.expand()
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = updater  // starts the daily update check
         model.pluginActions = plugins
@@ -121,6 +133,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.focusAgent = { [weak self] session in self?.focus(session) }
 
         restoreAgents()
+        // The first launch: the intro plays once, then the notch says hello.
+        if IntroGate.shouldPlay(seen: UserDefaults.standard.bool(forKey: "introShown"), environment: ProcessInfo.processInfo.environment) {
+            UserDefaults.standard.set(true, forKey: "introShown")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.playIntro() }
+        }
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id, reason in self?.approvalGone(id, reason) }
         do { try hooks.start() } catch { NSLog("Visor: hook socket failed: \(error)") }
@@ -364,6 +381,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
+        if message.event == "_intro" {
+            playIntro()
+            return
+        }
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"

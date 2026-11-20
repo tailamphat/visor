@@ -71,3 +71,14 @@ struct AgentsDigestTests {
         #expect(digest.idle.map(\.agent) == ["Claude Code"] && digest.idle.map(\.count) == [10])
     }
 }
+
+@Suite("First-launch intro")
+struct IntroGateTests {
+    /// It plays once, ever: the first launch, or when forced for testing.
+    @Test func playsOnceUnlessForced() {
+        #expect(IntroGate.shouldPlay(seen: false, environment: [:]))
+        #expect(!IntroGate.shouldPlay(seen: true, environment: [:]))
+        #expect(IntroGate.shouldPlay(seen: true, environment: ["VISOR_INTRO": "1"]))
+        #expect(!IntroGate.shouldPlay(seen: false, environment: ["VISOR_INTRO": "0"]), "and can be turned off, e.g. for screenshots")
+    }
+}

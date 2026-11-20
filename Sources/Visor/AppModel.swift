@@ -84,6 +84,8 @@ final class AppModel {
     var tab: Tab = .agents
     /// Keeps the panel open regardless of the pointer (debug screenshots).
     var pinned = false
+    /// The first-launch hello is in the open notch, until "Get started".
+    var welcome = false
 
     /// The spend chart's day under the pointer, if any.
     var spendHover: Int?
