@@ -767,8 +767,7 @@ enum PixelPerson {
         var world: OfficeWorld = .studio
     }
 
-    /// The film worlds' characters: the usual sprite in their colours, with a
-    /// few pixels of what makes each one (ears, buns, a visor, a saber).
+    /// The film worlds' characters, drawn in clay by `FilmCast`.
     enum Figure: String, CaseIterable {
         case vader, yoda, r2, threepio, chewie, trooper, luke, leia, han, obiwan
         case kirk, spock, mccoy, scotty, uhura, sulu, picard, data, worf, geordi
@@ -861,7 +860,10 @@ enum PixelPerson {
 
     private static func draw(_ look: Look, pose: Pose, front: Bool, frame: Int, blink: Bool) -> CGImage? {
         guard let p = Pixels(width: Int(width), height: Int(height)) else { return nil }
-        if look.figure == .r2 { droid(p, sits: pose == .sitting || pose == .dozing, front: front, step: frame == 1); return p.image }
+        if let figure = look.figure {
+            return FilmCast.image(figure, .init(front: front, sits: pose == .sitting || pose == .dozing, blink: blink, frame: frame,
+                                                typing: pose == .typing, waving: pose == .wave, reading: pose == .reading))
+        }
         let shirt = NSColor(hex: look.shirt)
         let hair = NSColor(hex: look.hair), skin = NSColor(hex: look.skin), line = NSColor(hex: 0x141018)
         let x = 5.0, y = height
@@ -900,97 +902,7 @@ enum PixelPerson {
             p.fill(x - 3, y - 14 + by, 7, 7, hair)
             if pose == .reading { p.fill(x - 2, y - 8, 5, 2, 0xE9E3C8) }
         }
-        if let figure = look.figure {
-            details(figure, p, x: x, y: y, by: by, front: front, blink: blink, standing: !sits, skin: skin, hair: hair)
-        }
         return p.image
-    }
-
-    /// What makes each film character, on top of the usual sprite.
-    private static func details(_ figure: Figure, _ p: Pixels, x: Double, y: Double, by: Double, front: Bool, blink: Bool,
-                                standing: Bool, skin: NSColor, hair: NSColor) {
-        let line = NSColor(hex: 0x141018)
-        let eyes = { (color: UInt32) in
-            guard front, !blink else { return }
-            p.fill(x - 2, y - 11 + by, 2, 2, color); p.fill(x + 1, y - 11 + by, 2, 2, color)
-        }
-        let noBlush = { guard front else { return }; p.fill(x - 3, y - 9 + by, 1, 1, skin); p.fill(x + 3, y - 9 + by, 1, 1, skin) }
-        let saber = { (color: UInt32) in
-            guard standing else { return }
-            p.fill(x + 5, y - 11, 1, 6, color); p.fill(x + 5, y - 5, 1, 2, 0x8F939C)
-        }
-        // Starfleet badge on the chest, and the later uniforms' coloured shoulders.
-        let badge = { p.fill(x + 1, y - 5 + by, 1, 1, 0xE8C46A) }
-        let shoulders = { (color: UInt32) in p.fill(x - 2, y - 6 + by, 5, 1, color) }
-        switch figure {
-        case .vader:
-            p.fill(x - 5, y - 8 + by, 11, 1, line)                      // the helmet's flare
-            if front {
-                p.fill(x - 2, y - 11 + by, 2, 1, 0x6A6A78); p.fill(x + 1, y - 11 + by, 2, 1, 0x6A6A78)
-                p.fill(x - 1, y - 9 + by, 3, 1, 0x4A4A56)
-                p.fill(x - 1, y - 5 + by, 1, 1, 0xE05A5A); p.fill(x, y - 5 + by, 1, 1, 0x6CC487)
-            }
-            noBlush(); saber(0xFF3B3B)
-        case .yoda:
-            p.fill(x - 5, y - 12 + by, 1, 2, skin); p.fill(x + 5, y - 12 + by, 1, 2, skin)
-            if front { p.fill(x - 3, y - 14 + by, 7, 1, skin) }
-        case .r2: break
-        case .threepio:
-            eyes(0xFFE9A0); noBlush()
-        case .chewie:
-            if front { p.fill(x - 1, y - 9 + by, 3, 1, 0xB08A62) }
-            p.fill(x - 2, y - 6 + by, 1, 1, 0x3A2A1E); p.fill(x - 1, y - 5 + by, 1, 1, 0xC9C6BE); p.fill(x, y - 4 + by, 1, 1, 0x3A2A1E)
-            noBlush()
-        case .trooper:
-            if front && !blink { p.fill(x - 2, y - 11 + by, 2, 2, line); p.fill(x + 1, y - 11 + by, 2, 2, line); p.fill(x - 1, y - 8 + by, 3, 1, line) }
-            noBlush()
-        case .luke:
-            saber(0x4CE06A)
-        case .leia:
-            p.fill(x - 5, y - 12 + by, 1, 3, hair); p.fill(x + 5, y - 12 + by, 1, 3, hair)
-        case .han:
-            p.fill(x - 2, y - 6 + by, 1, 3, 0x1E1E26); p.fill(x + 2, y - 6 + by, 1, 3, 0x1E1E26)
-        case .obiwan:
-            if front { p.fill(x - 2, y - 8 + by, 5, 1, 0xD9D2C4) }
-            saber(0x4FA8FF)
-        case .kirk, .mccoy, .sulu:
-            badge()
-        case .spock:
-            p.fill(x - 5, y - 12 + by, 1, 2, skin); p.fill(x + 5, y - 12 + by, 1, 2, skin)
-            p.fill(x - 5, y - 13 + by, 1, 1, skin); p.fill(x + 5, y - 13 + by, 1, 1, skin)
-            badge()
-        case .scotty:
-            if front { p.fill(x - 1, y - 8 + by, 3, 1, 0x3A2A22) }
-            badge()
-        case .uhura:
-            p.fill(x - 1, y - 16 + by, 3, 1, hair)
-            badge()
-        case .picard:
-            shoulders(0x8E2A34); badge()
-            p.fill(x - 3, y - 12 + by, 1, 2, 0x8A8A90); p.fill(x + 3, y - 12 + by, 1, 2, 0x8A8A90)
-        case .data:
-            shoulders(0xD9A94A); badge(); eyes(0xD99A1E); noBlush()
-        case .worf:
-            shoulders(0xD9A94A); badge()
-            p.fill(x - 1, y - 13 + by, 3, 1, 0x5A3A26)
-            p.fill(x - 4, y - 11 + by, 1, 4, hair); p.fill(x + 4, y - 11 + by, 1, 4, hair)
-            p.fill(x - 2, y - 5 + by, 1, 1, 0xC9A85A); p.fill(x - 1, y - 4 + by, 1, 1, 0xC9A85A)
-        case .geordi:
-            shoulders(0xD9A94A); badge()
-            if front { p.fill(x - 3, y - 11 + by, 7, 1, 0xC9C6BE); p.fill(x - 2, y - 11 + by, 1, 1, 0x4FA8FF); p.fill(x + 1, y - 11 + by, 1, 1, 0x4FA8FF) }
-        }
-    }
-
-    /// R2-D2: a white barrel with blue panels under a silver dome, on two legs.
-    private static func droid(_ p: Pixels, sits: Bool, front: Bool, step: Bool) {
-        let x = 5.0, y = height, line = NSColor(hex: 0x141018)
-        p.fill(x - 5, y - 9, 2, 9, line); p.fill(x + 3, y - 9, 2, 9, line)
-        p.fill(x - 4, y - 8, 1, 7, 0xE8E6E0); p.fill(x + 4, y - 8, 1, 7, 0xE8E6E0)
-        p.fill(x - 3, y - 11, 7, 10, line); p.fill(x - 2, y - 10, 5, 8, 0xF0EEE8)
-        p.fill(x - 2, y - 8, 5, 1, 0x3B63B8); p.fill(x - 1, y - 6, 1, 2, 0x3B63B8); p.fill(x + 1, y - 6, 1, 1, 0x8A93A3)
-        p.fill(x - 3, y - 15, 7, 4, line); p.fill(x - 2, y - 14, 5, 3, 0xD9D6CE)
-        p.fill(x - 2, y - 13, 2, 1, 0x3B63B8)
-        if front { p.fill(x, y - 13, 1, 1, step ? 0xE05A5A : 0x1E1E28); p.fill(x + 1, y - 13, 1, 1, 0x3B63B8) }
     }
 
     /// A screen at a table: 6 x 4 room pixels.
