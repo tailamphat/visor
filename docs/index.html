@@ -182,6 +182,26 @@
   .search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.07); border-radius: 8px; height: 28px; padding: 0 10px; color: #8A8980; font-size: 12px; }
   .search .r { margin-left: auto; font-size: 10.5px; display: flex; gap: 8px; }
   .day { font-size: 10px; font-weight: 600; letter-spacing: .06em; color: #8A8980; margin: 10px 0 4px 8px; }
+  .s-puzzle { --m: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEUAAAA3CAYAAABaZ4fjAAAAAXNSR0IArs4c6QAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAARaADAAQAAAABAAAANwAAAADaxbDZAAAE60lEQVRoBe2aS6hWVRTHr6mlVmqig1LL0KxQlFBqUFJE9NBJNXCgsyZBDZyYkjRQ1EkEEQ6UCkps0CTtDVHZzYFBT83QBqYXNSXLZ1Lko/z96W7ZrrvO+c7zu0c4C/7svddee631rf3e5+vpaamNQBuBNgLVRWBITlV3ID8NjANDc7YtK/4vCk6BA2AnuAAGjUZgeQX4FfzXECg4L4MJoOsko9+BpgTD+nEQ32Z2OypbGxyQEKB9+Hh9twKz4AoISAjM8iqDkrbQvoWhxY6xz+B9A/526upkDUf5neAJYBf5H+HNBrXTL1gIPRHSSnuk4C+Y7/ilnenagvpyNTtjjJ+lrN5qAu3CidBRIb21KseuSlFkI68t+VyKfDer+hxj1l9HJBsrLShWg3qkKaTpUhvlCUptTjRNcRsUp0faoLRBcSLgsIY5vCysqxG6G9wOlD8CvgaHQRPoFpy4C4wFx8AesBeUprD/h1SXrzFgDfgDBH5ItSNsB4+Auuk9DAS7IZ0F70mg03bgxenP8J8GRQcCTX3FOsDFhpLybyJ3DaiLvKAcx1iSPzFft/6bizoWKyqS/xjD9o5S1BfbzgtKHh91EJ1klWYpn0cojyFPdnUWQwVk3qnAN00zd/dN68lFNBqf4LCm0dtgA/gQnAR6qrT6tBhvBKdBlTQXZfemKPyeulfBFrAfTAUjQUw3UegDO2Jmp/yzCHi9r13mNqexXsA0LG2blY5sWdZ0FOjpwtpS8NWZlm6AsRVY+R+sYJby8wid6Ff2O+lKoC04iR6kwhr+Nkm4JP9R2vcB2dMj9kdgGkgi7ZxHgfVvclKDNL7mnSKd9iAVt9eZIDasm7WdVrF8mbx8mgiyPke+hGzsm/KPg8vIXWguk+jp0fkjjBZT5RZ3G67OBeqlOkg/SlP2z4zK9Q5jacAXgSxBsUo6le2CJnntZE0g7+w04PtRp9Odhv3DQIcdHZN7wQAl8AJpvbknFPpT9WLVu08woV1F9jSSvwR/gTS6z6nUSMtM45DUIhnPwZ8oz07RsMLIq+0HKfJlqlbRWB0U/NMiujBF4Qzq/onk1e4sGA0y02tIBoNxqq3wORBPE31FfAHEToY2T8Gvmh5CYdBv09eps+vEA/AOOW0+gZeLvO0rdkBTohd8AU6BuC7k98HXlKqadGgMNrxUI6IXbAZa+D0Z8eaBXJSkKCtfo0ZniTroXZRm9SNJ7o0ijiUpy8JXQJ4pYjRjm7IXws+x4+1EHc3bH68hqUVT5xZbF5cPU78A1Envozy2qfynQLuP5cfl89S/AoaDQhQrU17rg0i7jxaz+J6jgG0DS8AoUDd5I0V3r0ngRSBfY/+1yK4H+uxaimKlcVBipddR0NbdbUoKSuzHWApTQNYrwKW2nQ5vlwQTMmcS+E1gn8QJITfVcczP7UTTGrRBcXqkDUobFCcCDittpOg8ElN814n5g5H3tn3rby1+HUOr3ZYn12Ipn1KdRH9zfLsxn5pi0vbZQAHqBYMZmDHY3whsZ+loUPZ4gYr/KU2R7gdzgmB/ej/pAaCe6vSg09+kskRHc32W8Kb8Nvg6wtdOU7CgR2fbK00sP1Z7NCIDy66AoGyK/O1adimW9GzXxBGiS14dj1iZgqvFdS34CuijmOZvt4OkLVf/LNgJ1oG0t2KqW2oj0EagjUAzInARaqUltyVV6cAAAAAASUVORK5CYII="); }
+  .s-branch { --m: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADoAAAA4CAYAAACsc+sjAAAAAXNSR0IArs4c6QAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAOqADAAQAAAABAAAAOAAAAAD6o9quAAADVUlEQVRoBe1aO2gVQRSN8RNFQQ0WYmMv2KiIlYqFERUrFcQijWAfa61FKwXxB74INloJop2CKawEUUQEqwQkGn/4j3/PkQzcN8zdvfuyO755zIXLzNx75v7ms/s26evLlCuQK9DNFZhTEhz1y8B/wL9nWPadjC3ldRP994Ndy75jKfsC+TdwR7QWs8bBTMDCX4G7Ch4Az5YOwcALsMUvMd/BI+CO6CJmWR1J3NaOvLVPet6B7+l2E+0jbgONpjRFgfwtdA8K9FbVbStQ4F6KfqXuRqDlSln6+yt50MEroJqs6P+0bq5Yw8M+UcHZ5WJzlbVDmOEuOUuRt1T2ICacQt/i5Bdwa8S8OrpzYeQe2OKf27boGJbGs9noiMHwfO4qtWgDrATsLtiSJDHnbWZ1FKvEalkdcqsd082ZNLwbqp7P7SbLJSBWy5qow7Uwh1uvKu3BhM9gZ8fScifNq+oohOelEHL4AfLHio74a+AqAewF/odij8k/UnQtyGuh+bDyDuwnOwzZQvCFgM5hr0DH27uMdgKgJfkEOl50PLevwM62a3dDVhvx0eEMs+WrnqTDGGiBHpfAQH89ZNp2vQndEjGHW1vGwV01IPSz7m4TDvhsXR6wyMryNUwG4vr7AniK+GIwDnY42Y5CHjrnZwWeu6l2OgKL18FFz8sd0PMFWwbMPiu/GuzTDQh8LMctsLblF0DH5zuPxSD4v9FBeA4Ff8eLaFjB3YK8yiXmmY07PKkkcWAmjKVopwKYZ5BRlwxxRe6D/ZXl+eblcSKg42W2AZwc8Yf7T7Cf7FHIPgXkZbczpnQvnUFofqKh8SRw8jHSvRkpka2CXHvkyIRHlPlJiS8hWpmU338P/eKkMlKC3VSS6DllXpJi3rb+Srox37p6hrhqLjHZfoQ8ystBf6RSjil++KmEj6DGKVai2idQTV574rES5asdP6D59NQXNDWOlSi3Z+gDM7/IR6FYiTKZN4GMXgdkjYhiJso/Qvk07QuaGsdMNHS7hmSN5Boz0UYSsBrNiVorlQour2gqK2WNM6+otVKp4PKKprJS1jjzilorlQour2gqK2WNM+aKhr4w9OSvlzGv+vwD8IQn64nhImTBfxHgD/CH4HXgTLkCuQK5Av8q8Bdzx7koUHnbdAAAAABJRU5ErkJggg=="); }
+  .s-xoct { --m: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAD4AAAA4CAYAAAClmEtZAAAAAXNSR0IArs4c6QAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAPqADAAQAAAABAAAAOAAAAACJq/1hAAAEAElEQVRoBe2ZW4hPQRzHd9cqt8XKluRSrCT3S1jlafOk8Iz484AnL5Q3RXnwyosSXrwhCrktu0XRKrcHLx7UsrS5ZClqXb/fNO00zcx/Zs6cM4fOr76dc+by+/0+c86Z/8z/NDRUVo1ANQL/8wg05gC3ED43QfOh8dAIKMS+o9M76CF0EXoLldLakVUX9DsH/YTPY1ALVCrrQDafoDygZZ+PEWNyWchXIJEvBUCLAXiCWHyFktpsRB+ARFJFHW8iZnMq8jYEfpEAWgzu6RTgYxG0NyG0gD9YJDwfsaslgBbw24qCP1UiaMIPQZ15wx8uGbS46/wpXZAX/K6SQgv4PuQ3NTb8Bjj8UXJwDgAXOOOgKLYaXr5CYmTLfryGXDP/xnOB8v4fghY35QRyDjbuqh5BwpnP8ST68X2bBHFC/AW59v+MtpshrhW407sPufaV29XQL8j4+yg7cj1/hn5NSsQ9uHaBJzQ3PLJNw0XI/MIt7QTZkes53xVXWLndeUOA3Si3wQ+iXoUWrkJ3fjuEA58jR0wGcj3npqXVEMgET2hOojpbi0LX2Gq7MzqH9cpCHi8RuAfOxxgCcD0g33kb9By07YeEX98jl9be5htEbd+NiPXg+QivMmRG6NeQ6tfn+obBt7XYJ4CpbTcimOD5/q00ZBADmjklA2dwG7yOux2FWe804yYH94GPCV0KcCZxBzI99qhqiA1tBVcXGkwgL1sKx7MszjnJRd9dWeIZqzhisfQRvpYbIw1X7MQp/0OPFTfp5EboZcNsdc8428eCTwb+wQI9E3Wmd74WCT4JOKH5XuuM291X0G1otK4BympQ1jsfBC4vK33fOUIvgXQmoIVPG/x2OMgCf12XQL0ybhFFcj5HfuU0LUM5q/dp/Nrg92nau+Zj2inCpdkeoMo1gNzONMomaNG3C/F0j30zyr8F5nII/bTWpC39Wxi0s0FXgqhG6B5oulohXXfi/DKkwjeijK9diAUxTESkkP/b+E6uk7Kch3Pd4y3utHrknWdsYUdworZxub4iHIQc16NTyOTCPhxtBg95TAfQ7xzUC7lAqm360S/zKnBvYHA1maKuOSmbfkZR5WdH0byoxLPEGUKe8mvmR6lpzQnmLJQlqbz7cgLcqsk9c9FIeLgF5Q0Q6v9AZkKLgxbU8ftUaHJ59TtuyTla1RR4elki+AvIxbYeiQZOR3OhkN/42Hf8LvIYxYSKtA4ES/kV9TnitxYJLMfaiIssHx5CnwAuUGbIiaQ452ehUICQfoOItygFqC7m/oLg+eVljS6BlGVcPPAPiJC76NLnKXwvTgloi92GSt79exD/ZAzZ4IhB4B8ab6BL0BaI+/LKqhGoRqAaAacR+AOROFb4zI52TAAAAABJRU5ErkJggg=="); }
+  .s-eye { --m: url("data:image/png;base64,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"); }
+  /* Plugins tab, as the app draws it: a header per plugin, section titles, rows with a status dot. */
+  .pg-head { display: flex; align-items: center; gap: 7px; height: 22px; }
+  .pg-head .sym { width: 12px; height: 12px; color: #A9A8A1; }
+  .pg-head b { font-size: 12.5px; font-weight: 600; color: #fff; }
+  .pg-head .when { margin-left: auto; font-size: 10.5px; color: #8A8980; }
+  .pg-head .dots { font-size: 11px; letter-spacing: 1px; color: #8A8980; margin-left: 8px; }
+  .pg-sec { height: 18px; display: flex; align-items: flex-end; font: 600 9.5px var(--sf); letter-spacing: .06em; color: #8A8980; }
+  .pg-row { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 6px; border-radius: 7px; font-size: 12px; color: #fff; }
+  .pg-row:hover { background: rgba(255,255,255,.06); }
+  .pg-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .pg-row .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pg-row .d { font-size: 10.5px; color: #8A8980; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pg-foot { display: flex; gap: 14px; margin-top: 8px; font-size: 10.5px; color: #8A8980; }
+  .pg-foot span:last-child { margin-left: auto; }
+  .mini .sym { width: 13px; height: 13px; }
+  .mini .pk { font: 600 9px var(--sf); color: #fff; white-space: nowrap; }
   .clip { display: flex; gap: 10px; align-items: center; padding: 5px 12px 5px 28px; border-radius: 7px; font-size: 12px; color: #fff; }
   .clip.mono { font-family: var(--mono); font-size: 11.5px; }
   .clip.sel { background: rgba(57,135,229,.28); }
@@ -444,6 +464,7 @@
               <button class="tab" role="tab" data-view="usage" aria-selected="true" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="music" aria-selected="false" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></button>
+              <button class="tab" role="tab" data-view="plugins" aria-selected="false" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></button>
             </div>
             <div class="status"><span class="badge"><svg><use href="#claude"/></svg><b class="n-claude">2</b><svg><use href="#copilot"/></svg><b class="n-copilot"></b><span class="plus" hidden>+1</span></span><span>91% left</span><span class="sym s-gear gear" aria-hidden="true"></span></div>
           </div>
@@ -506,6 +527,17 @@
             <div class="clip mono"><span class="txt">SELECT id, total FROM orders WHERE total &gt; 100;</span><span class="app">TablePlus</span></div>
           </div>
 
+          <div class="view" data-name="plugins" hidden>
+            <div class="pg-head"><span class="sym s-branch" aria-hidden="true"></span><b>GitHub</b><span class="when">12 secs ago</span><span class="dots">•••</span></div>
+            <div class="pg-sec">ACTIONS</div>
+            <div class="pg-row"><i style="background:#E5534B"></i><span class="t">api · feat/billing · test</span><span class="d">failure · 2m</span></div>
+            <div class="pg-row"><i style="background:#FAB219"></i><span class="t">visor · main · pages build and deployment</span><span class="d">in_progress · now</span></div>
+            <div class="pg-row"><i style="background:#0CA30C"></i><span class="t">web · main · build</span><span class="d">success · 18m</span></div>
+            <div class="pg-sec">REVIEW REQUESTED</div>
+            <div class="pg-row"><i style="background:#3987E5"></i><span class="t">#482 Add Stripe webhooks</span><span class="d">visor · 1h</span></div>
+            <div class="pg-foot"><span>Plugins folder</span><span>How to write one</span><span>Reload</span></div>
+          </div>
+
           <div class="view" data-name="music" hidden>
             <div class="song"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
               <div class="title"><b>Lo-fi for Focus · 60 minutes of calm piano</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
@@ -531,6 +563,7 @@
       <button type="button" data-try="tokens">Tokens</button>
       <button type="button" data-try="music">Music</button>
       <button type="button" data-try="clipboard">Clipboard</button>
+      <button type="button" data-try="plugins">Plugins</button>
     </div>
     <span>Try it: pick a panel, or hover the notch.</span>
   </div>
@@ -627,6 +660,31 @@
       </div>
     </figure>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
+  </section>
+
+  <section>
+    <h2>Bring your own: plugins <span class="tag">New in 0.7</span></h2>
+    <p>Want the notch to watch something Visor doesn't? Write a plugin: a few lines of Lua in a folder. It gets its own section in the new <b>Plugins</b> tab, a badge on the closed notch while something needs you, and a peek when something happens. Visor draws it all, so plugins look like the rest of the notch and can't slow it down.</p>
+    <p>The first one ships with Visor: <b>GitHub</b>. It watches GitHub Actions on exactly the branches your agents are working on, with nothing to set up, and lists the pull requests waiting for your review. When a build breaks, the notch shows a red badge and tells you once. It works with github.com and GitHub Enterprise through your <code>gh</code> sign-in.</p>
+    <figure>
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-dusk"/></svg>
+        <div class="signals" style="grid-template-columns: repeat(3, 1fr)">
+          <div class="sig"><div class="strip"><div class="mini"><svg><use href="#claude"/></svg><span class="hw"></span><span class="sym s-xoct" style="color:#E5534B" aria-hidden="true"></span></div></div><h3>A build broke</h3><p>A red badge until it's green again.</p></div>
+          <div class="sig"><div class="strip"><div class="mini"><span class="sym s-xoct" style="color:#E5534B" aria-hidden="true"></span><span class="hw"></span><span class="pk">CI failed on main</span></div></div><h3>Told once</h3><p>A peek for each new failure, not every check.</p></div>
+          <div class="sig"><div class="strip"><div class="mini"><span></span><span class="hw"></span><span class="pk" style="color:#3987E5"><span class="sym s-eye" style="color:#3987E5;width:12px;height:12px;vertical-align:-2px" aria-hidden="true"></span> 3</span></div></div><h3>Reviews waiting</h3><p>Pull requests that need your eyes.</p></div>
+        </div>
+      </div>
+    </figure>
+    <p style="margin-top:22px">A plugin is a <code>plugin.json</code> and a <code>main.lua</code>. This one checks a build every two minutes; a check that finds nothing new is free:</p>
+<pre>visor.every(120, function()
+  local r = visor.http.get("https://api.github.com/repos/octocat/visor/actions/runs?per_page=1",
+                           { auth = "token", auth_host = "github.com" })
+  local run = r.json.workflow_runs[1]
+  visor.panel({ { title = "Actions", rows = {
+    { title = run.name, status = run.conclusion or run.status, url = run.html_url, time = run.updated_at } } } })
+  visor.badge(run.conclusion == "failure" and { icon = "xmark.octagon.fill", state = "bad" } or nil)
+end)</pre>
+    <div class="avail">Lua 5.4, sandboxed: only the sites a plugin names, sign-ins only through <code>gh</code>, 1Password or the Keychain, no files, no programs. <a href="https://github.com/tailamphat/visor/blob/main/docs/plugins.md">Writing Visor plugins</a> has the whole API.</div>
   </section>
 
   <section>
@@ -731,7 +789,7 @@
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 326], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136] };
+  const sizes = { closed: [300, 32], usage: [520, 326], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
