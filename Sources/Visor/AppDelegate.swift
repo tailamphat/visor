@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
         intro.play(on: screen) { [weak self] in
             guard let self else { return }
+            self.model.welcomeSettled = false
             self.model.welcome = true
             self.model.pinned = true
             self.notch.expand()

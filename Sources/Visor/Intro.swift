@@ -161,21 +161,39 @@ final class IntroController {
 /// What the notch says the first time: hello, what Visor does, and a way in.
 struct WelcomeView: View {
     let model: AppModel
-    static let height: CGFloat = 104
+    static let height: CGFloat = 112
 
     var body: some View {
+        let settled = model.welcomeSettled
         VStack(spacing: 6) {
-            Text("Hi, I'm Visor").font(.system(size: 21, weight: .bold))
-                .foregroundStyle(LinearGradient(colors: [.white, Color(hex: 0xFFE3D6), .white], startPoint: .leading, endPoint: .trailing))
-            Text("I live up here: your agents, usage, music and clipboard.")
-                .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+            // A focus pull: the letters start wide apart and blurred, then drift
+            // together as the blur clears.
+            HStack(spacing: settled ? -0.3 : 9) {
+                ForEach(Array("Hi, I'm Visor".enumerated()), id: \.offset) { _, letter in
+                    Text(String(letter))
+                }
+            }
+            .font(.system(size: 28, weight: .light))
+            .foregroundStyle(.white)
+            .blur(radius: settled ? 0 : 8)
+            .opacity(settled ? 1 : 0)
+            .animation(.timingCurve(0.2, 0.7, 0.2, 1, duration: 1.4), value: settled)
+            Group {
+                Text("I live up here: your agents, usage, music and clipboard.")
+                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
             // The Allow button's style and key: mint with dark text, Return presses it.
             Button { model.dismissWelcome() } label: {
                 Label { KeyHint(title: "Get started", key: "↩") } icon: { Image(systemName: "checkmark") }
             }
             .buttonStyle(ConsentButton(kind: .allow))
             .padding(.top, 6)
+            }
+            // The line and the button follow once the title has landed.
+            .opacity(settled ? 1 : 0)
+            .offset(y: settled ? 0 : 6)
+            .animation(.easeOut(duration: 0.6).delay(1.3), value: settled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { DispatchQueue.main.async { model.welcomeSettled = true } }
     }
 }

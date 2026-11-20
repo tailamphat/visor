@@ -86,6 +86,8 @@ final class AppModel {
     var pinned = false
     /// The first-launch hello is in the open notch, until "Get started".
     var welcome = false
+    /// The hello's title has come into focus (its entrance animation ran).
+    var welcomeSettled = false
 
     /// "Get started": the hello goes and the notch closes.
     func dismissWelcome() {

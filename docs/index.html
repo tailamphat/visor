@@ -227,7 +227,7 @@
   /* The Plugins tab, from PluginsView: one block per plugin, 16 pt apart, 6 pt inside; a 22 pt header row
      (icon, name, how long ago, menu); sections 14 pt; rows 24 pt with a status dot; the footer 26 pt.
      The panel stops at 402 pt and scrolls, like the app's. */
-  .view[data-name="plugins"] { height: 344px; display: flex; flex-direction: column; }
+  .view[data-name="plugins"]:not([hidden]) { height: 344px; display: flex; flex-direction: column; }
   .pg-scroll { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 16px; }
   .pg-block { display: flex; flex-direction: column; gap: 6px; flex: none; }
   .pg-head { display: flex; align-items: center; gap: 7px; height: 22px; flex: none; }
