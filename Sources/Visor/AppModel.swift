@@ -26,7 +26,7 @@ enum Tab: String, CaseIterable {
     var symbolSize: CGFloat { self == .plugins ? 13.5 : 12 }
 
     /// The tabs in the top bar. Bar is hidden for now; its code stays so it can come back.
-    /// Plugins joins them once a plugin is installed (AppModel.shownTabs).
+    /// Plugins sits on the right of the notch, once a plugin is installed.
     static let shown: [Tab] = [.agents, .usage, .music, .clipboard]
 }
 
@@ -169,8 +169,6 @@ final class AppModel {
     var pluginHover: String?
     /// The badges plugins want on the closed notch.
     var pluginBadges: [PluginBadge] { plugins.compactMap(\.output.badge) }
-    /// The top bar's tabs: Plugins appears once one is installed.
-    var shownTabs: [Tab] { plugins.isEmpty ? Tab.shown : Tab.shown + [.plugins] }
     /// The Agents tab as an office of little people instead of a list; remembered.
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }

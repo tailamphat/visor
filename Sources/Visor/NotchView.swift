@@ -496,8 +496,8 @@ struct ExpandedView: View {
 
     private var fullHeader: some View {
         HStack(spacing: 0) {
-            // However many tabs, they stay left of the camera, where they can be seen.
-            tabs(model.shownTabs[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))
+            // The main tabs left of the camera; they shrink only if ever more than fit.
+            tabs(Tab.shown[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))
             .padding(.leading, NotchLayout.inset)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
@@ -524,6 +524,10 @@ struct ExpandedView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Connected accounts")
+                }
+                // Plugins sit apart from the built-in tabs, at the far right, once one is installed.
+                if !model.plugins.isEmpty {
+                    tabs([Tab.plugins][...])
                 }
             }
             .padding(.trailing, NotchLayout.inset)
