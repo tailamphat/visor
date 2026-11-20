@@ -177,6 +177,10 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// How the office looks: the night studio or a film world; remembered.
+    var officeWorld = OfficeWorld(saved: UserDefaults.standard.string(forKey: "officeWorld")) {
+        didSet { UserDefaults.standard.set(officeWorld.rawValue, forKey: "officeWorld") }
+    }
     /// The Usage tab's Tokens view instead of plan limits; remembered.
     var usageTokens = UserDefaults.standard.bool(forKey: "usageTokens") {
         didSet { UserDefaults.standard.set(usageTokens, forKey: "usageTokens") }

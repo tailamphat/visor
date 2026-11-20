@@ -23,6 +23,7 @@ struct OfficeView: View {
             HStack(spacing: 0) {
                 summary(scene)
                 Spacer(minLength: 8)
+                worldMenu
                 AgentsViewSwitch(model: model)
             }
             .frame(height: Self.barHeight)
@@ -30,6 +31,28 @@ struct OfficeView: View {
             OfficeCanvas(model: model)
                 .frame(width: CGFloat(OfficeLayout.width * Self.scale), height: CGFloat(scene.layout.height * Self.scale))
         }
+    }
+
+    /// Picks the office's world: the night studio or a film.
+    private var worldMenu: some View {
+        Menu {
+            ForEach(OfficeWorld.allCases, id: \.self) { world in
+                Button {
+                    model.officeWorld = world
+                } label: {
+                    if world == model.officeWorld { Label(world.title, systemImage: "checkmark") } else { Text(world.title) }
+                }
+            }
+        } label: {
+            Image(systemName: "paintpalette")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .padding(.trailing, 8)
+        .help("Office world: \(model.officeWorld.title)")
     }
 
     private func summary(_ scene: OfficeScene) -> some View {
@@ -53,7 +76,7 @@ struct OfficeCanvas: NSViewRepresentable {
 
     func updateNSView(_ view: OfficeLayerView, context: Context) {
         view.focus = model.focusAgent
-        view.show(Office.place(model.board.sessions), sessions: model.board.sessions)
+        view.show(Office.place(model.board.sessions), sessions: model.board.sessions, world: model.officeWorld)
     }
 }
 
@@ -61,6 +84,7 @@ final class OfficeLayerView: NSView {
     var focus: ((AgentSession) -> Void)?
     private let s = CGFloat(OfficeView.scale)
     private var scene: OfficeScene?
+    private var world: OfficeWorld = .studio
     private var sessions: [String: AgentSession] = [:]
     private let room = CALayer()
     private let sofaFront = CALayer()
@@ -128,8 +152,15 @@ final class OfficeLayerView: NSView {
 
     // MARK: Scene
 
-    func show(_ next: OfficeScene, sessions list: [AgentSession]) {
+    func show(_ next: OfficeScene, sessions list: [AgentSession], world nextWorld: OfficeWorld) {
         sessions = Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        if nextWorld != world {
+            // Another world: a new room and a new cast, placed at once.
+            world = nextWorld
+            scene = nil
+            for person in people.values { [person.body, person.screen].forEach { $0.removeFromSuperlayer() } }
+            people = [:]
+        }
         let old = scene
         guard next != old else { return }
         scene = next
@@ -137,9 +168,9 @@ final class OfficeLayerView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         room.frame = CGRect(x: 0, y: 0, width: OfficeLayout.width * s, height: layout.height * s)
-        room.contents = OfficeRoom.image(next)
+        room.contents = OfficeRoom.image(next, world: world)
         sofaFront.frame = room.frame
-        sofaFront.contents = OfficeRoom.sofaFront(layout)
+        sofaFront.contents = world == .studio ? OfficeRoom.sofaFront(layout) : nil
         sofaFront.zPosition = CGFloat(layout.stationTop + 22.5)
         for ring in rings {
             ring.position = point(OfficePoint(x: OfficeLayout.webX, y: layout.stationTop + 9), in: layout)
@@ -160,7 +191,7 @@ final class OfficeLayerView: NSView {
                 if before.feet != agent.feet && !snap { walk(person, from: before.access, to: agent, in: layout) }
                 else if before != agent || snap { settle(person, in: layout) }
             } else {
-                let person = Person(agent, look: PixelPerson.look(for: agent))
+                let person = Person(agent, look: PixelPerson.look(for: agent, world: world, figure: figure(for: agent.id)))
                 people[agent.id] = person
                 build(person)
                 if old == nil || snap { settle(person, in: layout) }
@@ -182,6 +213,15 @@ final class OfficeLayerView: NSView {
         if let hovered, let person = people[hovered] { showTip(person) } else { hideTip() }
     }
 
+    /// A film world's character for a new session: its own, unless someone in
+    /// the room already plays it.
+    private func figure(for id: String) -> PixelPerson.Figure? {
+        let cast = PixelPerson.Figure.cast(world)
+        guard !cast.isEmpty else { return nil }
+        let taken = Set(people.values.compactMap { $0.look.figure }.compactMap { cast.firstIndex(of: $0) })
+        return cast[OfficeCast.pick(id: id, count: cast.count, taken: taken)]
+    }
+
     /// Room pixels (y down) to layer points (y up).
     private func point(_ p: OfficePoint, in layout: OfficeLayout) -> CGPoint {
         CGPoint(x: p.x * s, y: (layout.height - p.y) * s)
@@ -197,6 +237,13 @@ final class OfficeLayerView: NSView {
         person.shade.frame = CGRect(x: body.bounds.midX - 8, y: -2.5, width: 16, height: 5)
         person.shade.cornerRadius = 2.5
         person.shade.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        if person.look.figure != nil {
+            // Film characters keep their costume, so a ring at their feet says whose session it is.
+            let color = AgentStyle.mark(person.agent.agent)
+            person.shade.backgroundColor = color.withAlphaComponent(0.3).cgColor
+            person.shade.borderColor = color.cgColor
+            person.shade.borderWidth = 1
+        }
         body.addSublayer(person.shade)
         person.sprite.frame = body.bounds
         person.sprite.magnificationFilter = .nearest
@@ -682,6 +729,29 @@ struct Pixels {
         context.restoreGState()
     }
 
+    /// A filled shape through room-pixel points (y down).
+    func polygon(_ points: [(Double, Double)], _ color: NSColor) {
+        guard let first = points.first else { return }
+        context.saveGState()
+        context.setShouldAntialias(true)
+        context.setFillColor(color.cgColor)
+        context.move(to: CGPoint(x: first.0, y: Double(height) - first.1))
+        for point in points.dropFirst() { context.addLine(to: CGPoint(x: point.0, y: Double(height) - point.1)) }
+        context.closePath()
+        context.fillPath()
+        context.restoreGState()
+    }
+
+    /// A ring or arc outline, `width` room pixels thick.
+    func ring(_ x: Double, _ y: Double, radius: Double, width: Double, _ color: NSColor) {
+        context.saveGState()
+        context.setShouldAntialias(true)
+        context.setStrokeColor(color.cgColor)
+        context.setLineWidth(width)
+        context.strokeEllipse(in: CGRect(x: x - radius, y: Double(height) - y - radius, width: 2 * radius, height: 2 * radius))
+        context.restoreGState()
+    }
+
     var image: CGImage? { context.makeImage() }
 }
 
@@ -696,6 +766,50 @@ enum PixelPerson {
         var shirt: UInt32
         var hair: UInt32
         var skin: UInt32
+        /// A film character in place of the usual person, in a film world.
+        var figure: Figure? = nil
+        var world: OfficeWorld = .studio
+    }
+
+    /// The film worlds' characters: the usual sprite in their colours, with a
+    /// few pixels of what makes each one (ears, buns, a visor, a saber).
+    enum Figure: String, CaseIterable {
+        case vader, yoda, r2, threepio, chewie, trooper, luke, leia, han, obiwan
+        case kirk, spock, mccoy, scotty, uhura, sulu, picard, data, worf, geordi
+
+        static func cast(_ world: OfficeWorld) -> [Figure] {
+            switch world {
+            case .studio: return []
+            case .galaxy: return [.vader, .yoda, .r2, .threepio, .chewie, .trooper, .luke, .leia, .han, .obiwan]
+            case .starfleet: return [.kirk, .spock, .mccoy, .scotty, .uhura, .sulu, .picard, .data, .worf, .geordi]
+            }
+        }
+
+        /// Shirt, hair and skin.
+        var colors: (UInt32, UInt32, UInt32) {
+            switch self {
+            case .vader: return (0x2A2A30, 0x1C1C22, 0x1C1C22)
+            case .yoda: return (0x8C7458, 0x8FBF6E, 0x8FBF6E)
+            case .r2: return (0xF0EEE8, 0x3B63B8, 0xD9D6CE)
+            case .threepio: return (0xD9B048, 0xE8C25A, 0xE8C25A)
+            case .chewie: return (0x8E6440, 0x8E6440, 0x8E6440)
+            case .trooper: return (0xF0EEE8, 0xF0EEE8, 0xF0EEE8)
+            case .luke: return (0xEAE6DC, 0xD9B46A, 0xF1C7A1)
+            case .leia: return (0xF2EFE8, 0x5A3A22, 0xF6D7BC)
+            case .han: return (0xEAE6DC, 0x5A3A22, 0xD8A27A)
+            case .obiwan: return (0x8C7458, 0xB8A890, 0xF1C7A1)
+            case .kirk: return (0xE2B43C, 0x7A4A2A, 0xF1C7A1)
+            case .spock: return (0x5A8FD0, 0x1E1E26, 0xF1D9B8)
+            case .mccoy: return (0x5A8FD0, 0x4A3020, 0xF1C7A1)
+            case .scotty: return (0xC8463C, 0x3A2A22, 0xF1C7A1)
+            case .uhura: return (0xC8463C, 0x1E1612, 0x7A4E31)
+            case .sulu: return (0xE2B43C, 0x1E1E1E, 0xD8A27A)
+            case .picard: return (0x1E1E26, 0xF1C7A1, 0xF1C7A1)
+            case .data: return (0x1E1E26, 0x2A2420, 0xEEE3C2)
+            case .worf: return (0x1E1E26, 0x2A1E18, 0x7A4E31)
+            case .geordi: return (0x1E1E26, 0x1E1612, 0x7A4E31)
+            }
+        }
     }
 
     enum Pose: Hashable {
@@ -707,9 +821,13 @@ enum PixelPerson {
 
     /// A look that stays the same for a session: its tool's colour, and hair and
     /// skin picked from its id.
-    static func look(for agent: OfficeAgent) -> Look {
+    static func look(for agent: OfficeAgent, world: OfficeWorld = .studio, figure: Figure? = nil) -> Look {
+        if let figure {
+            let (shirt, hair, skin) = figure.colors
+            return Look(shirt: shirt, hair: hair, skin: skin, figure: figure, world: world)
+        }
         let seed = agent.id.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xFFFFFF }
-        return Look(shirt: AgentStyle.mark(agent.agent).hexValue, hair: hairs[seed % hairs.count], skin: skins[(seed / 7) % skins.count])
+        return Look(shirt: AgentStyle.mark(agent.agent).hexValue, hair: hairs[seed % hairs.count], skin: skins[(seed / 7) % skins.count], world: world)
     }
 
     static func pose(for agent: OfficeAgent) -> (Pose, CFTimeInterval) {
@@ -727,7 +845,7 @@ enum PixelPerson {
     /// The frames of a pose, facing you (`front`) or facing away. Still poses
     /// that face you blink now and then: a long open frame, a short closed one.
     static func frames(_ look: Look, pose: Pose, front: Bool) -> [CGImage] {
-        let key = "\(look.shirt)-\(look.hair)-\(look.skin)-\(pose)-\(front)"
+        let key = "\(look.shirt)-\(look.hair)-\(look.skin)-\(look.figure?.rawValue ?? "")-\(pose)-\(front)"
         if let hit = cache[key] { return hit }
         let images: [CGImage]
         switch pose {
@@ -747,6 +865,7 @@ enum PixelPerson {
 
     private static func draw(_ look: Look, pose: Pose, front: Bool, frame: Int, blink: Bool) -> CGImage? {
         guard let p = Pixels(width: Int(width), height: Int(height)) else { return nil }
+        if look.figure == .r2 { droid(p, sits: pose == .sitting || pose == .dozing, front: front, step: frame == 1); return p.image }
         let shirt = NSColor(hex: look.shirt)
         let hair = NSColor(hex: look.hair), skin = NSColor(hex: look.skin), line = NSColor(hex: 0x141018)
         let x = 5.0, y = height
@@ -785,13 +904,104 @@ enum PixelPerson {
             p.fill(x - 3, y - 14 + by, 7, 7, hair)
             if pose == .reading { p.fill(x - 2, y - 8, 5, 2, 0xE9E3C8) }
         }
+        if let figure = look.figure {
+            details(figure, p, x: x, y: y, by: by, front: front, blink: blink, standing: !sits, skin: skin, hair: hair)
+        }
         return p.image
+    }
+
+    /// What makes each film character, on top of the usual sprite.
+    private static func details(_ figure: Figure, _ p: Pixels, x: Double, y: Double, by: Double, front: Bool, blink: Bool,
+                                standing: Bool, skin: NSColor, hair: NSColor) {
+        let line = NSColor(hex: 0x141018)
+        let eyes = { (color: UInt32) in
+            guard front, !blink else { return }
+            p.fill(x - 2, y - 11 + by, 2, 2, color); p.fill(x + 1, y - 11 + by, 2, 2, color)
+        }
+        let noBlush = { guard front else { return }; p.fill(x - 3, y - 9 + by, 1, 1, skin); p.fill(x + 3, y - 9 + by, 1, 1, skin) }
+        let saber = { (color: UInt32) in
+            guard standing else { return }
+            p.fill(x + 5, y - 11, 1, 6, color); p.fill(x + 5, y - 5, 1, 2, 0x8F939C)
+        }
+        // Starfleet badge on the chest, and the later uniforms' coloured shoulders.
+        let badge = { p.fill(x + 1, y - 5 + by, 1, 1, 0xE8C46A) }
+        let shoulders = { (color: UInt32) in p.fill(x - 2, y - 6 + by, 5, 1, color) }
+        switch figure {
+        case .vader:
+            p.fill(x - 5, y - 8 + by, 11, 1, line)                      // the helmet's flare
+            if front {
+                p.fill(x - 2, y - 11 + by, 2, 1, 0x6A6A78); p.fill(x + 1, y - 11 + by, 2, 1, 0x6A6A78)
+                p.fill(x - 1, y - 9 + by, 3, 1, 0x4A4A56)
+                p.fill(x - 1, y - 5 + by, 1, 1, 0xE05A5A); p.fill(x, y - 5 + by, 1, 1, 0x6CC487)
+            }
+            noBlush(); saber(0xFF3B3B)
+        case .yoda:
+            p.fill(x - 5, y - 12 + by, 1, 2, skin); p.fill(x + 5, y - 12 + by, 1, 2, skin)
+            if front { p.fill(x - 3, y - 14 + by, 7, 1, skin) }
+        case .r2: break
+        case .threepio:
+            eyes(0xFFE9A0); noBlush()
+        case .chewie:
+            if front { p.fill(x - 1, y - 9 + by, 3, 1, 0xB08A62) }
+            p.fill(x - 2, y - 6 + by, 1, 1, 0x3A2A1E); p.fill(x - 1, y - 5 + by, 1, 1, 0xC9C6BE); p.fill(x, y - 4 + by, 1, 1, 0x3A2A1E)
+            noBlush()
+        case .trooper:
+            if front && !blink { p.fill(x - 2, y - 11 + by, 2, 2, line); p.fill(x + 1, y - 11 + by, 2, 2, line); p.fill(x - 1, y - 8 + by, 3, 1, line) }
+            noBlush()
+        case .luke:
+            saber(0x4CE06A)
+        case .leia:
+            p.fill(x - 5, y - 12 + by, 1, 3, hair); p.fill(x + 5, y - 12 + by, 1, 3, hair)
+        case .han:
+            p.fill(x - 2, y - 6 + by, 1, 3, 0x1E1E26); p.fill(x + 2, y - 6 + by, 1, 3, 0x1E1E26)
+        case .obiwan:
+            if front { p.fill(x - 2, y - 8 + by, 5, 1, 0xD9D2C4) }
+            saber(0x4FA8FF)
+        case .kirk, .mccoy, .sulu:
+            badge()
+        case .spock:
+            p.fill(x - 5, y - 12 + by, 1, 2, skin); p.fill(x + 5, y - 12 + by, 1, 2, skin)
+            p.fill(x - 5, y - 13 + by, 1, 1, skin); p.fill(x + 5, y - 13 + by, 1, 1, skin)
+            badge()
+        case .scotty:
+            if front { p.fill(x - 1, y - 8 + by, 3, 1, 0x3A2A22) }
+            badge()
+        case .uhura:
+            p.fill(x - 1, y - 16 + by, 3, 1, hair)
+            badge()
+        case .picard:
+            shoulders(0x8E2A34); badge()
+            p.fill(x - 3, y - 12 + by, 1, 2, 0x8A8A90); p.fill(x + 3, y - 12 + by, 1, 2, 0x8A8A90)
+        case .data:
+            shoulders(0xD9A94A); badge(); eyes(0xD99A1E); noBlush()
+        case .worf:
+            shoulders(0xD9A94A); badge()
+            p.fill(x - 1, y - 13 + by, 3, 1, 0x5A3A26)
+            p.fill(x - 4, y - 11 + by, 1, 4, hair); p.fill(x + 4, y - 11 + by, 1, 4, hair)
+            p.fill(x - 2, y - 5 + by, 1, 1, 0xC9A85A); p.fill(x - 1, y - 4 + by, 1, 1, 0xC9A85A)
+        case .geordi:
+            shoulders(0xD9A94A); badge()
+            if front { p.fill(x - 3, y - 11 + by, 7, 1, 0xC9C6BE); p.fill(x - 2, y - 11 + by, 1, 1, 0x4FA8FF); p.fill(x + 1, y - 11 + by, 1, 1, 0x4FA8FF) }
+        }
+    }
+
+    /// R2-D2: a white barrel with blue panels under a silver dome, on two legs.
+    private static func droid(_ p: Pixels, sits: Bool, front: Bool, step: Bool) {
+        let x = 5.0, y = height, line = NSColor(hex: 0x141018)
+        p.fill(x - 5, y - 9, 2, 9, line); p.fill(x + 3, y - 9, 2, 9, line)
+        p.fill(x - 4, y - 8, 1, 7, 0xE8E6E0); p.fill(x + 4, y - 8, 1, 7, 0xE8E6E0)
+        p.fill(x - 3, y - 11, 7, 10, line); p.fill(x - 2, y - 10, 5, 8, 0xF0EEE8)
+        p.fill(x - 2, y - 8, 5, 1, 0x3B63B8); p.fill(x - 1, y - 6, 1, 2, 0x3B63B8); p.fill(x + 1, y - 6, 1, 1, 0x8A93A3)
+        p.fill(x - 3, y - 15, 7, 4, line); p.fill(x - 2, y - 14, 5, 3, 0xD9D6CE)
+        p.fill(x - 2, y - 13, 2, 1, 0x3B63B8)
+        if front { p.fill(x, y - 13, 1, 1, step ? 0xE05A5A : 0x1E1E28); p.fill(x + 1, y - 13, 1, 1, 0x3B63B8) }
     }
 
     /// A screen at a table: 6 x 4 room pixels.
     static func screen(_ look: Look, activity: OfficeActivity?) -> [CGImage] {
-        let key = "screen-\(look.shirt)-\(String(describing: activity))"
+        let key = "screen-\(look.world)-\(look.shirt)-\(String(describing: activity))"
         if let hit = cache[key] { return hit }
+        if look.world != .studio { return filmScreen(look.world, activity: activity, key: key) }
         let shirt = NSColor(hex: look.shirt), dark = shirt.blended(withFraction: 0.35, of: .black) ?? shirt
         var images: [CGImage] = []
         switch activity {
@@ -821,13 +1031,49 @@ enum PixelPerson {
     }
 }
 
+extension PixelPerson {
+    /// A film world's screen: a blue holo console in the galaxy, a black panel
+    /// of pastel bars on the starship. Lines scroll while it types, a dot moves
+    /// while it thinks.
+    fileprivate static func filmScreen(_ world: OfficeWorld, activity: OfficeActivity?, key: String) -> [CGImage] {
+        let galaxy = world == .galaxy
+        let back: UInt32 = galaxy ? 0x1E4A66 : 0x0E0F1C
+        let ink: [UInt32] = galaxy ? [0xBFEFFF, 0x7CD0F5] : [0xE2A050, 0x9C8CC9, 0xD98A7A, 0x6F8FCF]
+        var images: [CGImage] = []
+        let frames = activity == .typing || activity == .thinking ? 3 : 1
+        for f in 0..<frames {
+            guard let p = Pixels(width: 6, height: 4) else { break }
+            p.fill(0, 0, 6, 4, back)
+            switch activity {
+            case .typing:
+                for k in 0..<2 { p.fill(1, 1 + Double(k) * 2, Double(1 + (f + k * 2) % 4), 1, ink[(f + k) % ink.count]) }
+            case .thinking:
+                p.fill(1 + Double(f) * 2, 2, 1, 1, ink[0])
+            default:
+                if galaxy { p.fill(2, 1, 2, 2, 0x2E6A8A) } else { p.fill(1, 1, 2, 1, 0x3A2E1C); p.fill(1, 2, 3, 1, 0x2A2440) }
+            }
+            if let image = p.image { images.append(image) }
+        }
+        cache[key] = images
+        return images
+    }
+}
+
 /// The room behind the people, a cozy studio at night in soft clay: a warm
 /// wooden floor, a lamp pooling light on each table, rounded furniture lit
 /// from above with soft shadows. Drawn at 2x so the curves stay smooth.
 enum OfficeRoom {
     static let detail = 2
 
-    static func image(_ scene: OfficeScene) -> CGImage? {
+    static func image(_ scene: OfficeScene, world: OfficeWorld) -> CGImage? {
+        switch world {
+        case .studio: return studio(scene)
+        case .galaxy: return FilmRoom.galaxy(scene)
+        case .starfleet: return FilmRoom.starfleet(scene)
+        }
+    }
+
+    private static func studio(_ scene: OfficeScene) -> CGImage? {
         let layout = scene.layout
         guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: detail) else { return nil }
         let w = OfficeLayout.width, h = layout.height
@@ -937,7 +1183,7 @@ enum OfficeRoom {
         return p.image
     }
 
-    private static func plant(_ p: Pixels, _ x: Double, _ y: Double) {
+    static func plant(_ p: Pixels, _ x: Double, _ y: Double) {
         p.shadow(x + 1, y + 6, 7, 5, radius: 2)
         p.clay(x + 1, y + 6, 7, 5, radius: 2, top: 0xB07850, bottom: 0x7A4E31)
         p.round(x, y + 1, 9, 6, radius: 3, NSColor(hex: 0x2F7A3E))

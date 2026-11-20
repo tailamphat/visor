@@ -30,7 +30,7 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on their own socket, `~/Library/Application Support/Visor/hook-debug.sock`, never the real `hook.sock`, so a test build can't receive (or answer) real agent requests: while it runs, agents ask in their own terminal. Never send `_decide` to the real socket. The debug socket also accepts extra messages:
 
-- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts
+- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
 - `{"event":"_musicCommand","raw":{"command":"playPause|next|previous"}}` presses a music button
