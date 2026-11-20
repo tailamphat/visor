@@ -511,7 +511,10 @@ final class OfficeLayerView: NSView {
             let top = (layout.height - island.y + 15) * s
             let font = NSFont.systemFont(ofSize: 7, weight: .bold)
             let fits = { (name: String) in NSAttributedString(string: name, attributes: [.font: font]).size().width <= width }
-            let name = [island.total > 1 ? "\(island.agent.uppercased()) · \(island.total)" : nil, island.agent.uppercased()]
+            // More sessions than seats: the rest are counted on the label ("· 28 +20").
+            let extra = island.total > island.seats ? " +\(island.total - island.seats)" : ""
+            let name = [island.total > 1 ? "\(island.agent.uppercased()) · \(island.total)\(extra)" : nil,
+                        island.total > 1 ? "\(island.agent.uppercased()) · \(island.total)" : nil, island.agent.uppercased()]
                 .compactMap { $0 }.first(where: fits)
             if let name {
                 let label = text(name, size: 7, color: color, weight: .bold)

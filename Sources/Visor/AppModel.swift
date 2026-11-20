@@ -177,6 +177,11 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// The Agents list's one clock: every card's time reads it, and one timer
+    /// moves it each second only while the list is on screen.
+    var agentsNow = Date()
+    /// The Agents list shows every session, past the cap of 8 cards.
+    var agentsShowAll = false
     /// The office's world picker is open over the room.
     var officePicker = false
     /// How the office looks: the night studio or a film world; remembered.

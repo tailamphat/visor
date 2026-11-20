@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VisorCore
 
@@ -38,5 +39,35 @@ struct OfficeWorldTests {
         #expect(resting.map(\.feet) == [OfficePoint(x: x - 15, y: t + 15), OfficePoint(x: x + 14, y: t + 15), OfficePoint(x: x, y: t + 24)])
         #expect(resting.allSatisfy { !$0.sits && !$0.facesUp && $0.access == $0.feet.y })
         #expect(gathered.agents.filter { $0.spot != .sofa } == scene.agents.filter { $0.spot != .sofa })
+    }
+}
+
+@Suite("Agents list digest")
+struct AgentsDigestTests {
+    func s(_ id: String, _ agent: String = "Claude Code", _ state: AgentState = .working("Thinking"), ago: Double = 0) -> AgentSession {
+        AgentSession(id: id, agent: agent, cwd: "/Users/me/\(id)", state: state, since: Date(timeIntervalSince1970: 1_000_000 - ago))
+    }
+
+    /// Up to the limit, everything shows as it does today.
+    @Test func smallListsShowEverything() {
+        let digest = AgentsDigest(sessions: (0..<8).map { s("s\($0)") }, limit: 8)
+        #expect(!digest.capped && digest.top.count == 8 && digest.more == 0)
+    }
+
+    /// Past it: whoever needs you first, then the busy ones, then the most recent;
+    /// the rest are counted per tool, and idle ones are folded per tool.
+    @Test func bigListsShowWhatMattersFirst() {
+        var list = (0..<20).map { s("work\($0)", $0 % 3 == 0 ? "Copilot CLI" : "Claude Code", ago: Double($0)) }
+        list += (0..<10).map { s("idle\($0)", "Claude Code", .idle, ago: 100) }
+        list.append(s("asks", "Claude Code", .needsApproval("Bash: git push"), ago: 500))
+        let digest = AgentsDigest(sessions: list, limit: 8)
+        #expect(digest.capped)
+        #expect(digest.top.first?.id == "asks")
+        #expect(digest.top.count == 8 && digest.top.dropFirst().allSatisfy { $0.isActive })
+        #expect(digest.top.dropFirst().map(\.id) == (0..<7).map { "work\($0)" }, "the most recent busy ones")
+        #expect(digest.more == 23)
+        #expect(digest.byTool.map(\.agent) == ["Claude Code", "Copilot CLI"])
+        #expect(digest.byTool.map(\.count) == [24, 7])
+        #expect(digest.idle.map(\.agent) == ["Claude Code"] && digest.idle.map(\.count) == [10])
     }
 }

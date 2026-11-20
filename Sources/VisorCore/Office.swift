@@ -69,27 +69,27 @@ public struct OfficeLayout: Equatable, Sendable {
     public let islands: [OfficeIsland]
     public let rows: Int
 
-    /// Tables for each tool's sessions, in order. A tool with more sessions
-    /// than a table holds gets another; tables past the second row are left out.
+    /// The most seats at one tool's table; the rest are counted on its label.
+    public static let seatsPerTable = 8
+
+    /// One table per tool, in order, with up to `seatsPerTable` seats, so a busy
+    /// tool never pushes another out of the room. Tables past the second row are
+    /// left out.
     public init(groups: [(agent: String, count: Int)]) {
         var islands: [OfficeIsland] = []
         var x = Self.margin, row = 0
-        placing: for (agent, count) in groups {
-            var left = count
-            while left > 0 {
-                let seats = min(left, Self.maxColumns * 2)
-                var island = OfficeIsland(agent: agent, x: x, y: 0, columns: (seats + 1) / 2, seats: seats, total: count)
-                if x > Self.margin && x + island.width > Self.width - Self.margin {
-                    row += 1
-                    x = Self.margin
-                    island.x = x
-                }
-                guard row < Self.maxRows else { break placing }
-                island.y = Self.firstRow + Double(row) * Self.rowPitch
-                islands.append(island)
-                x += island.width + Self.gap
-                left -= seats
+        for (agent, count) in groups {
+            let seats = min(count, Self.seatsPerTable)
+            var island = OfficeIsland(agent: agent, x: x, y: 0, columns: (seats + 1) / 2, seats: seats, total: count)
+            if x > Self.margin && x + island.width > Self.width - Self.margin {
+                row += 1
+                x = Self.margin
+                island.x = x
             }
+            guard row < Self.maxRows else { break }
+            island.y = Self.firstRow + Double(row) * Self.rowPitch
+            islands.append(island)
+            x += island.width + Self.gap
         }
         self.islands = islands
         rows = max(1, (islands.last.map { Int(($0.y - Self.firstRow) / Self.rowPitch) } ?? 0) + 1)
@@ -194,6 +194,12 @@ public enum Office {
         }
     }
 
+    /// Who gets a seat first: sessions that need you, then busy ones, then the rest.
+    static func rank(_ session: AgentSession) -> Int {
+        if session.state.attention != nil { return 0 }
+        return session.isActive ? 1 : 2
+    }
+
     public static func place(_ sessions: [AgentSession]) -> OfficeScene {
         let ordered = sessions.enumerated().sorted { a, b in
             let ra = (toolRank[a.element.agent] ?? toolRank.count, a.element.agent)
@@ -206,17 +212,16 @@ public enum Office {
         }
         let layout = OfficeLayout(groups: groups)
 
-        // Seat each tool's sessions at its tables, in order.
+        // Seat each tool's sessions at its table: whoever needs you first, then
+        // the busy ones, then the rest in order, until the seats run out.
         var seats: [(session: AgentSession, seat: (feet: OfficePoint, facesUp: Bool, access: Double, screen: OfficePoint))] = []
-        var next: [String: Int] = [:]
         let byAgent = Dictionary(grouping: ordered, by: \.agent)
         for island in layout.islands {
-            let start = next[island.agent, default: 0]
-            let list = byAgent[island.agent] ?? []
-            for i in 0..<island.seats where start + i < list.count {
-                seats.append((list[start + i], layout.seat(island, i)))
-            }
-            next[island.agent] = start + island.seats
+            let list = (byAgent[island.agent] ?? []).enumerated().sorted { a, b in
+                let ra = rank(a.element), rb = rank(b.element)
+                return ra != rb ? ra < rb : a.offset < b.offset
+            }.map(\.element)
+            for i in 0..<min(island.seats, list.count) { seats.append((list[i], layout.seat(island, i))) }
         }
 
         // Who goes where; the sofa seats three, the rest stay at their desks.

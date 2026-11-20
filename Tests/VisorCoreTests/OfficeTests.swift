@@ -25,20 +25,32 @@ struct OfficeTests {
         #expect(scene.layout.rows == 1 && scene.layout.height == 133)
 
         let wide = Office.place(sessions([("Claude Code", 11), ("Copilot CLI", 11)])).layout.islands
-        #expect(wide.map(\.x) == [8, 8] && wide.map(\.y) == [18, 84], "the second table doesn't fit beside the first")
+        #expect(wide.map(\.x) == [8, 112] && wide.map(\.y) == [18, 18], "two full tables fit side by side")
     }
 
-    /// A tool with more sessions than one table holds gets a second table.
-    @Test func bigGroupsSplit() {
-        let islands = Office.place(sessions([("Claude Code", 18)])).layout.islands
-        #expect(islands.map(\.seats) == [16, 2])
-        #expect(islands.map(\.total) == [18, 18])
+    /// One table per tool, up to 8 seats; the rest are counted on its label, so a
+    /// busy tool never pushes another out of the room.
+    @Test func oneTablePerToolWithEightSeats() {
+        let scene = Office.place(sessions([("Claude Code", 28), ("Copilot CLI", 14)]))
+        #expect(scene.layout.islands.map(\.agent) == ["Claude Code", "Copilot CLI"])
+        #expect(scene.layout.islands.map(\.seats) == [8, 8])
+        #expect(scene.layout.islands.map(\.total) == [28, 14])
+        #expect(scene.agents.count == 16 && scene.hidden == 26)
+        #expect(Set(scene.agents.map(\.agent)) == ["Claude Code", "Copilot CLI"], "every tool has its table")
     }
 
-    /// Two rows of tables at most; the rest are counted, not drawn.
+    /// Two rows of tables at most: four busy tools fit; past that, counted.
     @Test func overflowIsCounted() {
         let scene = Office.place(sessions([("Claude Code", 16), ("Copilot CLI", 16), ("Antigravity", 16)]))
-        #expect(scene.layout.rows == 2 && scene.agents.count == 32 && scene.hidden == 16)
+        #expect(scene.layout.rows == 2 && scene.agents.count == 24 && scene.hidden == 24)
+    }
+
+    /// Whoever needs you always gets a place, however busy their tool's table is.
+    @Test func waitingSessionsAlwaysGetASeat() {
+        var list = sessions([("Claude Code", 12)])
+        list[11].state = .needsApproval("Bash: git push")
+        let scene = Office.place(list)
+        #expect(scene.agents.contains { $0.id == list[11].id && $0.activity == .approval })
     }
 
     /// Seats alternate: top of the table facing you, bottom facing the table.
@@ -94,7 +106,8 @@ struct OfficeTests {
             session("e", "Claude Code", .done),
         ])
         let layout = scene.layout
-        let a = scene.agents[0], b = scene.agents[1], d = scene.agents[2], e = scene.agents[3]
+        func agent(_ id: String) -> OfficeAgent { scene.agents.first { $0.id == id }! }
+        let a = agent("a"), b = agent("b"), d = agent("d"), e = agent("e")
         #expect(a.feet.y == layout.stationLine && b.feet.y == layout.stationLine && a.facesUp)
         #expect(a.feet.x == OfficeLayout.terminalX - 5.5 && b.feet.x == OfficeLayout.terminalX + 5.5)
         #expect(d.feet == OfficePoint(x: OfficeLayout.youX, y: layout.corridor) && !d.facesUp)

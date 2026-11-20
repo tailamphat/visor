@@ -50,3 +50,46 @@ extension OfficeScene {
         return next
     }
 }
+
+/// The Agents list when many sessions run: the few that matter as cards, the
+/// rest counted. Up to `limit` sessions, everything shows as usual.
+public struct AgentsDigest: Equatable, Sendable {
+    /// More sessions than the limit: show `top` and a "more" row instead of everything.
+    public let capped: Bool
+    /// Whoever needs you, then the busy ones, then the most recent.
+    public let top: [AgentSession]
+    /// Sessions not in `top`.
+    public let more: Int
+    /// Every session per tool, the busiest tool first.
+    public let byTool: [(agent: String, count: Int)]
+    /// Idle and finished sessions not in `top`, per tool: folded into one line each.
+    public let idle: [(agent: String, count: Int)]
+
+    public init(sessions: [AgentSession], limit: Int = 8) {
+        capped = sessions.count > limit
+        let ranked = sessions.enumerated().sorted { a, b in
+            let ra = Office.rank(a.element), rb = Office.rank(b.element)
+            if ra != rb { return ra < rb }
+            if a.element.since != b.element.since { return a.element.since > b.element.since }
+            return a.offset < b.offset
+        }.map(\.element)
+        top = capped ? Array(ranked.prefix(limit)) : sessions
+        more = sessions.count - top.count
+        func counts(_ list: [AgentSession]) -> [(agent: String, count: Int)] {
+            var out: [(agent: String, count: Int)] = []
+            for s in list {
+                if let i = out.firstIndex(where: { $0.agent == s.agent }) { out[i].count += 1 } else { out.append((s.agent, 1)) }
+            }
+            return out
+        }
+        byTool = counts(sessions).enumerated().sorted { $0.element.count != $1.element.count ? $0.element.count > $1.element.count : $0.offset < $1.offset }.map(\.element)
+        let shown = Set(top.map(\.id))
+        idle = capped ? counts(sessions.filter { !shown.contains($0.id) && !$0.isActive }) : []
+    }
+
+    public static func == (a: AgentsDigest, b: AgentsDigest) -> Bool {
+        a.capped == b.capped && a.top == b.top && a.more == b.more
+            && a.byTool.map(\.agent) == b.byTool.map(\.agent) && a.byTool.map(\.count) == b.byTool.map(\.count)
+            && a.idle.map(\.agent) == b.idle.map(\.agent) && a.idle.map(\.count) == b.idle.map(\.count)
+    }
+}

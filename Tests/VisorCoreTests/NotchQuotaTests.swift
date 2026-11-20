@@ -104,6 +104,14 @@ struct PanelSpacingTests {
 
     /// The Agents list grows with its rows: a 15 pt label per agent group,
     /// a 44 pt row per session, 6 pt between them, nothing left over.
+    /// The capped list: a header, rows of two cards, the "more" row, and a line per folded tool.
+    @Test func agentsDigestIsAsTallAsItsRows() {
+        let card = NotchEars.agentCard, gap = 6.0
+        #expect(NotchEars.agentsDigest(cards: 8, idleLines: 0) == 17 + gap + 4 * card + 3 * gap + gap + 30)
+        #expect(NotchEars.agentsDigest(cards: 8, idleLines: 2) == 17 + gap + 4 * card + 3 * gap + gap + 30 + 2 * (gap + 26))
+        #expect(NotchEars.agentsDigest(cards: 7, idleLines: 0) == NotchEars.agentsDigest(cards: 8, idleLines: 0))
+    }
+
     /// Two cards a row per agent group, each with its header; the context ring
     /// sits inside the card, so it adds no height.
     @Test func agentsGridIsAsTallAsItsRows() {

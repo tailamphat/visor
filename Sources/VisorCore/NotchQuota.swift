@@ -155,6 +155,13 @@ public enum NotchEars {
         return blocks.reduce(0, +) + Double(groupSizes.count - 1) * gap
     }
 
+    /// The capped Agents list (`AgentsDigest`): a 17 pt header, rows of two cards,
+    /// a 30 pt "more" row, then a 26 pt line per tool with folded idle sessions.
+    public static func agentsDigest(cards: Int, idleLines: Int) -> Double {
+        let gap = 6.0, rows = Double((cards + 1) / 2)
+        return 17 + gap + rows * agentCard + max(rows - 1, 0) * gap + gap + 30 + Double(idleLines) * (gap + 26)
+    }
+
     /// One session's card in the Agents list.
     public static let agentCard = 54.0
 

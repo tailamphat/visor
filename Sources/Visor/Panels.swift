@@ -7,6 +7,11 @@ struct AgentsView: View {
     let model: AppModel
 
     var body: some View {
+        // The cards' one clock: ticks only while the list is on screen.
+        content.onReceive(Timer.publish(every: 1, tolerance: 0.2, on: .main, in: .common).autoconnect()) { model.agentsNow = $0 }
+    }
+
+    @ViewBuilder private var content: some View {
         if !model.hooksInstalled && !model.antigravityHooksInstalled && model.board.sessions.isEmpty {
             EmptyState(symbol: "link", title: "Connect your agents",
                        detail: "Adds Visor hooks so the notch can see Claude Code, Copilot CLI and Antigravity sessions, and ask you for approvals.",
@@ -14,6 +19,8 @@ struct AgentsView: View {
         } else if model.board.sessions.isEmpty {
             EmptyState(symbol: "sparkles", title: "No agents running",
                        detail: "Start claude, copilot or agy in a terminal and it shows up here.")
+        } else if AgentsDigest(sessions: model.board.sessions).capped && !model.agentsShowAll {
+            digest(AgentsDigest(sessions: model.board.sessions))
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -33,7 +40,12 @@ struct AgentsView: View {
                         .padding(.top, 2)
                         // Two cards a row.
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent) }
+                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model) }
+                        }
+                    }
+                    if AgentsDigest(sessions: model.board.sessions).capped {
+                        foldRow(Text("Show fewer").fontWeight(.semibold).foregroundStyle(Theme.question), dashed: true) {
+                            model.agentsShowAll = false
                         }
                     }
                     if !model.hooksInstalled {
@@ -43,6 +55,56 @@ struct AgentsView: View {
                 }
             }
         }
+    }
+
+    /// Many sessions: whoever needs you, then the busiest, then the most recent, as
+    /// cards (at most 8); the rest in one row, and idle ones folded per tool.
+    private func digest(_ digest: AgentsDigest) -> some View {
+        let waiting = model.board.sessions.filter { $0.state.attention != nil }.count
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("\(model.board.sessions.count) agents" + (waiting > 0 ? " · \(waiting) need\(waiting == 1 ? "s" : "") you" : ""))
+                    .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
+                    .foregroundStyle(Theme.textMuted)
+                Spacer(minLength: 8)
+                AgentsViewSwitch(model: model)
+            }
+            .frame(height: 15)
+            .padding(.top, 2)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model) }
+            }
+            foldRow(HStack(spacing: 8) {
+                Text("+\(digest.more) more").fontWeight(.semibold).foregroundStyle(Theme.textPrimary)
+                Text(digest.byTool.map { "\($0.count) \($0.agent)" }.joined(separator: " · "))
+                    .foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Spacer(minLength: 6)
+                Text("Show all").fontWeight(.semibold).foregroundStyle(Theme.question)
+            }, height: 30) { model.agentsShowAll = true }
+            ForEach(digest.idle, id: \.agent) { line in
+                foldRow(HStack(spacing: 6) {
+                    AgentMark(agent: line.agent, size: 10)
+                    Text("\(line.count) idle \(line.agent) session\(line.count == 1 ? "" : "s") folded").foregroundStyle(Theme.textMuted)
+                    Spacer(minLength: 6)
+                    Text("show").foregroundStyle(Theme.question)
+                }, dashed: true) { model.agentsShowAll = true }
+            }
+        }
+    }
+
+    /// A full-width row that does one thing: the "more" row, a folded tool, "Show fewer".
+    private func foldRow<Label: View>(_ label: Label, height: CGFloat = 26, dashed: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label
+                .font(.system(size: 11))
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(dashed ? Color.clear : Color.white.opacity(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(dashed ? Color.white.opacity(0.12) : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
@@ -95,12 +157,31 @@ struct AgentsViewSwitch: View {
     }
 }
 
+/// A card's time from the list's one clock: elapsed while busy, "4m ago" after.
+/// Only this small view redraws each second, not the card.
+struct AgentClock: View {
+    let session: AgentSession
+    let model: AppModel
+
+    var body: some View {
+        if session.isActive {
+            Text(OfficeLayerView.elapsed(since: session.since, now: model.agentsNow))
+                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
+        } else {
+            Text(ShortAgo.text(session.since, now: model.agentsNow))
+                .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
+        }
+    }
+}
+
 /// One session in the Agents list: the agent's round tile inside a ring that
 /// shows how full its context is (amber from 80%, with the percent under it),
 /// then the project and time, the app, and what it's doing. Half the panel wide.
 struct AgentCard: View {
     let session: AgentSession
     var focus: ((AgentSession) -> Void)?
+    /// For the shared clock (`AppModel.agentsNow`).
+    var model: AppModel?
 
     var body: some View {
         HStack(spacing: 9) {
@@ -178,15 +259,7 @@ struct AgentCard: View {
 
     /// Elapsed or relative time, on the project line.
     @ViewBuilder private var time: some View {
-        if session.isActive {
-            Text(session.since, style: .timer)
-                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
-        } else {
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                Text(ShortAgo.text(session.since, now: context.date))
-                    .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
-            }
-        }
+        if let model { AgentClock(session: session, model: model) }
     }
 
     private var dotColor: Color {

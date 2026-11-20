@@ -94,8 +94,14 @@ struct NotchLayout {
             }
             if model.tab == .agents && !model.board.sessions.isEmpty {
                 // Grow with the list: a header per agent group and rows of two cards, then scroll.
-                let sizes = AgentsView.groups(model.board.sessions).map(\.sessions.count)
-                var content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes))
+                let digest = AgentsDigest(sessions: model.board.sessions)
+                var content: CGFloat
+                if digest.capped && !model.agentsShowAll {
+                    content = CGFloat(NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count))
+                } else {
+                    let sizes = AgentsView.groups(model.board.sessions).map(\.sessions.count)
+                    content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
+                }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
@@ -500,7 +506,8 @@ struct AgentSlot: View {
                 .id("\(first.agent)\(String(describing: first.attention))")
                 .overlay(alignment: .bottomTrailing) {
                     if total > 1 {
-                        Text("\(total)").font(.system(size: 8, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                        // A tab-wide slot fits one digit and a plus; the exact counts are in the help.
+                        Text(total > 9 ? "9+" : "\(total)").font(.system(size: 8, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                             .offset(x: 6, y: 3)
                     }
                 }
