@@ -123,6 +123,8 @@ struct CompactMusicTests {
         // Two tabs (64), the panel inset (18) and a 6 pt gap to the notch,
         // plus the open flare (12), each side.
         #expect(NotchEars.musicWidth(notch: 174) == 174 + 2 * (64 + 18 + 6 + 12))
+        // With the Plugins tab, one more tab's room on each side, so it stays centred under the camera.
+        #expect(NotchEars.musicWidth(notch: 174, extraTabs: 1) == NotchEars.musicWidth(notch: 174) + 2 * 34)
     }
 }
 

@@ -55,7 +55,8 @@ struct NotchLayout {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.compactMusic {
-                return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width))), height: fitting(Self.compactMusicContent))
+                return CGSize(width: CGFloat(NotchEars.musicWidth(notch: Double(notch.width), extraTabs: model.plugins.isEmpty ? 0 : 1)),
+                              height: fitting(Self.compactMusicContent))
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
             if model.tab == .usage && model.usageTokens { return CGSize(width: Self.expandedSize.width, height: fitting(TokensView.height)) }
@@ -448,10 +449,10 @@ struct ExpandedView: View {
     @ViewBuilder private var header: some View {
         if model.compactMusic {
             HStack(spacing: 0) {
-                // Narrow panel: the four main tabs, two a side (Plugins is in the full panel).
+                // Narrow panel: the main tabs two a side, Plugins last on the right (the panel widens for it).
                 tabs(Tab.shown.prefix(2)).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(Tab.shown.dropFirst(2)).padding(.trailing, NotchLayout.inset)
+                tabs(Tab.shown.dropFirst(2) + (model.plugins.isEmpty ? [] : [Tab.plugins])).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
