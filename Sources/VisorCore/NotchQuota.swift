@@ -154,10 +154,8 @@ public enum NotchEars {
     /// music plays (two minimum ears and a 6 pt flare each side), but never too
     /// narrow for two tab buttons (64), the panel inset, a 6 pt gap to the
     /// notch and the open flare (12) each side.
-    /// `extraTabs` beyond the four (the Plugins tab) widen both sides by a tab
-    /// (30 + 4 apart), so the header still fits and stays centred.
-    public static func musicWidth(notch: Double, extraTabs: Int = 0) -> Double {
+    public static func musicWidth(notch: Double) -> Double {
         let closed = notch + 2 * minWidth + 2 * 6
-        return max((closed * 1.3).rounded(.up), notch + 2 * (64 + panelInset + 6 + 12)) + Double(2 * 34 * extraTabs)
+        return max((closed * 1.3).rounded(.up), notch + 2 * (64 + panelInset + 6 + 12))
     }
 }
