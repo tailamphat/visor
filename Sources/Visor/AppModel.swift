@@ -167,6 +167,10 @@ final class AppModel {
     var pluginActions: PluginService?
     /// The plugin row under the pointer.
     var pluginHover: String?
+    /// The Plugins tab's measured content height, for the panel's size.
+    var pluginsContentHeight: CGFloat = 0
+    /// A picker's choice, shown at once while the plugin handles it ("<plugin>/<action>").
+    var pluginChoices: [String: String] = [:]
     /// The badges plugins want on the closed notch.
     var pluginBadges: [PluginBadge] { plugins.compactMap(\.output.badge) }
     /// The Agents tab as an office of little people instead of a list; remembered.

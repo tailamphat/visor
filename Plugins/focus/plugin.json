@@ -1,0 +1,9 @@
+{
+  "id": "focus",
+  "name": "Focus",
+  "version": "1.0.0",
+  "icon": "timer",
+  "accent": "#2DD4BF",
+  "description": "A focus timer in the notch: pick 25, 50 or 90 minutes, start, and see this week's focus time.",
+  "settings": { "length": 50 }
+}

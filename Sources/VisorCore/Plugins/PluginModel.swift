@@ -17,10 +17,12 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
     public var secrets: [String: String]
     /// Setting name → default value; the user's settings.json overrides them.
     public var settings: [String: Any]
+    /// The plugin's one colour (0xRRGGBB) for charts, progress and its primary button.
+    public var accent: Int?
 
     public init(id: String, name: String, version: String = "0.0.0", icon: String = "puzzlepiece.extension",
                 description: String = "", main: String = "main.lua", hosts: [String] = [], secrets: [String: String] = [:],
-                settings: [String: Any] = [:]) {
+                settings: [String: Any] = [:], accent: Int? = nil) {
         self.id = id
         self.name = name
         self.version = version
@@ -30,11 +32,12 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
         self.hosts = hosts
         self.secrets = secrets
         self.settings = settings
+        self.accent = accent
     }
 
     public static func == (a: PluginManifest, b: PluginManifest) -> Bool {
         a.id == b.id && a.name == b.name && a.version == b.version && a.icon == b.icon && a.main == b.main
-            && a.hosts == b.hosts && a.secrets == b.secrets
+            && a.hosts == b.hosts && a.secrets == b.secrets && a.accent == b.accent
     }
 
     public static func parse(_ data: Data) throws -> PluginManifest {
@@ -52,7 +55,14 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
                               description: object["description"] as? String ?? "", main: main,
                               hosts: object["hosts"] as? [String] ?? [],
                               secrets: object["secrets"] as? [String: String] ?? [:],
-                              settings: object["settings"] as? [String: Any] ?? [:])
+                              settings: object["settings"] as? [String: Any] ?? [:],
+                              accent: (object["accent"] as? String).flatMap(Self.hexColor))
+    }
+
+    /// "#RRGGBB" as 0xRRGGBB.
+    static func hexColor(_ text: String) -> Int? {
+        guard text.count == 7, text.hasPrefix("#") else { return nil }
+        return Int(text.dropFirst(), radix: 16)
     }
 
     /// Whether `visor.http` may call this URL: https, to a listed host.
@@ -136,14 +146,17 @@ public struct PluginSection: Equatable, Sendable {
     }
 }
 
-/// Everything a plugin shows at the moment: its badge and its panel.
+/// Everything a plugin shows at the moment: its badge, and either a custom
+/// view or plain sections of rows.
 public struct PluginOutput: Equatable, Sendable {
     public var badge: PluginBadge?
     public var sections: [PluginSection]
+    public var view: PluginNode?
 
-    public init(badge: PluginBadge? = nil, sections: [PluginSection] = []) {
+    public init(badge: PluginBadge? = nil, sections: [PluginSection] = [], view: PluginNode? = nil) {
         self.badge = badge
         self.sections = sections
+        self.view = view
     }
 }
 

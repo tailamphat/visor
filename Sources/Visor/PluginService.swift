@@ -45,6 +45,7 @@ final class PluginService {
                 let manifest = try PluginManifest.parse(Data(contentsOf: folder.appendingPathComponent("plugin.json")))
                 guard runners[manifest.id] == nil else { continue }
                 var info = PluginInfo(id: manifest.id, name: manifest.name, icon: manifest.icon, folder: folder)
+                info.accent = manifest.accent
                 if model.disabledPlugins.contains(manifest.id) {
                     info.error = "Off"
                 } else {
@@ -73,6 +74,11 @@ final class PluginService {
     func openLog(_ id: String) {
         let url = Self.logFolder.appendingPathComponent("\(id).log")
         if FileManager.default.fileExists(atPath: url.path) { NSWorkspace.shared.open(url) }
+    }
+
+    /// A button, picker or toggle in a plugin's view.
+    func act(_ id: String, _ action: String, value: Any?) {
+        runners[id]?.act(action, value: value)
     }
 
     func setEnabled(_ id: String, _ on: Bool) {
@@ -119,9 +125,18 @@ struct PluginInfo: Identifiable, Equatable {
     var name: String
     var icon: String
     var folder: URL
+    var accent: Int?
     var output = PluginOutput()
+    /// Why the plugin couldn't run. With something already shown, the last
+    /// view stays and this reads as "couldn't refresh".
     var error: String?
     var updated: Date?
+    /// A call into the plugin is running (start, a timer, an action).
+    var busy = false
+    /// The action whose button is spinning.
+    var pendingAction: String?
+
+    var hasOutput: Bool { output.view != nil || !output.sections.isEmpty }
 }
 
 /// One running plugin and everything Visor does for it. Lives on its queue.
@@ -154,9 +169,10 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
                 let store = try? Data(contentsOf: storeURL)
                 let plugin = try LuaPlugin(manifest: manifest, source: source, host: self, store: store, settings: settings)
                 self.plugin = plugin
+                mainUpdate { $0.busy = true }
+                defer { mainUpdate { $0.busy = false } }
                 try plugin.start()
                 for timer in plugin.timers { schedule(timer) }
-                mainUpdate { $0.error = nil }
             } catch {
                 failed("\(error)")
             }
@@ -179,10 +195,20 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         source.schedule(deadline: .now() + interval, repeating: interval, leeway: .milliseconds(Int(timer.interval * 100)))
         source.setEventHandler { [weak self] in
             guard let self, let plugin = self.plugin else { return }
+            self.mainUpdate { $0.busy = true }
             do { try plugin.fire(timer.id) } catch { self.failed("\(error)") }
+            self.mainUpdate { $0.busy = false }
         }
         source.resume()
         timers.append(source)
+    }
+
+    func act(_ action: String, value: Any?) {
+        mainUpdate { $0.pendingAction = action }
+        queue.async { [self] in
+            do { try plugin?.act(action, value: value) } catch { failed("\(error)") }
+            mainUpdate { $0.pendingAction = nil }
+        }
     }
 
     private var storeURL: URL { PluginService.dataFolder.appendingPathComponent("\(manifest.id).json") }

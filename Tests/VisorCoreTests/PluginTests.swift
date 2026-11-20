@@ -264,12 +264,134 @@ struct ExamplePluginTests {
                 "the token for github.com, not api.github.com")
         let out = try #require(host.outputs.last)
         #expect(out.badge == PluginBadge(icon: "xmark.octagon.fill", count: nil, state: .bad, help: "1 failed workflow runs"))
-        #expect(out.sections.map(\.title) == ["Actions", "Review requested"])
-        #expect(out.sections[0].rows.map(\.title) == ["api · feat/x · test", "api · feat/x · lint"], "newest run per workflow, failures first")
-        #expect(out.sections[1].rows.first?.title == "#482 Add webhooks")
+        guard case .stack(let parts)? = out.view else { Issue.record("no view"); return }
+        guard case .stats(let stats) = parts[0] else { Issue.record("no stats"); return }
+        #expect(stats[0] == .stat(value: "67%", label: "passed, last 3 runs", state: .warn, large: true, pending: false), "every fetched run, not just the newest per workflow")
+        #expect(stats[1] == .stat(value: "1", label: "failing now", state: .bad, large: false, pending: false))
+        guard case .bars(_, let states, _, _) = parts[1] else { Issue.record("no bars"); return }
+        #expect(states == [nil, nil, .bad], "oldest first, the failure last")
+        let lists = parts.compactMap { part -> [PluginRow]? in if case .list(let rows) = part { return rows }; return nil }
+        #expect(lists[0].map(\.title) == ["api · feat/x · test", "api · feat/x · lint"], "newest run per workflow, failures first")
+        #expect(lists[1].first?.title == "#482 Add webhooks")
+        #expect(parts.last == .buttons([PluginButton(title: "Open in GitHub", action: nil, url: URL(string: "https://acme.ghe.com/team/api/actions"), primary: true)]))
         #expect(host.peeks.count == 1)
         // The same failure again: no second peek.
         try p.fire(p.timers[0].id)
         #expect(host.peeks.count == 1)
+    }
+}
+
+@Suite("Plugin views")
+struct PluginViewTests {
+    func plugin(_ source: String) throws -> (LuaPlugin, FakeHost) {
+        let host = FakeHost()
+        let p = try LuaPlugin(manifest: PluginManifest(id: "v", name: "V"), source: source, host: host)
+        return (p, host)
+    }
+
+    /// The kit builds a tree of tables; Visor reads it into checked nodes.
+    @Test func buildsATree() throws {
+        let (p, host) = try plugin("""
+        local ui = visor.ui
+        visor.view(ui.stack {
+          ui.text { "Production deploy", style = "title" },
+          ui.stats { ui.stat { value = "99.9%", label = "uptime", size = "large" }, ui.stat { value = "3", label = "incidents", state = "bad" } },
+          ui.meter { title = "Error budget", value = 0.38, text = "62% left", caption = "Resets Mon", state = "warn" },
+          ui.columns { ui.bars { values = { { 1 }, 2, { 3, state = "bad" } }, labels = { "Mon", "Today" } }, ui.chips { { "eu-west", state = "good" }, { "ap-south" } } },
+          ui.divider(),
+          ui.table { columns = { "Service", "P95" }, rows = { { "checkout", "212 ms" } } },
+          ui.list { { title = "a", status = "bad", url = "https://x.example/1" } },
+          ui.clock { ["until"] = 1700000600, style = "large" },
+          ui.progress { value = 0.4 },
+          ui.buttons { ui.button { "Open", url = "https://x.example/2", style = "primary" }, ui.button { "Refresh", action = "refresh" } },
+          ui.picker { options = { "25", "50" }, selected = "50", action = "length" },
+          ui.toggle { "Notify", on = true, action = "notify" },
+          ui.stat { value = "", label = "p95", pending = true },
+        })
+        """)
+        try p.start()
+        guard case .stack(let children)? = host.outputs.last?.view else { Issue.record("no stack"); return }
+        #expect(children.count == 13)
+        #expect(children[0] == .text("Production deploy", style: .title, state: nil))
+        #expect(children[1] == .stats([.stat(value: "99.9%", label: "uptime", state: nil, large: true, pending: false),
+                                       .stat(value: "3", label: "incidents", state: .bad, large: false, pending: false)]))
+        #expect(children[2] == .meter(title: "Error budget", value: 0.38, text: "62% left", caption: "Resets Mon", state: .warn, pending: false))
+        #expect(children[3] == .columns([.bars(values: [1, 2, 3], states: [nil, nil, .bad], labels: ["Mon", "Today"], pending: false),
+                                         .chips([PluginChip(text: "eu-west", state: .good), PluginChip(text: "ap-south", state: nil)])]))
+        #expect(children[4] == .divider)
+        #expect(children[5] == .table(columns: ["Service", "P95"], rows: [["checkout", "212 ms"]]))
+        #expect(children[6] == .list([PluginRow(title: "a", status: .bad, url: URL(string: "https://x.example/1"))]))
+        #expect(children[7] == .clock(until: Date(timeIntervalSince1970: 1_700_000_600), since: nil, large: true))
+        #expect(children[8] == .progress(value: 0.4))
+        #expect(children[9] == .buttons([PluginButton(title: "Open", action: nil, url: URL(string: "https://x.example/2"), primary: true),
+                                         PluginButton(title: "Refresh", action: "refresh", url: nil, primary: false)]))
+        #expect(children[10] == .picker(options: ["25", "50"], selected: "50", action: "length"))
+        #expect(children[11] == .toggle(label: "Notify", on: true, action: "notify"))
+        #expect(children[12] == .stat(value: "", label: "p95", state: nil, large: false, pending: true))
+    }
+
+    /// Unknown pieces become a note instead of breaking the view; limits hold.
+    @Test func unknownAndLimits() throws {
+        let (p, host) = try plugin("""
+        local big = {}
+        for i = 1, 400 do big[i] = visor.ui.text { "x" .. i } end
+        visor.view(visor.ui.stack { { kind = "hologram" }, visor.ui.stack(big) })
+        """)
+        try p.start()
+        guard case .stack(let children)? = host.outputs.last?.view else { Issue.record("no stack"); return }
+        #expect(children[0] == .unsupported("hologram"))
+        #expect(PluginNode.count(host.outputs.last!.view!) <= PluginNode.maxNodes)
+    }
+
+    /// Actions call the plugin's handler with the value; links never reach Lua.
+    @Test func actions() throws {
+        let (p, host) = try plugin("""
+        visor.on("length", function(value) visor.log("length " .. value) end)
+        visor.on("notify", function(value) visor.log("notify " .. tostring(value)) end)
+        """)
+        try p.start()
+        try p.act("length", value: "50")
+        try p.act("notify", value: false)
+        try p.act("nobody", value: nil)
+        #expect(host.logs == ["length 50", "notify false"])
+    }
+
+    /// Read-only: no POST.
+    @Test func readOnly() throws {
+        let (p, host) = try plugin("visor.log(tostring(visor.http.post))")
+        try p.start()
+        #expect(host.logs == ["nil"])
+    }
+
+    @Test func accent() throws {
+        let m = try PluginManifest.parse(Data(##"{"id":"a","name":"A","accent":"#A78BFA"}"##.utf8))
+        #expect(m.accent == 0xA78BFA)
+        #expect(try PluginManifest.parse(Data(#"{"id":"a","name":"A","accent":"purple"}"#.utf8)).accent == nil)
+    }
+}
+
+@Suite("Focus plugin")
+struct FocusPluginTests {
+    @Test func startPauseAndLength() throws {
+        let host = FakeHost()
+        let p = try ExamplePluginTests().load("focus", host: host)
+        try p.start()
+        #expect(host.errors.isEmpty, "\(host.errors)")
+        func parts() -> [PluginNode] { if case .stack(let parts)? = host.outputs.last?.view { return parts }; return [] }
+        func picker() -> PluginNode? { if case .columns(let row) = parts()[1] { return row[0] }; return nil }
+        #expect(picker() == .picker(options: ["25", "50", "90"], selected: "50", action: "length"))
+        try p.act("length", value: "25")
+        #expect(picker() == .picker(options: ["25", "50", "90"], selected: "25", action: "length"))
+        try p.act("start", value: nil)
+        guard case .columns(let cols) = parts()[0], case .stack(let left) = cols[0], case .clock(let until, _, true) = left[0] else {
+            Issue.record("no clock while running"); return
+        }
+        #expect(abs(until!.timeIntervalSinceNow - 25 * 60) < 5)
+        #expect(host.outputs.last?.badge?.icon == "timer")
+        try p.act("pause", value: nil)
+        guard case .columns(let paused) = parts()[0], case .stack(let pausedLeft) = paused[0],
+              case .stat(_, "paused", _, _, _) = pausedLeft[0] else { Issue.record("not paused"); return }
+        #expect(host.outputs.last?.badge == nil)
+        #expect(host.errors.isEmpty, "\(host.errors)")
     }
 }

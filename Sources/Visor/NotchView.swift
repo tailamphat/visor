@@ -79,7 +79,8 @@ struct NotchLayout {
             }
             if model.tab == .clipboard { return Self.clipboardSize }
             if model.tab == .plugins {
-                return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(PluginsView.height(model.plugins))))
+                let content = model.pluginsContentHeight > 0 ? model.pluginsContentHeight + PluginsView.footer : PluginsView.estimate(model.plugins)
+                return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             if model.showsOffice {
                 // The room runs to the panel's bottom edge: no room below it.

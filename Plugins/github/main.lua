@@ -47,12 +47,13 @@ local function watched()
   return list
 end
 
--- The newest run of each workflow, on the repo's branch when we know it.
+-- The newest run of each workflow, on the repo's branch when we know it, and
+-- every run fetched (for the pass rate and build times).
 local function latestRuns(repo)
   local path = "/repos/" .. repo.owner .. "/" .. repo.name .. "/actions/runs?per_page=20"
   if repo.branch then path = path .. "&branch=" .. urlencode(repo.branch) end
   local body = get(repo.host, path)
-  if not body then return {} end
+  if not body then return {}, {} end
   local seen, runs = {}, {}
   for _, run in ipairs(body.workflow_runs or {}) do
     if not seen[run.workflow_id] then
@@ -60,18 +61,34 @@ local function latestRuns(repo)
       table.insert(runs, run)
     end
   end
-  return runs
+  return runs, body.workflow_runs or {}
+end
+
+-- Minutes between a run's start and its last update.
+local function minutes(run)
+  local from, to = visor.isotime(run.run_started_at or ""), visor.isotime(run.updated_at or "")
+  if from and to and to > from then return (to - from) / 60 end
+  return nil
 end
 
 local function check()
-  local rows, failed = {}, 0
+  local ui = visor.ui
+  local rows, recent, failed = {}, {}, 0
   local known = visor.store.failed or {}
   local now = {}
+  local repos = watched()
+  local link = nil
 
-  for _, repo in ipairs(watched()) do
+  for _, repo in ipairs(repos) do
     -- One repo failing (no access, renamed) doesn't stop the others.
-    local ok, runs = pcall(latestRuns, repo)
-    if not ok then visor.log(repo.host .. "/" .. repo.owner .. "/" .. repo.name .. ": " .. tostring(runs)); runs = {} end
+    local ok, runs, all = pcall(latestRuns, repo)
+    if not ok then visor.log(repo.host .. "/" .. repo.owner .. "/" .. repo.name .. ": " .. tostring(runs)); runs, all = {}, {} end
+    for _, run in ipairs(all) do
+      if run.status == "completed" then
+        table.insert(recent, { time = run.updated_at or "", minutes = minutes(run), passed = run.conclusion == "success" })
+      end
+    end
+    link = link or ("https://" .. repo.host .. "/" .. repo.owner .. "/" .. repo.name .. "/actions")
     for _, run in ipairs(runs) do
       local state = run.conclusion or run.status -- "failure", "success", "in_progress", ...
       table.insert(rows, {
@@ -99,34 +116,61 @@ local function check()
     return (a.time or "") > (b.time or "")
   end)
 
-  local sections = {}
-  if #rows > 0 then table.insert(sections, { title = "Actions", rows = rows }) end
-
-  local reviews = 0
+  local reviews = {}
   if visor.settings.reviews then
-    local list = {}
     for _, host in ipairs(visor.settings.hosts or { "github.com" }) do
       local found = get(host, "/search/issues?per_page=10&q=" .. urlencode("is:open is:pr review-requested:@me archived:false"))
       for _, pr in ipairs(found and found.items or {}) do
         local repoName = (pr.repository_url or ""):match("([^/]+)$") or ""
-        table.insert(list, { title = "#" .. pr.number .. " " .. pr.title, detail = repoName, status = "info",
-                             url = pr.html_url, time = pr.updated_at })
+        table.insert(reviews, { title = "#" .. pr.number .. " " .. pr.title, detail = repoName, status = "info",
+                                url = pr.html_url, time = pr.updated_at })
       end
     end
-    reviews = #list
-    if reviews > 0 then table.insert(sections, { title = "Review requested", rows = list }) end
   end
 
-  if #sections == 0 then
-    local where = #watched() == 0 and "No repos to watch: start an agent in a GitHub repo, or set \"repos\" in settings.json"
-      or "No failed runs, no reviews waiting"
-    sections = { { title = "GitHub", rows = { { title = where, status = #watched() == 0 and "idle" or "good" } } } }
+  -- The view: figures, build times, the runs, the reviews, a link.
+  local view = {}
+  if #recent > 0 then
+    table.sort(recent, function(a, b) return a.time < b.time end)
+    local passed, bars, times = 0, {}, {}
+    for i = math.max(1, #recent - 13), #recent do
+      local r = recent[i]
+      if r.passed then passed = passed + 1 end
+      table.insert(bars, { r.minutes or 0, state = (not r.passed) and "bad" or nil })
+      if r.minutes then table.insert(times, r.minutes) end
+    end
+    table.sort(times)
+    local median = #times > 0 and times[math.ceil(#times / 2)] or nil
+    local shown = math.min(14, #recent)
+    table.insert(view, ui.stats {
+      ui.stat { value = math.floor(passed / shown * 100 + 0.5) .. "%", label = "passed, last " .. shown .. (shown == 1 and " run" or " runs"), size = "large",
+                state = passed < shown and "warn" or "good" },
+      ui.stat { value = tostring(failed), label = "failing now", state = failed > 0 and "bad" or nil },
+      ui.stat { value = median and (median < 1 and "<1m" or math.floor(median + 0.5) .. "m") or "—", label = "median build" },
+    })
+    table.insert(view, ui.bars { values = bars, labels = { "older", "latest" } })
   end
-  visor.panel(sections)
+  if #rows > 0 then
+    table.insert(view, ui.text { "Actions", style = "caption" })
+    table.insert(view, ui.list(rows))
+  end
+  if #reviews > 0 then
+    table.insert(view, ui.text { "Review requested", style = "caption" })
+    table.insert(view, ui.list(reviews))
+  end
+  if #view == 0 then
+    table.insert(view, ui.text { #repos == 0 and "No repos to watch: start an agent in a GitHub repo, or set \"repos\" in settings.json"
+                                 or "No failed runs, no reviews waiting", style = "body", state = #repos == 0 and nil or "good" })
+  end
+  if link then
+    table.insert(view, ui.buttons { ui.button { "Open in GitHub", url = link, style = "primary" } })
+  end
+  visor.view(ui.stack(view))
+
   if failed > 0 then
     visor.badge({ icon = "xmark.octagon.fill", count = failed > 1 and failed or nil, state = "bad", help = failed .. " failed workflow runs" })
-  elseif reviews > 0 then
-    visor.badge({ icon = "eye", count = reviews, state = "info", help = reviews .. " pull requests waiting for your review" })
+  elseif #reviews > 0 then
+    visor.badge({ icon = "eye", count = #reviews, state = "info", help = #reviews .. " pull requests waiting for your review" })
   else
     visor.badge(nil)
   end

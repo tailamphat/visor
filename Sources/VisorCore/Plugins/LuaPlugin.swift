@@ -25,6 +25,7 @@ public final class LuaPlugin {
     private let L: OpaquePointer
     private weak var host: PluginHost?
     private var timerRefs: [Int: Int32] = [:]
+    private var actionRefs: [String: Int32] = [:]
     private var visorRef: Int32 = 0
     private var mainRef: Int32 = 0
     private var output = PluginOutput()
@@ -50,7 +51,20 @@ public final class LuaPlugin {
             throw PluginError.lua(string(at: -1) ?? "couldn't load \(manifest.main)")
         }
         mainRef = luaL_ref(L, clua_registryindex())
+        try run(Self.prelude)
     }
+
+    /// visor.ui: each piece is a table that remembers its kind. Lua, so the
+    /// tables are plain and visor.view reads them like any other value.
+    private static let prelude = """
+    local ui = {}
+    for _, kind in ipairs({ "stack", "columns", "text", "stats", "stat", "meter", "bars", "chips", "list",
+                            "table", "clock", "progress", "buttons", "button", "picker", "toggle" }) do
+      ui[kind] = function(t) t = t or {}; t.kind = kind; return t end
+    end
+    ui.divider = function() return { kind = "divider" } end
+    visor.ui = ui
+    """
 
     deinit { lua_close(L) }
 
@@ -66,6 +80,15 @@ public final class LuaPlugin {
     public func fire(_ id: Int) throws {
         guard let ref = timerRefs[id] else { return }
         try call(ref)
+    }
+
+    /// Runs the `visor.on` handler for a button, picker or toggle, with its value.
+    /// Does nothing when the plugin has no handler by that name.
+    public func act(_ name: String, value: Any?) throws {
+        guard let ref = actionRefs[name] else { return }
+        lua_rawgeti(L, clua_registryindex(), lua_Integer(ref))
+        push(value)
+        try callTop(arguments: 1)
     }
 
     /// Runs a piece of Lua in the plugin (tests and the console).
@@ -91,10 +114,10 @@ public final class LuaPlugin {
         try callTop()
     }
 
-    /// Calls the function on top of the stack with the budget on, then saves the store if it changed.
-    private func callTop() throws {
+    /// Calls the function below its arguments on the stack with the budget on, then saves the store if it changed.
+    private func callTop(arguments: Int32 = 0) throws {
         clua_set_budget(L, Self.budget)
-        let status = clua_pcall(L, 0, 0)
+        let status = clua_pcall(L, arguments, 0)
         clua_set_budget(L, 0)
         defer { saveStore() }
         guard status == LUA_OK else {
@@ -146,7 +169,7 @@ public final class LuaPlugin {
     }
 
     private enum Function: Int32, CaseIterable {
-        case every, badge, panel, peek, log, secret, repos, now, isotime, httpGet, httpPost, jsonEncode, jsonDecode
+        case every, badge, panel, view, on, peek, log, secret, repos, now, isotime, httpGet, jsonEncode, jsonDecode
     }
 
     private func installAPI(settings: [String: Any], store: Data?) {
@@ -159,6 +182,8 @@ public final class LuaPlugin {
         function(.every, "every")
         function(.badge, "badge")
         function(.panel, "panel")
+        function(.view, "view")
+        function(.on, "on")
         function(.peek, "peek")
         function(.log, "log")
         function(.secret, "secret")
@@ -166,8 +191,8 @@ public final class LuaPlugin {
         function(.now, "now")
         function(.isotime, "isotime")
         clua_newtable(L)
+        // Read-only: GET only, so a plugin can look but never change anything.
         function(.httpGet, "get")
-        function(.httpPost, "post")
         lua_setfield(L, -2, "http")
         clua_newtable(L)
         function(.jsonEncode, "encode")
@@ -219,6 +244,18 @@ public final class LuaPlugin {
             output.sections = list.prefix(10).compactMap { ($0 as? [String: Any]).flatMap(section) }
             host?.show(output)
             return 0
+        case .view:
+            output.view = value(at: 1).flatMap(PluginNode.decode)
+            host?.show(output)
+            return 0
+        case .on:
+            guard let name = string(at: 1), lua_type(L, 2) == LUA_TFUNCTION else {
+                return fail("visor.on(name, function) needs a name and a function")
+            }
+            lua_pushvalue(L, 2)
+            if let old = actionRefs[name] { luaL_unref(L, clua_registryindex(), old) }
+            actionRefs[name] = luaL_ref(L, clua_registryindex())
+            return 0
         case .peek:
             guard let fields = value(at: 1) as? [String: Any], let title = fields["title"] as? String else {
                 return fail("visor.peek needs { title = ... }")
@@ -257,7 +294,7 @@ public final class LuaPlugin {
             guard let text = string(at: 1), let date = Self.parseDate(text) else { lua_pushnil(L); return 1 }
             lua_pushinteger(L, lua_Integer(date.timeIntervalSince1970))
             return 1
-        case .httpGet, .httpPost:
+        case .httpGet:
             guard let text = string(at: 1), let url = URL(string: text) else { return fail("visor.http needs a URL") }
             guard manifest.allows(url) else {
                 return fail("\(text) isn't allowed: add its host to \"hosts\" in plugin.json (https only)")
@@ -270,16 +307,8 @@ public final class LuaPlugin {
                 let signIn = options["auth_host"] as? String ?? url.host
                 if let token = host?.secret(auth, host: signIn) { headers["Authorization"] = "Bearer \(token)" }
             }
-            var body: Data?
-            if function == .httpPost {
-                if let text = options["body"] as? String { body = Data(text.utf8) } else if let object = options["body"],
-                   JSONSerialization.isValidJSONObject(object) {
-                    body = try? JSONSerialization.data(withJSONObject: object)
-                    headers["Content-Type"] = headers["Content-Type"] ?? "application/json"
-                }
-            }
             guard let host else { return fail("Visor isn't running this plugin anymore") }
-            let response = host.request(PluginRequest(method: function == .httpPost ? "POST" : "GET", url: url, headers: headers, body: body))
+            let response = host.request(PluginRequest(method: "GET", url: url, headers: headers, body: nil))
             var result: [String: Any] = ["status": response.status, "headers": response.headers, "cached": response.cached,
                                          "body": String(decoding: response.body, as: UTF8.self)]
             if let json = try? JSONSerialization.jsonObject(with: response.body, options: .fragmentsAllowed) { result["json"] = json }
@@ -311,25 +340,11 @@ public final class LuaPlugin {
 
     private func section(_ fields: [String: Any]) -> PluginSection? {
         guard let title = fields["title"] as? String else { return nil }
-        let rows = (fields["rows"] as? [Any] ?? []).prefix(50).compactMap { item -> PluginRow? in
-            guard let row = item as? [String: Any], let title = row["title"] as? String else { return nil }
-            let url = (row["url"] as? String).flatMap(URL.init(string:)).flatMap { ["https", "http"].contains($0.scheme ?? "") ? $0 : nil }
-            var time: Date?
-            if let seconds = row["time"] as? NSNumber { time = Date(timeIntervalSince1970: seconds.doubleValue) }
-            if let text = row["time"] as? String { time = Self.parseDate(text) }
-            return PluginRow(title: title, detail: row["detail"] as? String ?? "", status: PluginState(loose: row["status"] as? String),
-                             url: url, time: time)
-        }
+        let rows = (fields["rows"] as? [Any] ?? []).prefix(50).compactMap { ($0 as? [String: Any]).flatMap(PluginRow.decode) }
         return PluginSection(title: title, rows: Array(rows))
     }
 
-    private static func parseDate(_ text: String) -> Date? {
-        let plain = ISO8601DateFormatter()
-        if let date = plain.date(from: text) { return date }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: text)
-    }
+    private static func parseDate(_ text: String) -> Date? { PluginRow.parseDate(text) }
 
     // MARK: Lua <-> Swift values
 

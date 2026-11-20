@@ -6,6 +6,7 @@ A plugin watches something you care about (CI, pull requests, an on-call pager, 
 - [How a plugin runs](#how-a-plugin-runs)
 - [plugin.json](#pluginjson)
 - [The `visor` API](#the-visor-api)
+- [Custom views](#custom-views)
 - [What shows where](#what-shows-where)
 - [Keeping Visor idle](#keeping-visor-idle)
 - [The sandbox](#the-sandbox)
@@ -70,6 +71,7 @@ A plugin watches something you care about (CI, pull requests, an on-call pager, 
 | `hosts` | | The only hosts `visor.http` may call, over https. `"*.example.com"` matches any subdomain. |
 | `secrets` | | Name → the command that prints the secret. See [Secrets](#secrets). |
 | `settings` | | Name → default value. Users override them in `settings.json`. |
+| `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars and its primary button. Red, amber and green keep their meaning. |
 
 ```json
 {
@@ -167,7 +169,7 @@ if r.status == 200 then
 end
 ```
 
-`visor.http.get(url, options)` and `visor.http.post(url, options)` return a table:
+Plugins are **read-only**: they can look at services but never change anything, so there's `visor.http.get` and no POST, PUT or DELETE. `visor.http.get(url, options)` returns a table:
 
 | Field | |
 |---|---|
@@ -177,7 +179,7 @@ end
 | `headers` | Lowercase header names. |
 | `cached` | `true` when the server answered 304 and Visor returned the copy it kept. |
 
-Options: `headers`, `auth` (a secret's name) and `auth_host`. `post` also takes `body`: a string is sent as is, and a table is sent as JSON.
+Options: `headers`, `auth` (a secret's name) and `auth_host`.
 
 Only `https` URLs on a host listed in `hosts` work. Anything else raises an error that says which host to add. Requests time out after 20 seconds.
 
@@ -217,11 +219,82 @@ Visor keeps a secret in memory for 30 minutes and never writes it to disk.
 
 `visor.repos()` makes "what am I working on" plugins easy: Visor already knows which folders Claude Code, Copilot CLI and Antigravity sessions run in, and reads the `origin` remote and the branch from each one's `.git`. The GitHub example uses it to watch CI for exactly the branches your agents are on, with nothing to configure.
 
+## Custom views
+
+Rows are enough for a list. For more, build the plugin's section from Visor's own pieces with `visor.ui` and show it with `visor.view`. Visor draws every piece the way it draws its own Usage and Tokens tabs; you choose pieces and fill them with data, never fonts, sizes or pixel positions.
+
+```lua
+local ui = visor.ui
+visor.view(ui.stack {
+  ui.stats {
+    ui.stat { value = "98%", label = "passed, last 14 runs", size = "large", state = "good" },
+    ui.stat { value = "1", label = "failing now", state = "bad" },
+  },
+  ui.bars { values = { 4, 5, { 9, state = "bad" }, 4 }, labels = { "older", "latest" } },
+  ui.list { { title = "api · main · test", status = "failure", url = "https://github.com/acme/api/actions" } },
+  ui.buttons { ui.button { "Open in GitHub", url = "https://github.com/acme/api/actions", style = "primary" } },
+})
+```
+
+`visor.view(tree)` replaces the plugin's section (use it instead of `visor.panel`, not with it). Positional values are written first: `ui.text { "Hello", style = "title" }`.
+
+| Piece | Fields | Looks like |
+|---|---|---|
+| `ui.stack { ... }` | pieces, top to bottom | |
+| `ui.columns { a, b, c }` | up to 3 pieces side by side | |
+| `ui.divider()` | | the striped band between tools in Usage |
+| `ui.text { "…", style = }` | `title`, `body` (default), `caption`, `mono`; `state` colours it | |
+| `ui.stats { ui.stat{…}, … }` | stats in a row | the Tokens headline |
+| `ui.stat { value =, label =, size = "large", state = }` | | one figure with a label |
+| `ui.meter { title =, value = 0.38, text =, caption =, state = }` | `value` 0 to 1; `text` defaults to the percent | a Usage limit |
+| `ui.bars { values = { … }, labels = { "first", "last" } }` | up to 60 numbers; `{ n, state = "bad" }` colours one | the spend chart |
+| `ui.chips { "eu-west", { "us-east", state = "warn" } }` | up to 12 | Copilot's chips |
+| `ui.list { row, … }` | rows as in `visor.panel` | |
+| `ui.table { columns = { … }, rows = { { … } } }` | up to 6 columns, 30 rows | the Daily grid |
+| `ui.clock { ["until"] = t }` or `{ since = t }` | `style = "large"` | a countdown or timer Visor ticks itself |
+| `ui.progress { value = 0.4 }` | omit `value` while unknown | |
+| `ui.buttons { ui.button { "…", url = }, ui.button { "…", action = } }` | up to 4; `style = "primary"` uses the accent | |
+| `ui.picker { options = { "25", "50" }, selected =, action = }` | up to 6 | 7D / 30D / All |
+| `ui.toggle { "Notify", on = true, action = }` | | the switches in Connected accounts |
+
+A view holds at most 300 pieces, 8 levels deep. Past the panel's height the Plugins tab scrolls. A piece this Visor doesn't know shows "needs a newer Visor" in its place.
+
+### Buttons, pickers and toggles
+
+A button with `url` opens the link. A button, picker or toggle with `action` calls the plugin's handler, on its own queue:
+
+```lua
+visor.on("length", function(value)   -- the picked option, or the toggle's new state
+  visor.store.length = tonumber(value)
+  render()                           -- show the change
+end)
+```
+
+The button spins while its handler runs, and a picker shows the new choice straight away. Plugins are read-only, so actions change what the plugin shows (a filter, a timer, a refresh) and never something outside Visor.
+
+### Loading
+
+Visor shows loading for you:
+
+- **Before the first view:** grey placeholder lines under the plugin's name.
+- **While a call runs:** the last view stays and a small spinner sits by the name. Nothing blanks out or jumps.
+- **When a call fails:** the last view stays and the header says "couldn't refresh", with the error on hover. A plugin that has never shown anything shows the error instead.
+
+When one part of a view comes later than the rest, give that piece `pending = true`. It's drawn as a still placeholder of its own shape (a dash for a stat, a grey bar for a meter, empty bars for a chart):
+
+```lua
+ui.bars { values = durations or {}, pending = durations == nil }
+```
+
+### Live without waking the plugin
+
+`ui.clock` and row `time`s are counted by Visor, so a timer or "4m ago" stays current without running the plugin every second. Use `visor.every` (at least 30 seconds) only for checks.
+
 ## What shows where
 
 | | Where | Use it for |
 |---|---|---|
-| Section | The Plugins tab (puzzle piece), once at least one plugin is installed | The full picture: every build, every PR. |
+| Section | The Plugins tab (the puzzle piece right of the notch), once a plugin is installed | The full picture: rows, or a custom view. |
 | Badge | The right side of the closed notch, next to the usage numbers | Something that stays true until it's fixed. |
 | Peek | The closed notch, for 4 seconds | Something that just happened. |
 
@@ -251,8 +324,9 @@ Plugins get Lua's `string`, `table`, `math` and `utf8` libraries, and `os.time`,
 Both are in the Visor repo under [`Plugins/`](../Plugins). Copy one into your Plugins folder to try it:
 
 ```sh
-cp -R Plugins/hello Plugins/github ~/Library/Application\ Support/Visor/Plugins/
+cp -R Plugins/hello Plugins/github Plugins/focus ~/Library/Application\ Support/Visor/Plugins/
 ```
 
 - **[hello](../Plugins/hello/main.lua):** every building block with no network: a panel listing the repos your agents are in, a badge, a peek and a counter kept in `visor.store`.
-- **[github](../Plugins/github/main.lua):** failed GitHub Actions runs for the branches your agents are on (or the repos in `settings.json`), and pull requests waiting for your review. Works with github.com and GitHub Enterprise (`*.ghe.com`) through your `gh` sign-in. Shows a red badge while anything is failing, and peeks once per new failure.
+- **[github](../Plugins/github/main.lua):** a custom view of GitHub Actions for the branches your agents are on (or the repos in `settings.json`): pass rate, failing runs and median build time, build-time bars, the latest run of each workflow, pull requests waiting for your review, and an Open in GitHub button. Works with github.com and GitHub Enterprise (`*.ghe.com`) through your `gh` sign-in. Shows a red badge while anything is failing, and peeks once per new failure.
+- **[focus](../Plugins/focus/main.lua):** the interactive example: a focus timer with a 25 / 50 / 90 picker, Start, Pause and Reset buttons, a countdown Visor ticks itself, and this week's focus time as bars.
