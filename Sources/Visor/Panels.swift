@@ -484,27 +484,12 @@ struct ApprovalView: View {
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.07)))
                 .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-            // Deny, Always and Allow together in the centre.
+            // Deny and Allow, each as wide as its label, together in the centre.
             HStack(spacing: 8) {
                 Button { model.decide?(request, .deny) } label: {
                     Label { KeyHint(title: "Deny", key: "esc") } icon: { Image(systemName: "xmark") }
                 }
                 .buttonStyle(ConsentButton(kind: .deny))
-                if let always = request.alwaysAllowLabel {
-                    Button { model.decide?(request, .allowAlways) } label: {
-                        Label {
-                            HStack(spacing: 5) {
-                                Text("Always")
-                                Text(always).font(.system(size: 11.5, design: .monospaced)).opacity(0.75).lineLimit(1)
-                                KeyCap(key: "A")
-                            }
-                        } icon: {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                        }
-                    }
-                    .buttonStyle(ConsentButton(kind: .secondary))
-                    .help("Allow this now, and don't ask again for \(always)")
-                }
                 Button { model.decide?(request, .allow) } label: {
                     Label { KeyHint(title: "Allow", key: "↩") } icon: { Image(systemName: "checkmark") }
                 }
@@ -512,6 +497,23 @@ struct ApprovalView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
+            // "Always" is the choice to make deliberately: a quiet link under them, its rule in view.
+            if let always = request.alwaysAllowLabel {
+                Button { model.decide?(request, .allowAlways) } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 10, weight: .semibold))
+                        Text("Always allow")
+                        Text(always).font(.system(size: 11, design: .monospaced)).foregroundStyle(Color(hex: 0x8FB89C)).lineLimit(1)
+                        KeyCap(key: "A")
+                    }
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Color(hex: 0xB9D9C3))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .help("Allow this now, and don't ask again for \(always)")
+            }
         }
     }
 }

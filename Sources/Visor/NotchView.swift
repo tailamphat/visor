@@ -20,10 +20,12 @@ struct NotchLayout {
     }
 
     /// The open panel's width for every tab (four 24 pt tabs fit left of the
-    /// camera). Approvals keep 580 for their rule text.
+    /// camera), approvals included.
     static let width: CGFloat = 460
     static let expandedSize = CGSize(width: width, height: 200)
-    static let approvalSize = CGSize(width: 580, height: 193)
+    /// Approvals: the usual width; taller when the "Always allow" link shows under the buttons.
+    static let approvalSize = CGSize(width: width, height: 193)
+    static let approvalAlwaysExtra: CGFloat = 25
     static let musicSize = CGSize(width: width, height: 182)
     /// The compact Now Playing row: artwork beside title and controls.
     static let compactMusicContent: CGFloat = 70
@@ -55,7 +57,10 @@ struct NotchLayout {
 
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
-            if !model.approvals.isEmpty { return Self.approvalSize }
+            if let first = model.approvals.first {
+                return CGSize(width: Self.approvalSize.width,
+                              height: Self.approvalSize.height + (first.alwaysAllowLabel == nil ? 0 : Self.approvalAlwaysExtra))
+            }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.narrowMusic {
                 // Narrow: just wide enough for the header's three slots each side.
