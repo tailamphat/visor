@@ -12,6 +12,8 @@ local moods = {
 }
 visor.peek({ title = moods[math.random(#moods)] .. "…", subtitle = "woken up " .. visor.store.starts .. " times so far", state = "info" })
 
+local waved = false
+
 local function refresh()
   local rows = {}
   for _, repo in ipairs(visor.repos()) do
@@ -35,9 +37,11 @@ local function refresh()
     } },
   })
 
-  -- A badge on the closed notch while there's something to say.
-  if #visor.repos() > 0 then
+  -- A badge on the closed notch for the first minute only, to show what one
+  -- looks like. A real plugin keeps a badge only while something needs you.
+  if not waved and #visor.repos() > 0 then
     visor.badge({ icon = "hand.wave", count = #visor.repos(), state = "info", help = "Repos your agents are in" })
+    waved = true
   else
     visor.badge(nil)
   end

@@ -347,6 +347,6 @@ Both are in the Visor repo under [`Plugins/`](../Plugins). Copy one into your Pl
 cp -R Plugins/hello Plugins/github Plugins/focus ~/Library/Application\ Support/Visor/Plugins/
 ```
 
-- **[hello](../Plugins/hello/main.lua):** every building block with no network: a panel listing the repos your agents are in, a badge, a peek and a counter kept in `visor.store`.
+- **[hello](../Plugins/hello/main.lua):** every building block with no network: a panel listing the repos your agents are in, a badge for its first minute, a peek and a counter kept in `visor.store`.
 - **[github](../Plugins/github/main.lua):** a custom view of GitHub Actions for the branches your agents are on (or the repos in `settings.json`): pass rate, failing runs and median build time, build-time bars, the latest run of each workflow, pull requests waiting for your review, and an Open in GitHub button. Works with github.com and GitHub Enterprise (`*.ghe.com`) through your `gh` sign-in. Shows a red badge while anything is failing, and peeks once per new failure.
 - **[focus](../Plugins/focus/main.lua):** the interactive example: a focus timer with a 25 / 50 / 90 picker, Start, Pause and Reset buttons, a countdown Visor ticks itself, and this week's focus time as bars.
