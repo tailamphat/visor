@@ -1,0 +1,7 @@
+{
+  "id": "hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "icon": "hand.wave",
+  "description": "The smallest plugin: a panel, a badge, a peek and a counter that survives restarts."
+}

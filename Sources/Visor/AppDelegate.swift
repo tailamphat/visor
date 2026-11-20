@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var notch = NotchController(model: model)
     private lazy var usage = UsageService(model: model)
     private lazy var music = MusicService(model: model)
+    private lazy var plugins = PluginService(model: model)
     /// In-app updates from the appcast in Info.plist (SUFeedURL), signed with
     /// the EdDSA key in SUPublicEDKey. Only an app bundle can update itself,
     /// so a bare debug binary doesn't start it.
@@ -95,6 +96,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = updater  // starts the daily update check
+        model.pluginActions = plugins
+        plugins.onPeek = { [weak self] id, news in
+            guard let self, let info = self.model.plugins.first(where: { $0.id == id }) else { return }
+            self.show(.plugin(icon: info.icon, news), for: 4)
+        }
+        plugins.start()
         HookServer.migrateFromNotchboard()
         model.hooksInstalled = HookInstaller.isInstalled
         model.antigravityHooksInstalled = HookInstaller.antigravityInstalled
@@ -522,6 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let extensionItem = menu.addItem(withTitle: "Browser Extension for Music\u{2026}", action: #selector(showBrowserExtension), keyEquivalent: "")
         extensionItem.target = self
         extensionItem.toolTip = "Show and control music in any browser, Firefox and Zen included"
+        menu.addItem(withTitle: "Plugins Folder", action: #selector(openPluginsFolder), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Refresh Usage", action: #selector(refreshUsage), keyEquivalent: "r").target = self
         menu.addItem(withTitle: "Quit Visor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
@@ -551,6 +559,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshUsage() { usage.refreshPlan() }
+    @objc private func openPluginsFolder() { plugins.openFolder() }
 
     /// Copies the Visor Media extension where it can stay loaded, shows it in
     /// Finder and says how to add it to a browser.

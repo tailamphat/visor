@@ -13,8 +13,11 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
-        // Pure logic: pricing, transcript usage, subscription limits, agent state. No AppKit.
-        .target(name: "VisorCore"),
+        // Lua 5.4.7 (lua.org, MIT), unchanged, for plugins. CLua.h wraps the macros Swift can't call.
+        .target(name: "CLua", exclude: ["LICENSE", "LUA-README"],
+                cSettings: [.define("LUA_USE_POSIX"), .unsafeFlags(["-w"])]),
+        // Pure logic: pricing, transcript usage, subscription limits, agent state, the plugin runtime. No AppKit.
+        .target(name: "VisorCore", dependencies: ["CLua"]),
         // The macOS app: notch window, SwiftUI views, hook server, music.
         .executableTarget(name: "Visor", dependencies: ["VisorCore", .product(name: "Sparkle", package: "Sparkle")]),
         // Started by browsers for the Visor Media extension (native messaging).

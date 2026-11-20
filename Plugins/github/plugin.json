@@ -1,0 +1,14 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "version": "1.0.0",
+  "icon": "arrow.triangle.branch",
+  "description": "Failed GitHub Actions runs for the repos your agents work in, and pull requests waiting for your review.",
+  "hosts": ["api.github.com", "*.ghe.com"],
+  "secrets": { "token": "gh auth token --hostname {host}" },
+  "settings": {
+    "repos": [],
+    "hosts": ["github.com"],
+    "reviews": true
+  }
+}

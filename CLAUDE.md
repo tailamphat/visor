@@ -37,6 +37,13 @@ Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on
 
 Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Visor/hook-debug.sock"`. Fake agent sessions with real hook events (`PreToolUse`, `PermissionRequest`, ...) and the pid of any running process. Screenshot with `screencapture -x -R x,y,w,h file.png`. Run the debug build with `VISOR_NO_MUSIC=1` to skip scripting players. Quit Notchy first if it's running: it draws over the notch. Relaunch the release build afterwards.
 
+## Plugins
+
+- Lua 5.4.7 is vendored unchanged in `Sources/CLua` (MIT, `LICENSE` there); `CLua.h` wraps the C macros Swift can't call. `LuaPlugin` (VisorCore, tested) is one sandboxed state per plugin; `PluginService`/`PluginRunner` (app) give each plugin a serial queue, `DispatchSourceTimer`s with 10% leeway, URLSession with an ETag cache, the secret allowlist (`PluginSecrets`), `visor.repos()` from agent cwds, logs in `~/Library/Logs/Visor/<id>.log` and the store in `PluginData/<id>.json`.
+- Lua errors raised from Swift functions go through the C trampoline (`clua_pushfunction`): Swift returns -1 with the message pushed and C calls `lua_error`, so longjmp never crosses Swift frames. Never call `lua_error`/`luaL_error` from Swift.
+- Push NSNumber before Bool when converting to Lua: JSON's 0/1 would otherwise become booleans.
+- Plugins live in `~/Library/Application Support/Visor/Plugins/` (shared by debug and release builds). Each plugin folder and its `.lua`/`.json` files are watched; a change reloads all plugins. `docs/plugins.md` is the author guide; keep it in step with the API.
+
 ## Updates and releases
 
 - Check for Updates… is Sparkle 2 (`SPUStandardUpdaterController` in `AppDelegate`), reading `appcast.xml` from `main` (SUFeedURL). Updates are verified with the EdDSA key whose public half is SUPublicEDKey; the private key is in the login Keychain (shared with Treatly) and never in the repo. On a new Mac, import it with `.build/artifacts/sparkle/Sparkle/bin/generate_keys -f <exported-key-file>` before releasing.

@@ -8,7 +8,7 @@ enum TokensPage: String, CaseIterable {
 }
 
 enum Tab: String, CaseIterable {
-    case agents, usage, music, bar, clipboard
+    case agents, usage, music, bar, clipboard, plugins
 
     var symbol: String {
         switch self {
@@ -17,10 +17,12 @@ enum Tab: String, CaseIterable {
         case .music: return "music.note"
         case .bar: return "square.grid.2x2"
         case .clipboard: return "doc.on.clipboard"
+        case .plugins: return "puzzlepiece.extension"
         }
     }
 
     /// The tabs in the top bar. Bar is hidden for now; its code stays so it can come back.
+    /// Plugins joins them once a plugin is installed (AppModel.shownTabs).
     static let shown: [Tab] = [.agents, .usage, .music, .clipboard]
 }
 
@@ -150,6 +152,21 @@ final class AppModel {
     // Connected accounts
     /// The Usage tab shows the accounts list instead of the numbers.
     var showAccounts = false
+
+    // Plugins
+    /// Every plugin found in the Plugins folder, running or not.
+    var plugins: [PluginInfo] = []
+    /// Plugins switched off; remembered.
+    var disabledPlugins = Set(UserDefaults.standard.stringArray(forKey: "disabledPlugins") ?? []) {
+        didSet { UserDefaults.standard.set(disabledPlugins.sorted(), forKey: "disabledPlugins") }
+    }
+    var pluginActions: PluginService?
+    /// The plugin row under the pointer.
+    var pluginHover: String?
+    /// The badges plugins want on the closed notch.
+    var pluginBadges: [PluginBadge] { plugins.compactMap(\.output.badge) }
+    /// The top bar's tabs: Plugins appears once one is installed.
+    var shownTabs: [Tab] { plugins.isEmpty ? Tab.shown : Tab.shown + [.plugins] }
     /// The Agents tab as an office of little people instead of a list; remembered.
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
@@ -352,6 +369,8 @@ final class AppModel {
 enum Peek: Equatable {
     case done(FinishedTurn)
     case answered(agent: String)
+    /// News from a plugin: its icon (or the peek's) on the left, the title on the right.
+    case plugin(icon: String, PluginPeek)
 }
 
 enum MusicCommand { case playPause, next, previous }

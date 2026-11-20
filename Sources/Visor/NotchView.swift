@@ -78,6 +78,9 @@ struct NotchLayout {
                 return taller(Self.expandedSize)
             }
             if model.tab == .clipboard { return Self.clipboardSize }
+            if model.tab == .plugins {
+                return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(PluginsView.height(model.plugins))))
+            }
             if model.showsOffice {
                 // The room runs to the panel's bottom edge: no room below it.
                 return CGSize(width: Self.expandedSize.width,
@@ -98,7 +101,7 @@ struct NotchLayout {
     }
 
     func showsEars(_ model: AppModel) -> Bool {
-        model.hasActivity || model.isPlaying || model.peek != nil
+        model.hasActivity || model.isPlaying || model.peek != nil || !model.pluginBadges.isEmpty
     }
 }
 
@@ -198,11 +201,18 @@ struct CollapsedView: View {
             return (turn.agent, "\(turn.agent) finished" + (detail.isEmpty ? "" : ": " + detail))
         case .answered(let agent):
             return (agent, "\(agent): answered")
+        case .plugin(_, let news):
+            return ("", news.subtitle.isEmpty ? news.title : news.title + ": " + news.subtitle)
         }
     }
 
     @ViewBuilder private var left: some View {
-        if let peek = model.peek {
+        if let peek = model.peek, case .plugin(let icon, let news) = peek {
+            Image(systemName: news.icon ?? icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(PluginStyle.color(news.state))
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek {
             // The agent's mark with a green ✓ on its corner, like the "?" and
             // "!" badges on the right; the project and time are in the hover text.
             let (agent, help) = Self.describe(peek)
@@ -228,6 +238,10 @@ struct CollapsedView: View {
         if let peek = model.peek, case .answered = peek {
             Text("Answered")
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+        } else if let peek = model.peek, case .plugin(_, let news) = peek {
+            Text(news.title)
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                .frame(maxWidth: 220, alignment: .leading)
         } else if let note = model.attentionNote {
             // Takes the right side over the artwork until it's dealt with.
             let bubble = AttentionBubble(kind: note.kind, size: note.icon == nil ? 13 : 9)
@@ -261,8 +275,12 @@ struct CollapsedView: View {
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
-        } else if !model.quotas.isEmpty {
+        } else if !model.quotas.isEmpty || !model.pluginBadges.isEmpty {
             HStack(spacing: 6) {
+                // Plugins' badges first, nearest the notch: they're news; the quotas are standing numbers.
+                ForEach(Array(model.pluginBadges.enumerated()), id: \.offset) { _, badge in
+                    PluginBadgeView(badge: badge)
+                }
                 ForEach(model.quotas) { quota in
                     // Mark on top, percent below, so each agent is one narrow column.
                     VStack(spacing: 1.5) {
@@ -411,6 +429,7 @@ struct ExpandedView: View {
                     case .music: if model.compactMusic { CompactMusicView(model: model) } else { MusicView(model: model) }
                     case .bar: BarView(model: model)
                     case .clipboard: ClipboardView(model: model)
+                    case .plugins: PluginsView(model: model)
                     }
                 }
             }
@@ -428,9 +447,9 @@ struct ExpandedView: View {
     @ViewBuilder private var header: some View {
         if model.compactMusic {
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2)).padding(.leading, NotchLayout.inset)
+                tabs(model.shownTabs.prefix(2)).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(Tab.shown.dropFirst(2)).padding(.trailing, NotchLayout.inset)
+                tabs(model.shownTabs.dropFirst(2)).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
@@ -475,7 +494,7 @@ struct ExpandedView: View {
 
     private var fullHeader: some View {
         HStack(spacing: 0) {
-            tabs(Tab.shown[...])
+            tabs(model.shownTabs[...])
             .padding(.leading, NotchLayout.inset)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
