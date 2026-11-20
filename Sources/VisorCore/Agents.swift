@@ -670,3 +670,11 @@ public enum TerminalAnswer {
         return arguments.contains(quoted)
     }
 }
+
+extension AgentSession {
+    /// A session built by hand: for previews such as the office world thumbnails.
+    public init(id: String, agent: String, cwd: String, state: AgentState, since: Date = Date()) {
+        self.init(id: id, pid: 0, cwd: cwd, state: state, since: since, lastEvent: since)
+        self.agent = agent
+    }
+}

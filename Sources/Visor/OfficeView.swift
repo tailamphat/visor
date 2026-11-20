@@ -30,28 +30,24 @@ struct OfficeView: View {
             .padding(.horizontal, NotchLayout.inset)
             OfficeCanvas(model: model)
                 .frame(width: CGFloat(OfficeLayout.width * Self.scale), height: CGFloat(scene.layout.height * Self.scale))
+                .overlay(alignment: .top) {
+                    if model.officePicker { OfficeWorldPicker(model: model).transition(.opacity) }
+                }
+                .animation(.easeOut(duration: 0.12), value: model.officePicker)
         }
     }
 
-    /// Picks the office's world: the night studio or a film.
+    /// Opens the world setting over the room.
     private var worldMenu: some View {
-        Menu {
-            ForEach(OfficeWorld.allCases, id: \.self) { world in
-                Button {
-                    model.officeWorld = world
-                } label: {
-                    if world == model.officeWorld { Label(world.title, systemImage: "checkmark") } else { Text(world.title) }
-                }
-            }
-        } label: {
+        Button { model.officePicker.toggle() } label: {
             Image(systemName: "paintpalette")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(model.officePicker ? Theme.textPrimary : Theme.textSecondary)
+                .frame(width: 22, height: 18)
+                .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .padding(.trailing, 8)
+        .buttonStyle(.plain)
+        .padding(.trailing, 4)
         .help("Office world: \(model.officeWorld.title)")
     }
 

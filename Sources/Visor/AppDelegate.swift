@@ -372,6 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.showAccounts = message.payload["accounts"] as? Bool == true
             if let office = message.payload["office"] as? Bool { model.agentsOffice = office }
             if let world = message.payload["world"] as? String { model.officeWorld = OfficeWorld(saved: world) }
+            if let picker = message.payload["worldPicker"] as? Bool { model.officePicker = picker }
             if let tokens = message.payload["tokens"] as? Bool { model.usageTokens = tokens }
             if let page = (message.payload["page"] as? String).flatMap(TokensPage.init(rawValue:)) { model.tokensPage = page }
             // "clipHover": n hovers the clipboard's nth row (0-based).

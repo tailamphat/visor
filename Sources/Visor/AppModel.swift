@@ -177,6 +177,8 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// The office's world picker is open over the room.
+    var officePicker = false
     /// How the office looks: the night studio or a film world; remembered.
     var officeWorld = OfficeWorld(saved: UserDefaults.standard.string(forKey: "officeWorld")) {
         didSet { UserDefaults.standard.set(officeWorld.rawValue, forKey: "officeWorld") }
