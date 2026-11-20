@@ -293,6 +293,9 @@ final class AppModel {
     /// the sides can be sized with the same inset around anything.
     var leftEarContent: CGFloat = 0
     var rightEarContent: CGFloat = 0
+    /// What each side shows besides the limits, so the limits can even them out.
+    var leftEarBase: CGFloat = 0
+    var rightEarBase: CGFloat = 0
 
     /// Host app icons by name ("Ghostty"), for the closed notch.
     var hostIcons: [String: NSImage] = [:]
