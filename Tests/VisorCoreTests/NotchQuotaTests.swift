@@ -125,3 +125,16 @@ struct CompactMusicTests {
         #expect(NotchEars.musicWidth(notch: 174) == 174 + 2 * (64 + 18 + 6 + 12))
     }
 }
+
+@Suite("Open notch tabs")
+struct NotchTabTests {
+    /// Tabs sit left of the camera; however many there are, they fit in the room there.
+    @Test func tabsFitBesideTheCamera() {
+        let four = NotchEars.tabLayout(count: 4, room: 133.5)
+        #expect(four.width == 30 && four.spacing == 4, "four tabs keep their full size")
+        let five = NotchEars.tabLayout(count: 5, room: 133.5)
+        #expect(five.width * 5 + five.spacing * 4 <= 133.5)
+        #expect(five.width >= 24, "still a comfortable target")
+        #expect(NotchEars.tabRoom(panel: 520, notch: 185) == 133.5)
+    }
+}

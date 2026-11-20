@@ -103,6 +103,22 @@ public enum NotchQuotaSummary {
 /// Each side of the closed notch is as wide as what it shows, within bounds,
 /// so a single mark doesn't sit in an ear sized for four quotas.
 public enum NotchEars {
+    /// Room for the open panel's tabs left of the camera: half of what's
+    /// beside the notch, less the panel's flare (12), inset and a small gap.
+    public static func tabRoom(panel: Double, notch: Double) -> Double {
+        (panel - notch) / 2 - 12 - panelInset - 4
+    }
+
+    /// Tab width and spacing so `count` tabs fit in `room`: full size (30, 4 apart)
+    /// when they fit, else closer together and narrower. Past the room a tab
+    /// would sit under the camera, where nobody can see it.
+    public static func tabLayout(count: Int, room: Double) -> (width: Double, spacing: Double) {
+        guard count > 0 else { return (30, 4) }
+        let n = Double(count)
+        if n * 30 + (n - 1) * 4 <= room { return (30, 4) }
+        return (min(30, ((room - (n - 1) * 2) / n).rounded(.down)), 2)
+    }
+
     public static let minWidth = 38.0
     /// Longer content (a project name) truncates instead of stretching the notch.
     public static let maxWidth = 140.0

@@ -447,19 +447,21 @@ struct ExpandedView: View {
     @ViewBuilder private var header: some View {
         if model.compactMusic {
             HStack(spacing: 0) {
-                tabs(model.shownTabs.prefix(2)).padding(.leading, NotchLayout.inset)
+                // Narrow panel: the four main tabs, two a side (Plugins is in the full panel).
+                tabs(Tab.shown.prefix(2)).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(model.shownTabs.dropFirst(2)).padding(.trailing, NotchLayout.inset)
+                tabs(Tab.shown.dropFirst(2)).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
         }
     }
 
-    private func tabs(_ list: ArraySlice<Tab>) -> some View {
-        HStack(spacing: 4) {
+    private func tabs(_ list: ArraySlice<Tab>, fit room: Double? = nil) -> some View {
+        let size = room.map { NotchEars.tabLayout(count: list.count, room: $0) } ?? (width: 30, spacing: 4)
+        return HStack(spacing: size.spacing) {
             ForEach(Array(list), id: \.self) { tab in
-                TabButton(tab: tab, selected: model.tab == tab && !model.showsCard,
+                TabButton(tab: tab, selected: model.tab == tab && !model.showsCard, width: size.width,
                           help: tab == .agents ? (model.agentsOffice ? "Agents: the office. Click again for the list"
                                                                      : "Agents: the list. Click again for the office") : nil) {
                     // Agents again, while on it: switch between the list and the office.
@@ -494,7 +496,8 @@ struct ExpandedView: View {
 
     private var fullHeader: some View {
         HStack(spacing: 0) {
-            tabs(model.shownTabs[...])
+            // However many tabs, they stay left of the camera, where they can be seen.
+            tabs(model.shownTabs[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))
             .padding(.leading, NotchLayout.inset)
             Spacer(minLength: layout.notch.width + 16)
             HStack(spacing: 8) {
@@ -531,6 +534,7 @@ struct ExpandedView: View {
 struct TabButton: View {
     let tab: Tab
     let selected: Bool
+    var width: CGFloat = 30
     var help: String?
     let action: () -> Void
 
@@ -539,7 +543,7 @@ struct TabButton: View {
             Image(systemName: tab.symbol)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(selected ? Theme.textPrimary : Theme.textMuted)
-                .frame(width: 30, height: 22)
+                .frame(width: width, height: 22)
                 .background(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(selected ? Color.white.opacity(0.14) : .clear))
