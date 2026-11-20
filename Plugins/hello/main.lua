@@ -4,7 +4,7 @@
 
 -- Runs once when the plugin starts.
 visor.store.starts = (visor.store.starts or 0) + 1
-visor.peek({ title = "Your first plugin is running", subtitle = "started " .. visor.store.starts .. " times", state = "info" })
+visor.peek({ title = "It's alive!", subtitle = "woken up " .. visor.store.starts .. " times so far", state = "info" })
 
 local function refresh()
   local rows = {}
