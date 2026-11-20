@@ -181,25 +181,26 @@
   .tile .live { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: #5FD35F; outline: 2px solid #1A1A19; }
   .tile .wait { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 10px; border-radius: 3px; background: var(--amber); color: #000; font: 800 8px/10px var(--sf); text-align: center; outline: 2px solid #1A1A19; }
   .glow { position: absolute; inset: 0; background: radial-gradient(circle at 0 0, rgba(130,220,160,.16), transparent 380px); pointer-events: none; }
-  .who { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #C3C2B7; margin-top: 6px; }
+  .who { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #C3C2B7; }
   .who .tile { width: 22px; height: 22px; border-radius: 6px; }
   .who .tile svg { width: 13px; height: 13px; }
   .who b { color: #E59A80; font-weight: 600; }
-  .ask { font-size: 14.5px; font-weight: 600; margin-top: 10px; }
-  .ask span { font-size: 10.5px; color: #8A8980; font-weight: 400; margin-left: 4px; }
-  .cmd { font: 12px var(--mono); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 10px; margin: 10px 0 12px; color: #fff; overflow-x: auto; white-space: nowrap; }
+  .ask { font-size: 15px; font-weight: 600; margin-top: 9px; }
+  .ask span { font-size: 11px; color: #8A8980; font-weight: 400; margin-left: 4px; }
+  .cmd { font: 12px var(--mono); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 6px 10px; margin: 9px 0 12px; color: #fff; font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
   .cmd span { color: #8A8980; margin-right: 6px; }
   .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .btn { font: 600 12px var(--sf); padding: 6px 14px; border-radius: 99px; display: inline-flex; gap: 6px; align-items: center; }
+  .btn { font: 600 13px var(--sf); height: 33px; padding: 0 16px; border-radius: 99px; display: inline-flex; gap: 7px; align-items: center; box-sizing: border-box; }
   .btn.deny { background: #2A1714; border: 1px solid #5A2E26; color: #F09A84; }
   /* "Always" is chosen on purpose: a quiet link under Deny and Allow, its rule in view. */
-  .alink { text-align: center; margin-top: 10px; font: 500 11.5px var(--sf); color: #B9D9C3; }
-  .alink code { font: 11px var(--mono); color: #8FB89C; background: none; padding: 0 2px; }
-  .alink kbd { font: 600 9.5px var(--sf); padding: 1px 5px; border-radius: 4px; background: rgba(185,217,195,.16); margin-left: 3px; }
+  .alink { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 9px; font: 600 12px var(--sf); color: #B9D9C3; }
+  .alink svg { width: 12px; height: 12px; }
+  .alink code { font: 500 11.5px var(--mono); color: #8FB89C; background: none; padding: 0; }
+  .alink kbd { font: 600 10px var(--sf); padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.1); }
   .btn.always { background: #142A1C; border: 1px solid #2D5A3C; color: #E7F7EC; }
   .btn.always code { font: 11px var(--mono); color: #B9D9C3; background: none; padding: 0; }
   .btn.allow { background: #97E0A9; color: #05200F; border: 1px solid #97E0A9; }
-  .btn kbd { font: 600 9.5px var(--sf); padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, currentColor 16%, transparent); }
+  .btn kbd { font: 600 10px var(--sf); padding: 2px 6px; border-radius: 5px; background: color-mix(in srgb, currentColor 16%, transparent); }
   .sess .t .ctx { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 10px; color: #8A8980; }
   /* Like the app: the bar fills the row, the percentage keeps its width at the end. */
   .sess .t .ctx .bar { flex: 1 1 auto; min-width: 0; height: 4px; margin: 0; }
@@ -735,7 +736,7 @@
             <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
             <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
             <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-            <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink">↻ Always allow <code>git push</code> <kbd>A</kbd></div>
+            <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 7.2A5 5 0 0 1 12.1 4.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13.3 2.4v3.6H9.7z" fill="currentColor"/><path d="M13 8.8A5 5 0 0 1 3.9 11.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2.7 13.6V10h3.6z" fill="currentColor"/></svg>Always allow <code>git push</code><kbd>A</kbd></div>
           </div>
 
           <div class="view" data-name="clipboard" hidden>
@@ -890,7 +891,7 @@
         <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
         <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
         <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-        <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink">↻ Always allow <code>git push</code> <kbd>A</kbd></div>
+        <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 7.2A5 5 0 0 1 12.1 4.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13.3 2.4v3.6H9.7z" fill="currentColor"/><path d="M13 8.8A5 5 0 0 1 3.9 11.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2.7 13.6V10h3.6z" fill="currentColor"/></svg>Always allow <code>git push</code><kbd>A</kbd></div>
       </div></div>
     </figure>
   </div>
