@@ -25,6 +25,12 @@ local function get(host, path)
   return nil
 end
 
+-- Only GitHub: github.com and GitHub Enterprise (*.ghe.com). Agents also work
+-- in GitLab, Azure DevOps and other repos; those are skipped.
+local function isGitHub(host)
+  return host == "github.com" or host:sub(-8) == ".ghe.com"
+end
+
 -- Which repos to watch: the settings, else where the agents are.
 local function watched()
   local list = {}
@@ -33,7 +39,11 @@ local function watched()
     if not host then host = "github.com"; owner, name = entry:match("^([^/]+)/([^/]+)$") end
     if owner then table.insert(list, { host = host, owner = owner, name = name }) end
   end
-  if #list == 0 then list = visor.repos() end
+  if #list == 0 then
+    for _, repo in ipairs(visor.repos()) do
+      if isGitHub(repo.host) then table.insert(list, repo) end
+    end
+  end
   return list
 end
 
@@ -59,7 +69,10 @@ local function check()
   local now = {}
 
   for _, repo in ipairs(watched()) do
-    for _, run in ipairs(latestRuns(repo)) do
+    -- One repo failing (no access, renamed) doesn't stop the others.
+    local ok, runs = pcall(latestRuns, repo)
+    if not ok then visor.log(repo.host .. "/" .. repo.owner .. "/" .. repo.name .. ": " .. tostring(runs)); runs = {} end
+    for _, run in ipairs(runs) do
       local state = run.conclusion or run.status -- "failure", "success", "in_progress", ...
       table.insert(rows, {
         title = repo.name .. " · " .. (run.head_branch or "?") .. " · " .. run.name,

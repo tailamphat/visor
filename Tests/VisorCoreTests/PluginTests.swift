@@ -244,7 +244,8 @@ struct ExamplePluginTests {
     /// A failed run on the agent's branch: a red badge, a peek once, the run first in the panel.
     @Test func github() throws {
         let host = FakeHost()
-        host.repoList = [PluginRepo(host: "acme.ghe.com", owner: "team", name: "api", branch: "feat/x", path: "/Users/me/api")]
+        host.repoList = [PluginRepo(host: "acme.ghe.com", owner: "team", name: "api", branch: "feat/x", path: "/Users/me/api"),
+                         PluginRepo(host: "ssh.dev.azure.com", owner: "project", name: "service", branch: "main", path: "/Users/me/service")]
         host.responder = { request in
             let url = request.url.absoluteString
             if url.contains("/actions/runs") {
