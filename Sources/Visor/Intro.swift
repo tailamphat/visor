@@ -11,7 +11,25 @@ import VisorCore
 final class IntroController {
     private var window: NSWindow?
     /// About 30% slower than the first cut, so each beat lands.
-    private let duration: CFTimeInterval = 4.6
+    /// The beats were timed on a 4.6 s timeline; the flight up to the notch
+    /// (0.42 to 0.54 of it) gets 2 s longer, everything else keeps its pace.
+    private static let base: CFTimeInterval = 4.6
+    private static let flight = (from: 0.42, to: 0.54, extra: 2.0)
+    private let duration: CFTimeInterval = base + flight.extra
+
+    /// A moment on the 4.6 s timeline, in seconds on the real one.
+    private static func seconds(_ fraction: Double) -> Double {
+        let s = fraction * base, a = flight.from * base, b = flight.to * base
+        if s <= a { return s }
+        if s <= b { return a + (s - a) * (b - a + flight.extra) / (b - a) }
+        return s + flight.extra
+    }
+
+    /// Key times written on the 4.6 s timeline, for an animation `length` long.
+    private func times(_ fractions: [Double], length: Double? = nil) -> [NSNumber] {
+        let total = length ?? duration
+        return fractions.map { NSNumber(value: min(1, Self.seconds($0 * (length.map { ($0 - Self.flight.extra) / Self.base } ?? 1)) / total)) }
+    }
 
     /// Plays on `screen`; `arrive` runs when the icon reaches the notch, to open it.
     func play(on screen: NSScreen, arrive: @escaping () -> Void) {
@@ -41,7 +59,7 @@ final class IntroController {
         dim.backgroundColor = NSColor.black.withAlphaComponent(0.5).cgColor
         dim.opacity = 0
         root.addSublayer(dim)
-        animate(dim, "opacity", [0, 1, 1, 0.25, 0], [0, 0.1, 0.7, 1, 1], start: start, length: duration + 0.6)
+        animate(dim, "opacity", [0, 1, 1, 0.25, 0], times([0, 0.1, 0.7, 1, 1], length: duration + 0.6), start: start, length: duration + 0.6)
 
         // A soft halo behind the icon.
         let halo = CAGradientLayer()
@@ -55,8 +73,8 @@ final class IntroController {
         halo.endPoint = CGPoint(x: 1, y: 1)
         halo.opacity = 0
         root.addSublayer(halo)
-        animate(halo, "opacity", [0, 1, 0.9, 0], [0, 0.18, 0.4, 0.5], start: start)
-        animate(halo, "transform.scale", [0.3, 1.3, 1.1, 1.6], [0, 0.18, 0.4, 0.5], start: start)
+        animate(halo, "opacity", [0, 1, 0.9, 0], times([0, 0.18, 0.4, 0.5]), start: start)
+        animate(halo, "transform.scale", [0.3, 1.3, 1.1, 1.6], times([0, 0.18, 0.4, 0.5]), start: start)
 
         // The light trail from the icon to the notch.
         let trail = CAGradientLayer()
@@ -71,8 +89,8 @@ final class IntroController {
         trail.cornerRadius = 4
         trail.opacity = 0
         root.addSublayer(trail)
-        animate(trail, "opacity", [0, 0, 1, 0], [0, 0.42, 0.5, 0.62], start: start)
-        animate(trail, "transform.scale.y", [0.01, 0.01, 1, 0.05], [0, 0.42, 0.52, 0.62], start: start)
+        animate(trail, "opacity", [0, 0, 1, 0], times([0, 0.42, 0.5, 0.62]), start: start)
+        animate(trail, "transform.scale.y", [0.01, 0.01, 1, 0.05], times([0, 0.42, 0.52, 0.62]), start: start)
 
         // The icon: rises toward you, settles, a little bob, squash, then launch.
         let icon = CALayer()
@@ -86,11 +104,11 @@ final class IntroController {
         icon.shadowOffset = CGSize(width: 0, height: -10)
         icon.opacity = 0
         root.addSublayer(icon)
-        let times: [NSNumber] = [0, 0.18, 0.28, 0.36, 0.42, 0.54, 0.58]
-        animate(icon, "position.y", [centre.y - 40, centre.y, centre.y, centre.y + 4, centre.y - 6, notch.y, notch.y], times, start: start)
-        animate(icon, "transform.scale.x", [0.8, 1.1, 1, 1, 1.05, 0.3, 0.1], times, start: start)
-        animate(icon, "transform.scale.y", [0.8, 1.1, 1, 1, 0.93, 0.5, 0.1], times, start: start)
-        animate(icon, "opacity", [0, 1, 1, 1, 1, 1, 0], times, start: start)
+        let iconTimes = times([0, 0.18, 0.28, 0.36, 0.42, 0.54, 0.58])
+        animate(icon, "position.y", [centre.y - 40, centre.y, centre.y, centre.y + 4, centre.y - 6, notch.y, notch.y], iconTimes, start: start)
+        animate(icon, "transform.scale.x", [0.8, 1.1, 1, 1, 1.05, 0.3, 0.1], iconTimes, start: start)
+        animate(icon, "transform.scale.y", [0.8, 1.1, 1, 1, 0.93, 0.5, 0.1], iconTimes, start: start)
+        animate(icon, "opacity", [0, 1, 1, 1, 1, 1, 0], iconTimes, start: start)
 
         // A glint flashing across it.
         let glint = CAGradientLayer()
@@ -101,8 +119,8 @@ final class IntroController {
         glint.position = centre
         glint.opacity = 0
         root.addSublayer(glint)
-        animate(glint, "opacity", [0, 0, 1, 0], [0, 0.18, 0.22, 0.3], start: start)
-        animate(glint, "transform.scale.x", [0.2, 0.2, 1, 1.4], [0, 0.18, 0.22, 0.3], start: start)
+        animate(glint, "opacity", [0, 0, 1, 0], times([0, 0.18, 0.22, 0.3]), start: start)
+        animate(glint, "transform.scale.x", [0.2, 0.2, 1, 1.4], times([0, 0.18, 0.22, 0.3]), start: start)
 
         // The notch catches it: a glow around the notch and a burst of sparks.
         let glow = CALayer()
@@ -116,7 +134,7 @@ final class IntroController {
         glow.shadowOffset = .zero
         glow.opacity = 0
         root.addSublayer(glow)
-        animate(glow, "opacity", [0, 0, 1, 0], [0, 0.53, 0.57, 0.8], start: start)
+        animate(glow, "opacity", [0, 0, 1, 0], times([0, 0.53, 0.57, 0.8]), start: start)
         for i in 0..<14 {
             let a = Double.pi + Double(i) / 13 * Double.pi
             let r = 60 + Double(i % 3) * 26
@@ -132,12 +150,12 @@ final class IntroController {
             spark.opacity = 0
             root.addSublayer(spark)
             let end = CGPoint(x: notch.x + cos(a) * r, y: h - 26 + sin(a) * r * 0.5 - 20)
-            animate(spark, "opacity", [0, 0, 1, 0], [0, 0.52, 0.55, 0.75], start: start + Double(i % 4) * 0.03)
+            animate(spark, "opacity", [0, 0, 1, 0], times([0, 0.52, 0.55, 0.75]), start: start + Double(i % 4) * 0.03)
             animate(spark, "position", [NSValue(point: spark.position), NSValue(point: spark.position), NSValue(point: end)],
-                    [0, 0.52, 0.75], start: start + Double(i % 4) * 0.03)
+                    times([0, 0.52, 0.75]), start: start + Double(i % 4) * 0.03)
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration * 0.54) { arrive() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.seconds(Self.flight.to)) { arrive() }
         DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.8) { [weak self] in
             self?.window?.orderOut(nil)
             self?.window = nil
