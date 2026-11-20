@@ -164,14 +164,14 @@ public enum NotchEars {
     /// notch and the open flare (12) each side.
     public static func musicWidth(notch: Double) -> Double {
         let closed = notch + 2 * minWidth + 2 * 6
-        return max((closed * 1.3).rounded(.up), notch + 2 * (64 + panelInset + 6 + 12))
+        return max((closed * 1.3).rounded(.up), notch + 2 * (64 + panelInset + 1 + 12))
     }
 
     /// The music panel with `tabsRight` tabs right of the camera: with Plugins,
-    /// three at 24 pt, 2 apart, so the panel stays narrow.
+    /// three at 22 pt, 2 apart, so the panel stays narrow.
     public static func musicWidth(notch: Double, tabsRight: Int) -> Double {
         guard tabsRight > 2 else { return musicWidth(notch: notch) }
-        let tabs = Double(tabsRight) * 24 + Double(tabsRight - 1) * 2
-        return max(musicWidth(notch: notch), notch + 2 * (tabs + panelInset + 4 + 12))
+        let tabs = Double(tabsRight) * 22 + Double(tabsRight - 1) * 2
+        return max(musicWidth(notch: notch), notch + 2 * (tabs + panelInset + 4.5 + 12))
     }
 }
