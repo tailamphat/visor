@@ -161,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             nonisolated(unsafe) let key = event
-            let handled = MainActor.assumeIsolated { self?.approvalKey(key) == true || self?.clipboardKey(key) == true }
+            let handled = MainActor.assumeIsolated { self?.welcomeKey(key) == true || self?.approvalKey(key) == true || self?.clipboardKey(key) == true }
             return handled ? nil : event
         }
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
@@ -212,6 +212,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.clipQuery = ""
         model.clipSelection = nil
         notch.close()
+    }
+
+    /// Return presses the hello's Get started, like Allow on an approval.
+    private func welcomeKey(_ event: NSEvent) -> Bool {
+        guard model.expanded, model.welcome, model.approvals.isEmpty, [36, 76].contains(event.keyCode) else { return false }
+        model.dismissWelcome()
+        return true
     }
 
     /// Return, A or Esc answers the card shown while the pointer is over it

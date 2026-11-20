@@ -87,6 +87,13 @@ final class AppModel {
     /// The first-launch hello is in the open notch, until "Get started".
     var welcome = false
 
+    /// "Get started": the hello goes and the notch closes.
+    func dismissWelcome() {
+        welcome = false
+        pinned = false
+        expanded = false
+    }
+
     /// The spend chart's day under the pointer, if any.
     var spendHover: Int?
     /// The OpenCode tokens chart's day under the pointer, if any.

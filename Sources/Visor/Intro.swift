@@ -168,12 +168,11 @@ struct WelcomeView: View {
                 .foregroundStyle(LinearGradient(colors: [.white, Color(hex: 0xFFE3D6), .white], startPoint: .leading, endPoint: .trailing))
             Text("I live up here: your agents, usage, music and clipboard.")
                 .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-            Button("Get started") {
-                model.welcome = false
-                model.pinned = false
-                model.expanded = false
+            // The Allow button's style and key: mint with dark text, Return presses it.
+            Button { model.dismissWelcome() } label: {
+                Label { KeyHint(title: "Get started", key: "↩") } icon: { Image(systemName: "checkmark") }
             }
-            .buttonStyle(PillButton(fill: ConsentButton.mint))
+            .buttonStyle(ConsentButton(kind: .allow))
             .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
