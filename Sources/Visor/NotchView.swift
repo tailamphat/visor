@@ -453,9 +453,11 @@ struct ExpandedView: View {
     static let cameraGap: CGFloat = 4
 
     /// A header side at its own width, reported so the panel can slide to even the gaps.
-    private func measuredSide<Content: View>(_ content: Content, _ report: @escaping (CGFloat) -> Void) -> some View {
+    /// The right side isn't fixed: it takes the room that's left, so "% left" makes way
+    /// for the badge instead of pushing past the panel's padding.
+    private func measuredSide<Content: View>(_ content: Content, fixed: Bool = true, _ report: @escaping (CGFloat) -> Void) -> some View {
         content
-            .fixedSize()
+            .fixedSize(horizontal: fixed, vertical: false)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { report($0) }
     }
 
@@ -555,7 +557,7 @@ struct ExpandedView: View {
                 if !model.plugins.isEmpty {
                     tabs([Tab.plugins][...])
                 }
-            }) { model.headerRight = $0 }
+            }, fixed: false) { model.headerRight = $0 }
         }
         .padding(.horizontal, NotchLayout.inset)
     }
