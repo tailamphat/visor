@@ -69,7 +69,7 @@ A plugin watches something you care about (CI, pull requests, an on-call pager, 
 | `description` | | One sentence about what it shows. |
 | `main` | | The Lua file to run. Default `"main.lua"`. |
 | `hosts` | | The only hosts `visor.http` may call, over https. `"*.example.com"` matches any subdomain. |
-| `secrets` | | Name → the command that prints the secret. See [Secrets](#secrets). |
+| `secrets` | | Sign-ins Visor may attach to requests, and where they may go. See [Secrets](#secrets). |
 | `settings` | | Name → default value. Users override them in `settings.json`. |
 | `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars and its primary button. Red, amber and green keep their meaning. |
 
@@ -187,17 +187,25 @@ Only `https` URLs on a host listed in `hosts` work. Anything else raises an erro
 
 ### Secrets
 
-Plugins never see where a secret is stored. `plugin.json` names a command that prints it, and Visor runs that command (without a shell) when the plugin asks:
+Plugins never see a secret. `plugin.json` says how to read it and where it may be sent; Visor reads it, adds it to the request itself, and only for its own host:
 
 ```json
-"secrets": { "token": "gh auth token --hostname {host}" }
+"secrets": {
+  "token": "gh auth token --hostname {host}",
+  "jenkins": { "command": "op read op://Dev/Jenkins/token", "hosts": ["ci.example.com"] }
+}
 ```
 
 ```lua
-local token = visor.secret("token", "github.com")   -- or use auth = "token" in visor.http
+visor.http.get("https://api.github.com/user", { auth = "token", auth_host = "github.com" })
+visor.http.get("https://ci.example.com/api/json", { auth = "jenkins", auth_header = "X-Api-Key", auth_scheme = "" })
 ```
 
-`{host}` is replaced with the host you pass. Only commands that read a saved sign-in are allowed:
+- **A `{host}` secret** (the string form, like `gh auth token`) is read for `auth_host` (default: the URL's host) and is only sent to that host or its subdomains: the github.com sign-in goes to `api.github.com`, never to another site.
+- **Any other secret** needs the object form with `hosts`, and is only sent there. A secret that names no host is ignored.
+- `auth_header` (default `Authorization`) and `auth_scheme` (default `Bearer`; `""` for the bare secret) shape the header.
+
+Only commands that read a saved sign-in are allowed:
 
 | Command | Example |
 |---|---|
@@ -205,7 +213,7 @@ local token = visor.secret("token", "github.com")   -- or use auth = "token" in 
 | `op read …` (1Password CLI) | `op read op://Dev/Jenkins/token` |
 | `security find-generic-password …` / `find-internet-password …` | `security find-generic-password -s my-api -w` |
 
-Visor keeps a secret in memory for 30 minutes and never writes it to disk.
+Visor runs the command without a shell, keeps the secret in memory for 30 minutes and never writes it to disk or hands it to the plugin.
 
 ### Data
 
@@ -309,7 +317,19 @@ Visor is meant to use about 0% CPU when nothing is happening. Plugins keep that 
 
 ## The sandbox
 
-Plugins get Lua's `string`, `table`, `math` and `utf8` libraries, and `os.time`, `os.date`, `os.clock` and `os.difftime`. They **don't** get `io`, `os.execute`, `os.getenv`, `require`, `load`, `dofile`, `debug`, `collectgarbage` or `string.dump`. They can't read files, run programs or load bytecode. The network is limited to the hosts in `plugin.json`, and secrets come only through the commands above. A plugin can still show whatever it likes in the notch, so install plugins you trust, as with any app.
+Plugins get Lua's `string`, `table`, `math` and `utf8` libraries, and `os.time`, `os.date`, `os.clock` and `os.difftime`. They **don't** get `io`, `os.execute`, `os.getenv`, `require`, `load`, `dofile`, `debug`, `collectgarbage` or `string.dump`. They can't read files, run programs or load bytecode. The network is limited to the hosts in `plugin.json`, and secrets come only through the commands above. Plugins are read-only (GET requests only), and Visor sets limits so one can't hurt the rest of your Mac or the notch:
+
+| Limit | |
+|---|---|
+| Memory | 64 MB of Lua per plugin; past it, "not enough memory" inside the plugin. |
+| Time | An instruction budget per call, and a step limit on pattern matching. |
+| Network | Only listed `https` hosts; redirects only to listed hosts, and without the sign-in when the host changes; answers up to 10 MB; 30 requests per call; no cookies. |
+| Timers and handlers | 10 `visor.every` timers, 50 `visor.on` handlers. |
+| Showing | One update to the notch per call; one peek per call and per 10 seconds. |
+| Data | `visor.store` up to 1 MB; the log up to 1 MB per run. |
+| Code | No `load`, bytecode, `debug`, or `__gc` finalizers. |
+
+A plugin can still read what its hosts and sign-ins allow and show it in the notch, and it can send what it read to any host it lists. So look at a plugin's `hosts` and `secrets` before you install it, as you would with any app.
 
 ## Debugging
 

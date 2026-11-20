@@ -13,7 +13,8 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
-        // Lua 5.4.7 (lua.org, MIT), unchanged, for plugins. CLua.h wraps the macros Swift can't call.
+        // Lua 5.4.7 (lua.org, MIT) for plugins, with one marked patch in lstrlib.c (a step limit on
+        // pattern matching). CLua.h wraps the macros Swift can't call; clua.c adds the memory cap.
         .target(name: "CLua", exclude: ["LICENSE", "LUA-README"],
                 cSettings: [.define("LUA_USE_POSIX"), .unsafeFlags(["-w"])]),
         // Pure logic: pricing, transcript usage, subscription limits, agent state, the plugin runtime. No AppKit.

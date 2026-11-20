@@ -12,16 +12,15 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
     public var main: String
     /// The only hosts `visor.http` may call, over https. "*.ghe.com" matches any subdomain.
     public var hosts: [String]
-    /// Secret name → the command whose output is the secret (e.g. "gh auth token").
-    /// "{host}" is replaced with the host the plugin asks for.
-    public var secrets: [String: String]
+    /// Secret name → how to read it and where it may be sent.
+    public var secrets: [String: PluginSecret]
     /// Setting name → default value; the user's settings.json overrides them.
     public var settings: [String: Any]
     /// The plugin's one colour (0xRRGGBB) for charts, progress and its primary button.
     public var accent: Int?
 
     public init(id: String, name: String, version: String = "0.0.0", icon: String = "puzzlepiece.extension",
-                description: String = "", main: String = "main.lua", hosts: [String] = [], secrets: [String: String] = [:],
+                description: String = "", main: String = "main.lua", hosts: [String] = [], secrets: [String: PluginSecret] = [:],
                 settings: [String: Any] = [:], accent: Int? = nil) {
         self.id = id
         self.name = name
@@ -54,7 +53,7 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
                               icon: object["icon"] as? String ?? "puzzlepiece.extension",
                               description: object["description"] as? String ?? "", main: main,
                               hosts: object["hosts"] as? [String] ?? [],
-                              secrets: object["secrets"] as? [String: String] ?? [:],
+                              secrets: (object["secrets"] as? [String: Any] ?? [:]).compactMapValues(PluginSecret.parse),
                               settings: object["settings"] as? [String: Any] ?? [:],
                               accent: (object["accent"] as? String).flatMap(Self.hexColor))
     }
@@ -73,6 +72,30 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
             if pattern.hasPrefix("*.") { return host.hasSuffix(pattern.dropFirst(1)) && host.count > pattern.count - 1 }
             return host == pattern
         }
+    }
+}
+
+/// A secret from plugin.json: the command that reads it, and where it may go.
+/// `"token": "gh auth token --hostname {host}"` goes only to the sign-in's host
+/// (and its subdomains); `{"command": "op read …", "hosts": ["api.example.com"]}`
+/// only to the hosts listed. A secret that names no host is refused.
+public struct PluginSecret: Equatable, Sendable {
+    public var command: String
+    public var hosts: [String]
+
+    public init(command: String, hosts: [String] = []) {
+        self.command = command
+        self.hosts = hosts
+    }
+
+    static func parse(_ any: Any) -> PluginSecret? {
+        if let command = any as? String {
+            return command.contains("{host}") ? PluginSecret(command: command) : nil
+        }
+        guard let fields = any as? [String: Any], let command = fields["command"] as? String else { return nil }
+        let hosts = (fields["hosts"] as? [String] ?? []).map { $0.lowercased() }
+        guard command.contains("{host}") || !hosts.isEmpty else { return nil }
+        return PluginSecret(command: command, hosts: hosts)
     }
 }
 

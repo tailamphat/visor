@@ -7,7 +7,10 @@ import Foundation
 /// Sandbox: the base, string, table, math and utf8 libraries, plus os.time,
 /// os.date and os.clock. No io, os.execute, require, load, debug or bytecode.
 /// Every call into the plugin has an instruction budget, so a loop that never
-/// ends is stopped with an error instead of hanging Visor.
+/// ends is stopped with an error instead of hanging Visor, and a memory cap.
+/// Plugins never see secrets: Visor attaches a sign-in to a request itself, and
+/// only for the host it belongs to. Floods (views, peeks, requests, timers,
+/// stored data) are rationed so a plugin can't slow the notch.
 public final class LuaPlugin {
     public struct Timer: Equatable, Sendable {
         public let id: Int
@@ -16,8 +19,18 @@ public final class LuaPlugin {
 
     /// Instructions per call: a fraction of a second of pure Lua.
     public static var budget = 20_000_000
-    /// No plugin runs more often than this.
+    /// No plugin runs more often than this, or less often than weekly.
     public static var minInterval: TimeInterval = 30
+    public static let maxInterval: TimeInterval = 7 * 86400
+    /// Memory a plugin's Lua may use.
+    public static let memoryLimit = 64 * 1024 * 1024
+    public static let maxTimers = 10
+    public static let maxHandlers = 50
+    public static let maxRequestsPerCall = 30
+    /// visor.store, as JSON.
+    public static let maxStore = 1024 * 1024
+    /// At most one peek per call, and one per this many seconds.
+    public static let peekGap: TimeInterval = 10
 
     public let manifest: PluginManifest
     public private(set) var timers: [Timer] = []
@@ -29,10 +42,15 @@ public final class LuaPlugin {
     private var visorRef: Int32 = 0
     private var mainRef: Int32 = 0
     private var output = PluginOutput()
+    /// Something to show changed during this call; sent once when it ends.
+    private var outputChanged = false
     private var savedStore: Data?
+    private var requestsThisCall = 0
+    private var peekedThisCall = false
+    private var lastPeek = Date.distantPast
 
     public init(manifest: PluginManifest, source: String, host: PluginHost, store: Data? = nil, settings: [String: Any] = [:]) throws {
-        guard let state = luaL_newstate() else { throw PluginError.lua("Lua couldn't start (out of memory)") }
+        guard let state = clua_newstate(Self.memoryLimit) else { throw PluginError.lua("Lua couldn't start (out of memory)") }
         L = state
         self.manifest = manifest
         self.host = host
@@ -64,9 +82,22 @@ public final class LuaPlugin {
     end
     ui.divider = function() return { kind = "divider" } end
     visor.ui = ui
+
+    -- No finalizers: __gc runs plugin code at times Visor doesn't choose (and on close).
+    do
+      local raw = setmetatable
+      setmetatable = function(t, mt)
+        if type(mt) == "table" and rawget(mt, "__gc") ~= nil then error("__gc isn't allowed in plugins", 2) end
+        return raw(t, mt)
+      end
+    end
     """
 
-    deinit { lua_close(L) }
+    // The budget stays on while closing, as a second guard on anything closing runs.
+    deinit {
+        clua_set_budget(L, Self.budget)
+        clua_close(L)
+    }
 
     /// Runs the main file, then each `visor.every` callback once.
     public func start() throws {
@@ -116,27 +147,41 @@ public final class LuaPlugin {
 
     /// Calls the function below its arguments on the stack with the budget on, then saves the store if it changed.
     private func callTop(arguments: Int32 = 0) throws {
+        requestsThisCall = 0
+        peekedThisCall = false
         clua_set_budget(L, Self.budget)
+        clua_enforce(L, 1)
         let status = clua_pcall(L, arguments, 0)
+        clua_enforce(L, 0)
         clua_set_budget(L, 0)
-        defer { saveStore() }
+        // One update per call, however many times the plugin showed something.
+        if outputChanged {
+            outputChanged = false
+            host?.show(output)
+        }
+        let storeError = saveStore()
         guard status == LUA_OK else {
             let message = string(at: -1) ?? "error"
             clua_pop(L, 1)
             throw PluginError.lua(message)
         }
+        if let storeError { throw PluginError.lua(storeError) }
     }
 
-    private func saveStore() {
+    /// Saves visor.store when it changed. Read raw: a metatable on visor never runs here.
+    private func saveStore() -> String? {
         lua_rawgeti(L, clua_registryindex(), lua_Integer(visorRef))
-        lua_getfield(L, -1, "store")
+        lua_pushstring(L, "store")
+        lua_rawget(L, -2)
         let store = value(at: -1) ?? [String: Any]()
         clua_pop(L, 2)
         guard JSONSerialization.isValidJSONObject(store),
               let data = try? JSONSerialization.data(withJSONObject: store, options: [.sortedKeys]),
-              data != savedStore else { return }
+              data != savedStore else { return nil }
+        guard data.count <= Self.maxStore else { return "visor.store is over 1 MB and wasn't saved" }
         savedStore = data
         host?.saveStore(data)
+        return nil
     }
 
     // MARK: Sandbox and API
@@ -169,7 +214,7 @@ public final class LuaPlugin {
     }
 
     private enum Function: Int32, CaseIterable {
-        case every, badge, panel, view, on, peek, log, secret, repos, now, isotime, httpGet, jsonEncode, jsonDecode
+        case every, badge, panel, view, on, peek, log, repos, now, isotime, httpGet, jsonEncode, jsonDecode
     }
 
     private func installAPI(settings: [String: Any], store: Data?) {
@@ -186,7 +231,6 @@ public final class LuaPlugin {
         function(.on, "on")
         function(.peek, "peek")
         function(.log, "log")
-        function(.secret, "secret")
         function(.repos, "repos")
         function(.now, "now")
         function(.isotime, "isotime")
@@ -229,7 +273,9 @@ public final class LuaPlugin {
             guard lua_type(L, 1) == LUA_TNUMBER, lua_type(L, 2) == LUA_TFUNCTION else {
                 return fail("visor.every(seconds, function) needs a number and a function")
             }
-            let seconds = max(Self.minInterval, lua_tonumberx(L, 1, nil))
+            guard timers.count < Self.maxTimers else { return fail("visor.every: at most \(Self.maxTimers) timers") }
+            let raw = lua_tonumberx(L, 1, nil)
+            let seconds = raw.isFinite ? min(Self.maxInterval, max(Self.minInterval, raw)) : Self.minInterval
             lua_pushvalue(L, 2)
             let id = timers.count + 1
             timerRefs[id] = luaL_ref(L, clua_registryindex())
@@ -237,20 +283,23 @@ public final class LuaPlugin {
             return 0
         case .badge:
             output.badge = (value(at: 1) as? [String: Any]).map(badge)
-            host?.show(output)
+            outputChanged = true
             return 0
         case .panel:
             let list = value(at: 1) as? [Any] ?? []
             output.sections = list.prefix(10).compactMap { ($0 as? [String: Any]).flatMap(section) }
-            host?.show(output)
+            outputChanged = true
             return 0
         case .view:
             output.view = value(at: 1).flatMap(PluginNode.decode)
-            host?.show(output)
+            outputChanged = true
             return 0
         case .on:
             guard let name = string(at: 1), lua_type(L, 2) == LUA_TFUNCTION else {
                 return fail("visor.on(name, function) needs a name and a function")
+            }
+            guard actionRefs[name] != nil || actionRefs.count < Self.maxHandlers else {
+                return fail("visor.on: at most \(Self.maxHandlers) handlers")
             }
             lua_pushvalue(L, 2)
             if let old = actionRefs[name] { luaL_unref(L, clua_registryindex(), old) }
@@ -260,8 +309,12 @@ public final class LuaPlugin {
             guard let fields = value(at: 1) as? [String: Any], let title = fields["title"] as? String else {
                 return fail("visor.peek needs { title = ... }")
             }
-            host?.peek(PluginPeek(title: title, subtitle: fields["subtitle"] as? String ?? "",
-                                  state: PluginState(loose: fields["state"] as? String), icon: fields["icon"] as? String))
+            // Rationed: the notch is for news, not a ticker.
+            guard !peekedThisCall, Date().timeIntervalSince(lastPeek) >= Self.peekGap else { return 0 }
+            peekedThisCall = true
+            lastPeek = Date()
+            host?.peek(PluginPeek(title: String(title.prefix(120)), subtitle: String((fields["subtitle"] as? String ?? "").prefix(120)),
+                                  state: PluginState(loose: fields["state"] as? String), icon: (fields["icon"] as? String).map { String($0.prefix(60)) }))
             return 0
         case .log:
             let count = lua_gettop(L)
@@ -275,10 +328,6 @@ public final class LuaPlugin {
             }
             host?.log(parts.joined(separator: " "))
             return 0
-        case .secret:
-            guard let name = string(at: 1), manifest.secrets[name] != nil else { lua_pushnil(L); return 1 }
-            if let value = host?.secret(name, host: string(at: 2)) { lua_pushstring(L, value) } else { lua_pushnil(L) }
-            return 1
         case .repos:
             push((host?.repos() ?? []).map { repo -> [String: Any] in
                 var fields: [String: Any] = ["host": repo.host, "owner": repo.owner, "name": repo.name, "path": repo.path,
@@ -299,13 +348,24 @@ public final class LuaPlugin {
             guard manifest.allows(url) else {
                 return fail("\(text) isn't allowed: add its host to \"hosts\" in plugin.json (https only)")
             }
+            guard requestsThisCall < Self.maxRequestsPerCall else {
+                return fail("visor.http: at most \(Self.maxRequestsPerCall) requests per call")
+            }
+            requestsThisCall += 1
             let options = value(at: 2) as? [String: Any] ?? [:]
-            var headers = (options["headers"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String ?? ($0 as? NSNumber)?.stringValue }
+            // Header names are tokens and values single lines: nothing can be smuggled into the request.
+            var headers: [String: String] = [:]
+            for (name, item) in options["headers"] as? [String: Any] ?? [:] {
+                guard let text = item as? String ?? (item as? NSNumber)?.stringValue, Self.isHeaderName(name),
+                      !text.contains("\r"), !text.contains("\n") else { continue }
+                headers[name] = text
+            }
             if let auth = options["auth"] as? String {
-                guard manifest.secrets[auth] != nil else { return fail("auth = \"\(auth)\" isn't a secret in plugin.json") }
-                // The sign-in's host can differ from the API's (github.com vs api.github.com).
-                let signIn = options["auth_host"] as? String ?? url.host
-                if let token = host?.secret(auth, host: signIn) { headers["Authorization"] = "Bearer \(token)" }
+                switch signIn(auth, for: url, options: options) {
+                case .failure(let error): return fail(error.message)
+                case .success(let header):
+                    if let header { headers[header.name] = header.value }
+                }
             }
             guard let host else { return fail("Visor isn't running this plugin anymore") }
             let response = host.request(PluginRequest(method: "GET", url: url, headers: headers, body: nil))
@@ -334,8 +394,48 @@ public final class LuaPlugin {
     // MARK: Building outputs
 
     private func badge(_ fields: [String: Any]) -> PluginBadge {
-        PluginBadge(icon: fields["icon"] as? String ?? manifest.icon, count: (fields["count"] as? NSNumber)?.intValue,
-                    state: PluginState(loose: fields["state"] as? String), help: fields["help"] as? String ?? "")
+        PluginBadge(icon: String((fields["icon"] as? String ?? manifest.icon).prefix(60)),
+                    count: (fields["count"] as? NSNumber).map { Int(clamping: Int64(max(-1e15, min(1e15, $0.doubleValue)))) },
+                    state: PluginState(loose: fields["state"] as? String), help: String((fields["help"] as? String ?? "").prefix(200)))
+    }
+
+    // MARK: Sign-ins
+
+    /// The header that signs a request in with secret `name`, or why it can't.
+    /// Plugins never see the secret; Visor adds it here, and only for its own host:
+    /// a "{host}" secret (gh) for the sign-in's host and its subdomains
+    /// (github.com → api.github.com), any other secret only for the hosts it names.
+    private func signIn(_ name: String, for url: URL, options: [String: Any]) -> Result<(name: String, value: String)?, SignInError> {
+        guard let secret = manifest.secrets[name] else { return .failure(SignInError("auth = \"\(name)\" isn't a secret in plugin.json")) }
+        let requestHost = (url.host ?? "").lowercased()
+        var hostForCommand: String?
+        if secret.command.contains("{host}") {
+            let signIn = (options["auth_host"] as? String)?.lowercased() ?? requestHost
+            guard requestHost == signIn || requestHost.hasSuffix("." + signIn) else {
+                return .failure(SignInError("the \(name) sign-in for \(signIn) can't be sent to \(requestHost)"))
+            }
+            hostForCommand = signIn
+        } else {
+            guard PluginManifest(id: "x", name: "x", hosts: secret.hosts).allows(url) else {
+                return .failure(SignInError("\(name) can only be sent to \(secret.hosts.joined(separator: ", "))"))
+            }
+        }
+        let headerName = options["auth_header"] as? String ?? "Authorization"
+        let scheme = options["auth_scheme"] as? String ?? "Bearer"
+        guard Self.isHeaderName(headerName), scheme.range(of: #"^[A-Za-z0-9-]{0,20}$"#, options: .regularExpression) != nil else {
+            return .failure(SignInError("auth_header must be a header name and auth_scheme a single word"))
+        }
+        guard let token = host?.secret(name, host: hostForCommand), !token.contains("\r"), !token.contains("\n") else { return .success(nil) }
+        return .success((headerName, scheme.isEmpty ? token : "\(scheme) \(token)"))
+    }
+
+    struct SignInError: Error {
+        let message: String
+        init(_ message: String) { self.message = message }
+    }
+
+    static func isHeaderName(_ name: String) -> Bool {
+        name.range(of: #"^[A-Za-z0-9-]{1,64}$"#, options: .regularExpression) != nil
     }
 
     private func section(_ fields: [String: Any]) -> PluginSection? {
@@ -365,7 +465,8 @@ public final class LuaPlugin {
         case LUA_TNUMBER: return lua_isinteger(L, i) != 0 ? Int(lua_tointegerx(L, i, nil)) : lua_tonumberx(L, i, nil)
         case LUA_TSTRING: return string(at: i)
         case LUA_TTABLE:
-            guard depth < 32 else { return nil }
+            // lua_next needs two slots per level; make room so deep tables can't overrun the stack.
+            guard depth < 32, lua_checkstack(L, 4) != 0 else { return nil }
             var dictionary: [String: Any] = [:]
             var numbered: [Int: Any] = [:]
             lua_pushnil(L)
@@ -388,7 +489,11 @@ public final class LuaPlugin {
         }
     }
 
-    private func push(_ value: Any?) {
+    /// Pushes a value. Room is made on the stack first, and nesting past 64 becomes nil,
+    /// so deep JSON from a server can't overrun Lua's stack.
+    private func push(_ value: Any?, depth: Int = 0) {
+        guard lua_checkstack(L, 3) != 0 else { return }
+        guard depth < 64 else { lua_pushnil(L); return }
         switch value {
         case nil, is NSNull: lua_pushnil(L)
         // NSNumber first and whole: JSON's 0 and 1 would also pass as Bool.
@@ -404,14 +509,14 @@ public final class LuaPlugin {
         case let array as [Any]:
             lua_createtable(L, Int32(array.count), 0)
             for (index, item) in array.enumerated() {
-                push(item)
+                push(item, depth: depth + 1)
                 lua_rawseti(L, -2, lua_Integer(index + 1))
             }
         case let dictionary as [String: Any]:
             lua_createtable(L, 0, Int32(dictionary.count))
             for (key, item) in dictionary {
                 lua_pushstring(L, key)
-                push(item)
+                push(item, depth: depth + 1)
                 lua_rawset(L, -3)
             }
         default: lua_pushnil(L)

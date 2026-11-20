@@ -231,22 +231,14 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         let cached = request.method == "GET" ? cache[request.url] : nil
         if let etag = cached?.etag { urlRequest.setValue(etag, forHTTPHeaderField: "If-None-Match") }
         if let modified = cached?.modified { urlRequest.setValue(modified, forHTTPHeaderField: "If-Modified-Since") }
-        let done = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var result = PluginResponse(status: 0, body: Data(), headers: [:], cached: false)
-        URLSession.shared.dataTask(with: urlRequest) { data, response, _ in
-            if let http = response as? HTTPURLResponse {
-                var headers: [String: String] = [:]
-                for (key, value) in http.allHeaderFields { headers[String(describing: key).lowercased()] = String(describing: value) }
-                result = PluginResponse(status: http.statusCode, body: data ?? Data(), headers: headers, cached: false)
-            }
-            done.signal()
-        }.resume()
-        done.wait()
+        let result = PluginFetch.run(urlRequest, manifest: manifest)
         if result.status == 304, var old = cached?.response {
             old.cached = true
             return old
         }
         if request.method == "GET", (200..<300).contains(result.status), result.headers["etag"] != nil || result.headers["last-modified"] != nil {
+            // Bounded: a plugin asking for endless distinct URLs can't grow it forever.
+            if cache.count >= 50 { cache.removeAll() }
             cache[request.url] = (result.headers["etag"], result.headers["last-modified"], result)
         }
         return result
@@ -255,7 +247,7 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
     func secret(_ name: String, host: String?) -> String? {
         let key = "\(name)|\(host ?? "")"
         if let hit = secrets[key], Date().timeIntervalSince(hit.read) < 1800 { return hit.value }
-        guard let template = manifest.secrets[name], let words = PluginSecrets.command(template, host: host),
+        guard let secret = manifest.secrets[name], let words = PluginSecrets.command(secret.command, host: host),
               let tool = ToolLocator.candidates(words[0], home: FileManager.default.homeDirectoryForCurrentUser.path)
                 .first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
         let process = Process()
@@ -272,11 +264,16 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         return value.isEmpty ? nil : value
     }
 
+    /// Read at most every 5 s: a plugin calling it in a loop can't flood the main thread.
     func repos() -> [PluginRepo] {
+        if let cached = reposCache, Date().timeIntervalSince(cached.read) < 5 { return cached.repos }
         let folders = DispatchQueue.main.sync { MainActor.assumeIsolated { service?.agentFolders ?? [] } }
         var seen = Set<String>()
-        return folders.compactMap(Self.repo).filter { seen.insert("\($0.host)/\($0.owner)/\($0.name)/\($0.branch ?? "")").inserted }
+        let repos = folders.compactMap(Self.repo).filter { seen.insert("\($0.host)/\($0.owner)/\($0.name)/\($0.branch ?? "")").inserted }
+        reposCache = (repos, Date())
+        return repos
     }
+    private var reposCache: (repos: [PluginRepo], read: Date)?
 
     /// The repo a folder is in: walks up to .git (a folder, or a worktree's "gitdir:" file).
     static func repo(in folder: String) -> PluginRepo? {
@@ -303,10 +300,16 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         return nil
     }
 
+    /// Up to 1 MB of log per run, lines up to 2000 characters, so logging in a loop can't fill the disk.
     func log(_ line: String) {
+        guard logged < 1_000_000 else { return }
         let stamp = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withTime, .withColonSeparatorInTime])
-        log?.write(Data("\(stamp) \(line)\n".utf8))
+        var text = "\(stamp) \(line.prefix(2000))\n"
+        logged += text.utf8.count
+        if logged >= 1_000_000 { text += "\(stamp) (log full until the plugin restarts)\n" }
+        log?.write(Data(text.utf8))
     }
+    private var logged = 0
 
     func show(_ output: PluginOutput) {
         mainUpdate {
@@ -341,5 +344,76 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         log = try? FileHandle(forWritingTo: url)
         _ = try? log?.seekToEnd()
         log("started \(manifest.name) \(manifest.version)")
+    }
+}
+
+/// One plugin request, made in its own ephemeral session: no cookies, no
+/// system cache, no redirects to hosts the plugin didn't list (and no sign-in
+/// carried to another host), and at most 10 MB of answer.
+final class PluginFetch: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    static let maxBytes = 10 * 1024 * 1024
+
+    private let manifest: PluginManifest
+    private var data = Data()
+    private var response: HTTPURLResponse?
+    private var tooBig = false
+    private let done = DispatchSemaphore(value: 0)
+
+    private init(manifest: PluginManifest) {
+        self.manifest = manifest
+    }
+
+    static func run(_ request: URLRequest, manifest: PluginManifest) -> PluginResponse {
+        let fetch = PluginFetch(manifest: manifest)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        let session = URLSession(configuration: configuration, delegate: fetch, delegateQueue: nil)
+        session.dataTask(with: request).resume()
+        fetch.done.wait()
+        session.finishTasksAndInvalidate()
+        guard let http = fetch.response, !fetch.tooBig else {
+            return PluginResponse(status: 0, body: Data(), headers: [:], cached: false)
+        }
+        var headers: [String: String] = [:]
+        for (key, value) in http.allHeaderFields { headers[String(describing: key).lowercased()] = String(describing: value) }
+        return PluginResponse(status: http.statusCode, body: fetch.data, headers: headers, cached: false)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        guard let url = request.url, manifest.allows(url) else { return completionHandler(nil) }
+        var next = request
+        // A sign-in is for the host it was asked for, not wherever a redirect points.
+        if url.host?.lowercased() != task.originalRequest?.url?.host?.lowercased() {
+            for name in task.originalRequest?.allHTTPHeaderFields?.keys ?? [:].keys where name.lowercased() != "user-agent" && name.lowercased() != "accept" {
+                next.setValue(nil, forHTTPHeaderField: name)
+            }
+        }
+        completionHandler(next)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        self.response = response as? HTTPURLResponse
+        if response.expectedContentLength > Int64(Self.maxBytes) {
+            tooBig = true
+            return completionHandler(.cancel)
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        self.data.append(data)
+        if self.data.count > Self.maxBytes {
+            tooBig = true
+            dataTask.cancel()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if error != nil, !tooBig, response == nil { data = Data() }
+        done.signal()
     }
 }

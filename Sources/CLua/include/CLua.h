@@ -27,6 +27,13 @@ void clua_set_dispatch(clua_dispatch_fn fn);
 /// Pushes a Lua function that calls the dispatcher with `ctx` and `fn`.
 void clua_pushfunction(lua_State *L, void *ctx, int fn);
 
+/// A state whose allocations are capped at `limit` bytes while enforced.
+lua_State *clua_newstate(size_t limit);
+/// Turns the memory cap on (plugin code running) or off (Visor's own work).
+void clua_enforce(lua_State *L, int on);
+/// Closes a state made by clua_newstate.
+void clua_close(lua_State *L);
+
 /// Stops a call that runs too long: after `budget` instructions, raises an error.
 void clua_set_budget(lua_State *L, long budget);
 

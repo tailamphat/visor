@@ -361,6 +361,7 @@ typedef struct MatchState {
   const char *p_end;  /* end ('\0') of pattern */
   lua_State *L;
   int matchdepth;  /* control for recursive depth (to avoid C stack overflow) */
+  long steps;  /* Visor patch: work left, so a plugin's pattern can't run forever */
   unsigned char level;  /* total number of captures (finished or unfinished) */
   struct {
     const char *init;
@@ -372,6 +373,13 @@ typedef struct MatchState {
 /* recursive function */
 static const char *match (MatchState *ms, const char *s, const char *p);
 
+
+/* Visor patch: most 'match' calls one find/match/gsub/gmatch step may make. Pattern
+** matching runs in C, where the instruction-count hook never fires, so without
+** this a pattern like ".-.-.-.-b" on a long string spins a plugin's thread for good. */
+#if !defined(CLUA_MATCH_STEPS)
+#define CLUA_MATCH_STEPS	50000000L
+#endif
 
 /* maximum recursion depth for 'match' */
 #if !defined(MAXCCALLS)
@@ -570,6 +578,8 @@ static const char *match_capture (MatchState *ms, const char *s, int l) {
 static const char *match (MatchState *ms, const char *s, const char *p) {
   if (l_unlikely(ms->matchdepth-- == 0))
     luaL_error(ms->L, "pattern too complex");
+  if (l_unlikely(--ms->steps < 0))  /* Visor patch: see CLUA_MATCH_STEPS */
+    luaL_error(ms->L, "pattern too slow (step limit)");
   init: /* using goto to optimize tail recursion */
   if (p != ms->p_end) {  /* end of pattern? */
     switch (*p) {
@@ -758,6 +768,7 @@ static void prepstate (MatchState *ms, lua_State *L,
                        const char *s, size_t ls, const char *p, size_t lp) {
   ms->L = L;
   ms->matchdepth = MAXCCALLS;
+  ms->steps = CLUA_MATCH_STEPS;
   ms->src_init = s;
   ms->src_end = s + ls;
   ms->p_end = p + lp;
@@ -766,6 +777,7 @@ static void prepstate (MatchState *ms, lua_State *L,
 
 static void reprepstate (MatchState *ms) {
   ms->level = 0;
+  ms->steps = CLUA_MATCH_STEPS;
   lua_assert(ms->matchdepth == MAXCCALLS);
 }
 

