@@ -70,19 +70,27 @@
   .try button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
   /* The notch, drawn from the app: 460 pt panels, 24 pt corners open. */
-  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: #000; color: #fff;
-    width: var(--w, 300px); height: var(--h, 32px); border-radius: 0 0 var(--r, 10px) var(--r, 10px);
-    transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), border-radius .3s, box-shadow .3s;
+  /* Like NotchShape: the frame is the panel's size, flared --f at each top corner into the menu bar,
+     so the black body is 2 x --f narrower (460 pt open is a 436 pt body). */
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); color: #fff; --f: 6px;
+    width: var(--w, 300px); height: var(--h, 32px);
+    transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), filter .3s;
     overflow: hidden; z-index: 2; font: 12px/1.35 var(--sf); max-width: calc(100% - 16px); }
-  .notch.open { --r: 24px; box-shadow: 0 10px 28px rgba(0,0,0,.45); }
-  .ears { height: 32px; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; transition: opacity .2s; }
+  .notch::before { content: ""; position: absolute; inset: 0 var(--f); background: #000; border-radius: 0 0 var(--r, 10px) var(--r, 10px);
+    transition: border-radius .3s, left .3s, right .3s; z-index: -1; }
+  .notch::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: var(--f); z-index: -1;
+    background: radial-gradient(circle at 0 100%, transparent calc(var(--f) - .5px), #000 var(--f)) left top / var(--f) var(--f) no-repeat,
+                radial-gradient(circle at 100% 100%, transparent calc(var(--f) - .5px), #000 var(--f)) right top / var(--f) var(--f) no-repeat; }
+  .notch { isolation: isolate; }
+  .notch.open { --r: 24px; --f: 12px; filter: drop-shadow(0 10px 14px rgba(0,0,0,.4)); }
+  .ears { height: 32px; display: flex; justify-content: space-between; align-items: center; padding: 0 18px; transition: opacity .2s; }
   .notch.open .ears { opacity: 0; pointer-events: none; position: absolute; inset: 0 0 auto; }
   .ears .side { display: flex; align-items: center; gap: 6px; }
   .ears .mark { width: 14px; height: 14px; }
   .q-col { display: flex; flex-direction: column; align-items: center; gap: 1.5px; font: 600 9px/1 var(--sf); font-variant-numeric: tabular-nums; color: #C3C2B7; }
   .q-col svg { width: 10px; height: 10px; }
   .q-col.warn { color: var(--amber); }
-  .panel { opacity: 0; transition: opacity .2s .12s; padding: 0 18px 18px; position: absolute; inset: 0; }
+  .panel { opacity: 0; transition: opacity .2s .12s; padding: 0 30px 18px; position: absolute; inset: 0; }
   .notch.open .panel { opacity: 1; }
   /* Like the app: the same header on every panel, three 22 pt slots each side of the camera,
      packed from the outer edges, so the panel stays centred and never slides between tabs. */
@@ -109,7 +117,7 @@
   .view { margin-top: 8px; }
   /* The office runs to the panel's edges, like in the app. */
   .view[data-name="office"] { margin: 8px -18px 0; }
-  .view .room { display: block; width: 100%; height: auto; }
+  .view .room { display: block; width: 100%; height: auto; border-radius: 0 0 24px 24px; }
   .view[hidden] { display: none; }
   .t2 { color: #C3C2B7; } .t3 { color: #8A8980; }
 
@@ -180,7 +188,7 @@
   .tile svg { width: 15px; height: 15px; }
   .tile .live { position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: #5FD35F; outline: 2px solid #1A1A19; }
   .tile .wait { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 10px; border-radius: 3px; background: var(--amber); color: #000; font: 800 8px/10px var(--sf); text-align: center; outline: 2px solid #1A1A19; }
-  .glow { position: absolute; inset: 0; background: radial-gradient(circle at 0 0, rgba(130,220,160,.16), transparent 380px); pointer-events: none; }
+  .glow { position: absolute; inset: 0 12px; background: radial-gradient(circle at 0 0, rgba(130,220,160,.16), transparent 380px); pointer-events: none; }
   /* The approval card, from ApprovalView: rows 9 pt apart; ConsentButton capsules 34 pt tall,
      16 pt each side, 12.5 pt semibold; KeyCap 10 pt; "Always allow" a quiet 11.5 pt link. */
   .apv { display: flex; flex-direction: column; gap: 9px; font-family: var(--sf); }
@@ -192,7 +200,7 @@
   .apv-ask { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
   .apv-ask b { font: 600 15px var(--sf); color: #fff; }
   .apv-ask span { font-size: 11px; color: #8A8980; overflow: hidden; text-overflow: ellipsis; }
-  .apv-cmd { font: 12px/1.35 var(--mono); color: #fff; padding: 8px 11px; border-radius: 9px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .apv-cmd { font: 12px/14px var(--mono); color: #fff; padding: 7px 11px; border-radius: 9px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .apv-cmd span { color: #8A8980; }
   .apv-btns { display: flex; justify-content: center; gap: 8px; padding-top: 2px; }
   .apv-btn { height: 34px; box-sizing: border-box; padding: 0 16px; border-radius: 99px; display: inline-flex; align-items: center; gap: 6px; font: 600 12.5px var(--sf); }
@@ -237,7 +245,7 @@
   .clip .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .clip .app { font-size: 10.5px; color: #8A8980; font-family: var(--sf); }
   .clip .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; margin-left: -18px; margin-right: -3px; }
-  .lit { background: radial-gradient(circle at 15% 70%, rgba(110,114,200,.45), transparent 300px), linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.8)), linear-gradient(120deg, #3E5E86, #7C6A8E 45%, #2F3A55) !important; }
+  .notch.lit::before { background: radial-gradient(circle at 15% 70%, rgba(110,114,200,.45), transparent 300px), linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.8)), linear-gradient(120deg, #3E5E86, #7C6A8E 45%, #2F3A55) !important; }
   .song { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
   .cover { width: 64px; height: 64px; border-radius: 10px; flex: none; position: relative; overflow: hidden;
     background: radial-gradient(circle at 70% 38%, #FFE3A8 0 9px, rgba(255,214,150,.55) 10px, transparent 24px), linear-gradient(180deg, #F6B48F 0%, #E58FA6 45%, #6E72C8 46%, #3C3F86 100%); }
@@ -1136,7 +1144,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 268], office: [460, 356], tokens: [460, 454], approval: [460, 218], clipboard: [460, 232], music: [385, 136], plugins: [460, 238] };
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 268], office: [460, 338], tokens: [460, 454], approval: [460, 218], clipboard: [460, 232], music: [385, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
