@@ -445,6 +445,9 @@ struct ExpandedView: View {
         }
     }
 
+    /// Room between the camera and the music panel's tabs, the same on both sides.
+    static let cameraGap: CGFloat = 4
+
     /// Tabs left of the hardware notch, a glanceable status right of it. Now
     /// Playing's narrow panel has no room for the status: its tabs sit two a side,
     /// with Plugins as a third on the right once one is installed.
@@ -454,11 +457,13 @@ struct ExpandedView: View {
             let right = Array(Tab.shown.dropFirst(2)) + (model.plugins.isEmpty ? [] : [Tab.plugins])
             // With three on the right, every tab gets the same slot and gap, so both sides match.
             let same = model.plugins.isEmpty ? nil : NotchEars.musicTab
+            // Each side hugs the camera with the same 4 pt gap, so both are the same distance from it.
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2), fit: room, size: same).padding(.leading, NotchLayout.inset)
-                Spacer(minLength: layout.notch.width)
-                tabs(right[...], fit: room, size: same).padding(.trailing, NotchLayout.inset)
+                tabs(Tab.shown.prefix(2), fit: room, size: same).frame(maxWidth: .infinity, alignment: .trailing)
+                Color.clear.frame(width: layout.notch.width + 2 * Self.cameraGap)
+                tabs(right[...], fit: room, size: same).frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal, NotchLayout.inset)
         } else {
             fullHeader
         }
