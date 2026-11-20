@@ -86,7 +86,7 @@ enum OfficeThumbnail {
                 figure = cast[index]
             }
             let look = PixelPerson.look(for: agent, world: world, figure: figure)
-            if let screen = PixelPerson.screen(look, activity: agent.spot == .desk ? agent.activity : nil).first {
+            if let screen = PixelPerson.screen(look, activity: agent.spot == .desk ? agent.activity : nil, device: FilmRoom.device(at: agent.screen)).first {
                 context.draw(screen, in: CGRect(x: agent.screen.x * scale, y: (layout.height - agent.screen.y - 4) * scale, width: 6 * scale, height: 4 * scale))
             }
             let (pose, _) = PixelPerson.pose(for: agent)

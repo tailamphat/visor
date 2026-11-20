@@ -169,6 +169,8 @@ final class OfficeLayerView: NSView {
         sofaFront.contents = world == .studio ? OfficeRoom.sofaFront(layout) : nil
         sofaFront.zPosition = CGFloat(layout.stationTop + 22.5)
         for ring in rings {
+            // The studio's hologram; the film worlds draw their own web station.
+            ring.isHidden = world != .studio
             ring.position = point(OfficePoint(x: OfficeLayout.webX, y: layout.stationTop + 9), in: layout)
             ring.zPosition = CGFloat(layout.stationTop + 9)
         }
@@ -351,7 +353,8 @@ final class OfficeLayerView: NSView {
             loop.preferredFrameRateRange = CAFrameRateRange(minimum: 2, maximum: 8, preferred: 6)
             sprite.add(loop, forKey: "loop")
         }
-        person.shade.isHidden = agent.sits
+        // The agent ring stays under film characters when they sit, as in the mockup.
+        person.shade.isHidden = agent.sits && person.look.figure == nil
         person.tag.isHidden = !showsName(agent) && hovered != agent.id
         styleBubble(person, delay: delay)
     }
@@ -409,7 +412,7 @@ final class OfficeLayerView: NSView {
         screen.frame = CGRect(x: at.x * s, y: (layout.height - at.y - 4) * s, width: 6 * s, height: 4 * s)
         screen.zPosition = CGFloat(at.y)
         let atDesk = person.agent.spot == .desk
-        let frames = PixelPerson.screen(person.look, activity: atDesk ? person.agent.activity : nil)
+        let frames = PixelPerson.screen(person.look, activity: atDesk ? person.agent.activity : nil, device: FilmRoom.device(at: at))
         screen.removeAnimation(forKey: "screen")
         screen.contents = frames.first
         guard frames.count > 1 else { return }
@@ -906,10 +909,10 @@ enum PixelPerson {
     }
 
     /// A screen at a table: 6 x 4 room pixels.
-    static func screen(_ look: Look, activity: OfficeActivity?) -> [CGImage] {
-        let key = "screen-\(look.world)-\(look.shirt)-\(String(describing: activity))"
+    static func screen(_ look: Look, activity: OfficeActivity?, device: Int = 0) -> [CGImage] {
+        let key = "screen-\(look.world)-\(device)-\(look.shirt)-\(String(describing: activity))"
         if let hit = cache[key] { return hit }
-        if look.world != .studio { return filmScreen(look.world, activity: activity, key: key) }
+        if look.world != .studio { return filmScreen(look.world, activity: activity, device: device, key: key) }
         let shirt = NSColor(hex: look.shirt), dark = shirt.blended(withFraction: 0.35, of: .black) ?? shirt
         var images: [CGImage] = []
         switch activity {
@@ -940,25 +943,40 @@ enum PixelPerson {
 }
 
 extension PixelPerson {
-    /// A film world's screen: a blue holo console in the galaxy, a black panel
-    /// of pastel bars on the starship. Lines scroll while it types, a dot moves
-    /// while it thinks.
-    fileprivate static func filmScreen(_ world: OfficeWorld, activity: OfficeActivity?, key: String) -> [CGImage] {
+    /// A film world's screen, by the device at the seat (`FilmRoom.device`):
+    /// galaxy: a console's blue screen, a hologram figure, a datapad; starship: a
+    /// console's pastel bars, a PADD, a tricorder. Lines scroll while it types,
+    /// a dot moves while it thinks.
+    fileprivate static func filmScreen(_ world: OfficeWorld, activity: OfficeActivity?, device: Int, key: String) -> [CGImage] {
         let galaxy = world == .galaxy
-        let back: UInt32 = galaxy ? 0x1E4A66 : 0x0E0F1C
-        let ink: [UInt32] = galaxy ? [0xBFEFFF, 0x7CD0F5] : [0xE2A050, 0x9C8CC9, 0xD98A7A, 0x6F8FCF]
+        let pastel: [UInt32] = [0xE2A050, 0x9C8CC9, 0xD98A7A, 0x6F8FCF]
+        let (back, ink): (UInt32?, [UInt32]) = switch (galaxy, device) {
+        case (true, 1): (nil, [0x9FE0FF, 0x7CD0F5])           // hologram: no screen, just light
+        case (true, 2): (0x1E2A34, [0x7CD0F5, 0xE6B04A])      // datapad
+        case (true, _): (0x2E7AA6, [0xDFF6FF, 0xBFEFFF])      // console
+        case (false, 2): (0x2E6A8A, [0x9FE0FF, 0xDFF6FF])     // tricorder
+        case (false, _): (0x0E0F1C, pastel)                   // console, PADD
+        }
         var images: [CGImage] = []
-        let frames = activity == .typing || activity == .thinking ? 3 : 1
+        let frames = activity == .typing || activity == .thinking ? 3 : (galaxy && device == 1 ? 2 : 1)
         for f in 0..<frames {
-            guard let p = Pixels(width: 6, height: 4) else { break }
-            p.fill(0, 0, 6, 4, back)
-            switch activity {
-            case .typing:
-                for k in 0..<2 { p.fill(1, 1 + Double(k) * 2, Double(1 + (f + k * 2) % 4), 1, ink[(f + k) % ink.count]) }
-            case .thinking:
-                p.fill(1 + Double(f) * 2, 2, 1, 1, ink[0])
-            default:
-                if galaxy { p.fill(2, 1, 2, 2, 0x2E6A8A) } else { p.fill(1, 1, 2, 1, 0x3A2E1C); p.fill(1, 2, 3, 1, 0x2A2440) }
+            guard let p = Pixels(width: 6, height: 4, scale: 2) else { break }
+            if let back { p.fill(0, 0, 6, 4, back) }
+            if galaxy && device == 1 {
+                // A little blue figure flickering in a cone of light.
+                p.polygon([(1.5, 4), (4.5, 4), (5.5, 0), (0.5, 0)], NSColor(hex: 0x6EC8F5).withAlphaComponent(0.2))
+                let alpha = f % 2 == 0 ? 0.85 : 0.6
+                p.ellipse(2.4, 0.3, 1.2, 1.2, NSColor(hex: 0x9FE0FF).withAlphaComponent(alpha))
+                p.round(2.1, 1.4, 1.8, 2.4, radius: 0.6, NSColor(hex: 0x9FE0FF).withAlphaComponent(alpha))
+            } else {
+                switch activity {
+                case .typing:
+                    for k in 0..<2 { p.fill(1, 1 + Double(k) * 1.6, Double(1 + (f + k * 2) % 4), 0.8, ink[(f + k) % ink.count]) }
+                case .thinking:
+                    p.fill(1 + Double(f) * 1.5, 1.6, 0.9, 0.9, ink[0])
+                default:
+                    p.fill(1, 1, 2.5, 0.7, ink[0]); p.fill(1, 2.2, 1.6, 0.7, ink[1 % ink.count])
+                }
             }
             if let image = p.image { images.append(image) }
         }
