@@ -338,6 +338,11 @@ final class AppModel {
         return !(now.usesMediaKeys && !mediaKeysAllowed) && exactControlBrowser == nil
     }
 
+    /// Now Playing has the panel: it's narrow, with the tabs split around the camera.
+    var narrowMusic: Bool {
+        tab == .music && approvals.isEmpty && limitBack == nil && nowPlaying != nil
+    }
+
     /// The browser Visor can reopen with page access, so play, pause and the
     /// icon are exact (Dia without its launch flag). nil when not offered.
     var exactControlBrowser: String? {

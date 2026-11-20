@@ -55,10 +55,10 @@ struct NotchLayout {
         if model.expanded {
             if !model.approvals.isEmpty { return Self.approvalSize }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
-            if model.compactMusic {
-                // With the Plugins tab, the header is the full one (four tabs left of the camera), so the full width.
-                return CGSize(width: model.plugins.isEmpty ? CGFloat(NotchEars.musicWidth(notch: Double(notch.width))) : Self.width,
-                              height: fitting(Self.compactMusicContent))
+            if model.narrowMusic {
+                // Narrow, with the tabs split around the camera (Plugins makes three on the right).
+                let width = CGFloat(NotchEars.musicWidth(notch: Double(notch.width), tabsRight: model.plugins.isEmpty ? 2 : 3))
+                return CGSize(width: width, height: model.compactMusic ? fitting(Self.compactMusicContent) : Self.musicSize.height)
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
             if model.tab == .usage && model.usageTokens { return CGSize(width: Self.expandedSize.width, height: fitting(TokensView.height)) }
@@ -445,15 +445,17 @@ struct ExpandedView: View {
         }
     }
 
-    /// Tabs left of the hardware notch, a glanceable status right of it. The
-    /// compact music panel has no room for the status: its tabs sit two a side. With
-    /// plugins installed it's full width with the usual header, Plugins on the right.
+    /// Tabs left of the hardware notch, a glanceable status right of it. Now
+    /// Playing's narrow panel has no room for the status: its tabs sit two a side,
+    /// with Plugins as a third on the right once one is installed.
     @ViewBuilder private var header: some View {
-        if model.compactMusic && model.plugins.isEmpty {
+        if model.narrowMusic {
+            let room = NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width)
+            let right = Array(Tab.shown.dropFirst(2)) + (model.plugins.isEmpty ? [] : [Tab.plugins])
             HStack(spacing: 0) {
-                tabs(Tab.shown.prefix(2)).padding(.leading, NotchLayout.inset)
+                tabs(Tab.shown.prefix(2), fit: room).padding(.leading, NotchLayout.inset)
                 Spacer(minLength: layout.notch.width)
-                tabs(Tab.shown.dropFirst(2)).padding(.trailing, NotchLayout.inset)
+                tabs(right[...], fit: room).padding(.trailing, NotchLayout.inset)
             }
         } else {
             fullHeader
