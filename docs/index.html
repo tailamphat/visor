@@ -117,8 +117,8 @@
 
   /* Shared pieces of the app's panels (hero and figures) */
   .ucols { display: grid; grid-template-columns: 1fr 190px; gap: 24px; }
-  /* Between tools: a band of grey diagonal stripes, like the app. */
-  .tooldiv { height: 6px; margin: 16px 0; border-radius: 3px; background: repeating-linear-gradient(-45deg, rgba(255,255,255,.16) 0 1.5px, transparent 1.5px 5px); }
+  /* Between tools: space alone, like the app. */
+  .tooldiv { height: 28px; }
   .solo { padding-right: 214px; }
   .phdr { display: flex; align-items: center; gap: 6px; }
   .phdr svg { width: 15px; height: 15px; }
@@ -725,7 +725,7 @@ end)</pre>
     <h2>What else is new</h2>
     <p>Small things that add up, in Visor 0.4 to 0.6.</p>
     <ul class="more">
-      <li><h3>A clear break between tools</h3><p>In the Usage tab, a band of grey stripes now separates each tool, so Claude, Copilot, Antigravity and OpenCode each read as their own block.</p></li>
+      <li><h3>Room between tools</h3><p>In the Usage tab, each tool gets more space before the next, so Claude, Copilot, Antigravity and OpenCode each read as their own group, headed by their mark and name.</p></li>
       <li><h3>Pin from the clipboard</h3><p>Hover an item for a pin next to ✕. Pinned items keep a small green pin and survive Clear and the 200-item / 30-day cleanup. Hovering down the list is smoother too.</p></li>
       <li><h3>Copilot from your editor, no <code>gh</code> needed</h3><p>Signed in to Copilot in JetBrains, Neovim or Xcode? The Usage tab now reads that sign-in, so you no longer need to install <code>gh</code> and log in. (VS Code keeps its sign-in to itself, so VS Code-only users still need <code>gh auth login</code>.)</p></li>
       <li><h3>Your tools, in your order</h3><p>Drag a tool by its handle under Connected accounts (the gear on Usage) to move it up or down. The Usage tab and the closed notch follow.</p></li>
@@ -788,7 +788,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 326], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
+  const sizes = { closed: [300, 32], usage: [520, 316], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');

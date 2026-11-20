@@ -250,7 +250,7 @@ visor.view(ui.stack {
 |---|---|---|
 | `ui.stack { ... }` | pieces, top to bottom | |
 | `ui.columns { a, b, c }` | up to 3 pieces side by side | |
-| `ui.divider()` | | the striped band between tools in Usage |
+| `ui.divider()` | | a band of grey stripes |
 | `ui.text { "…", style = }` | `title`, `body` (default), `caption`, `mono`; `state` colours it | |
 | `ui.stats { ui.stat{…}, … }` | stats in a row | the Tokens headline |
 | `ui.stat { value =, label =, size = "large", state = }` | | one figure with a label |

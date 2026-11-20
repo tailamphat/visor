@@ -469,11 +469,10 @@ struct UsageView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                // In the order chosen under Connected accounts, a striped band between tools.
-                let sections = model.usageSections
-                ForEach(sections, id: \.self) { provider in
-                    if provider != sections.first { ToolDivider() }
+            VStack(alignment: .leading, spacing: UsageView.toolGap) {
+                // In the order chosen under Connected accounts. Space alone separates tools:
+                // each starts with its coloured mark and name, which reads as a heading.
+                ForEach(model.usageSections, id: \.self) { provider in
                     section(provider)
                 }
                 if !ConnectionProvider.allCases.contains(where: model.shows) {
@@ -693,13 +692,18 @@ struct AccountRow<Grip: View>: View {
     }
 }
 
-/// Between tools in Usage: a band of diagonal grey stripes, so it can't be
+extension UsageView {
+    /// Between tools in Usage.
+    static let toolGap: CGFloat = 28
+    /// Height that gap adds over the 20pt tools used to have.
+    static let toolGapExtra: CGFloat = toolGap - 20
+}
+
+/// A band of diagonal grey stripes: a plugin's `ui.divider()`, which can't be
 /// mistaken for a meter's solid track.
 struct ToolDivider: View {
     static let band: CGFloat = 6
     static let room: CGFloat = 18
-    /// Height it adds over the plain gap that used to separate tools.
-    static let extra: CGFloat = 2 * room + band - 20
 
     var body: some View {
         Canvas { context, size in

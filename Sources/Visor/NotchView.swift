@@ -63,8 +63,8 @@ struct NotchLayout {
             if model.tab == .usage {
                 // Plan limits sit under a bar with the switch to Tokens.
                 let bar = UsageBar.height + UsageBar.gap
-                // Each striped divider between tools takes a little more than the old gap.
-                let dividers = CGFloat(max(0, model.usageSections.count - 1)) * ToolDivider.extra
+                // The gap between tools is a little more than the old 20pt.
+                let dividers = CGFloat(max(0, model.usageSections.count - 1)) * UsageView.toolGapExtra
                 // No taller than the tallest panel the window has room for; past that, the list scrolls.
                 func taller(_ size: CGSize) -> CGSize {
                     CGSize(width: size.width, height: min(size.height + bar + dividers, Self.usageWithAntigravitySize.height + bar))
