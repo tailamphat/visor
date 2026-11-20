@@ -6,11 +6,12 @@ import VisorCore
 /// toward you in the middle, a glint flashes across it, it squashes and launches
 /// up into the notch on a light trail, the notch catches it with a glow and
 /// sparks, and opens to say hello. One click-through window just under the
-/// notch's, all Core Animation, gone after about four seconds.
+/// notch's, all Core Animation, gone after about five seconds.
 @MainActor
 final class IntroController {
     private var window: NSWindow?
-    private let duration: CFTimeInterval = 3.6
+    /// About 30% slower than the first cut, so each beat lands.
+    private let duration: CFTimeInterval = 4.6
 
     /// Plays on `screen`; `arrive` runs when the icon reaches the notch, to open it.
     func play(on screen: NSScreen, arrive: @escaping () -> Void) {
