@@ -235,7 +235,7 @@ struct ExamplePluginTests {
         let p = try load("hello", host: host)
         try p.start()
         #expect(host.errors.isEmpty)
-        #expect(host.peeks.first?.title == "It's alive!")
+        #expect(host.peeks.first?.title.hasSuffix("…") == true, "a random word to say hello")
         #expect(host.outputs.last?.sections.first?.rows.first?.title == "octocat/visor")
         #expect(host.outputs.last?.badge?.count == 1)
     }

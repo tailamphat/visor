@@ -2,9 +2,15 @@
 -- Copy this folder to ~/Library/Application Support/Visor/Plugins/ and open the
 -- Plugins tab. Edit this file and Visor reloads it.
 
--- Runs once when the plugin starts.
+-- Runs once when the plugin starts: a random word to say hello, like Claude
+-- Code's spinner.
 visor.store.starts = (visor.store.starts or 0) + 1
-visor.peek({ title = "It's alive!", subtitle = "woken up " .. visor.store.starts .. " times so far", state = "info" })
+local moods = {
+  "Percolating", "Noodling", "Tinkering", "Doodling", "Conjuring", "Brewing",
+  "Pondering", "Wiggling", "Simmering", "Booping", "Fiddling", "Moseying",
+  "Daydreaming", "Scheming", "Whirring", "Bamboozling", "Sprouting", "Jiggling",
+}
+visor.peek({ title = moods[math.random(#moods)] .. "…", subtitle = "woken up " .. visor.store.starts .. " times so far", state = "info" })
 
 local function refresh()
   local rows = {}
