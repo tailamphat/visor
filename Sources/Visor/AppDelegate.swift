@@ -12,8 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var music = MusicService(model: model)
     private lazy var plugins = PluginService(model: model)
     /// In-app updates from the appcast in Info.plist (SUFeedURL), signed with
-    /// the EdDSA key in SUPublicEDKey. Only an app bundle can update itself,
-    /// so a bare debug binary doesn't start it.
+    /// the EdDSA key in SUPublicEDKey: checked every 6 hours, downloaded and
+    /// installed when Visor quits (unless turned off in the menu). Only an app
+    /// bundle can update itself, so a bare debug binary doesn't start it.
     private lazy var updater = SPUStandardUpdaterController(
         startingUpdater: Bundle.main.bundleURL.pathExtension == "app", updaterDelegate: UpdateFeed.shared, userDriverDelegate: nil)
     private lazy var bar = BarService(model: model)
@@ -499,7 +500,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menu.addItem(withTitle: "About Visor", action: #selector(showAbout), keyEquivalent: "").target = self
+        if let version = UpdateFeed.shared.readyVersion {
+            menu.addItem(withTitle: "Restart to Update to \(version)", action: #selector(installUpdate), keyEquivalent: "").target = self
+        }
         menu.addItem(withTitle: "Check for Updates\u{2026}", action: #selector(checkForUpdates), keyEquivalent: "").target = self
+        let automatic = menu.addItem(withTitle: "Install Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
+        automatic.target = self
+        automatic.state = updater.updater.automaticallyDownloadsUpdates ? .on : .off
         menu.addItem(.separator())
         let claude = HookInstaller.isInstalled
         let antigravity = HookInstaller.antigravityInstalled
@@ -586,6 +593,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func checkForUpdates() {
         NSApp.activate(ignoringOtherApps: true)
         updater.checkForUpdates(nil)
+    }
+
+    @objc private func toggleAutomaticUpdates() {
+        updater.updater.automaticallyDownloadsUpdates.toggle()
+    }
+
+    @objc private func installUpdate() {
+        UpdateFeed.shared.installNow?()
     }
 
     @objc private func showAbout() {
@@ -715,10 +730,20 @@ enum ProcessTree {
 
 /// Where updates come from: Info.plist's SUFeedURL, or VISOR_UPDATE_FEED to
 /// try an update from a local appcast before releasing it.
+/// A downloaded update waits for Visor to quit; the menu offers to restart now.
 final class UpdateFeed: NSObject, SPUUpdaterDelegate {
     static let shared = UpdateFeed()
+    private(set) var readyVersion: String?
+    private(set) var installNow: (() -> Void)?
 
     func feedURLString(for updater: SPUUpdater) -> String? {
         ProcessInfo.processInfo.environment["VISOR_UPDATE_FEED"]
+    }
+
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+                 immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        readyVersion = item.displayVersionString
+        installNow = immediateInstallHandler
+        return true
     }
 }

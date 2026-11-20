@@ -22,6 +22,8 @@ Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and lo
 brew install --cask tailamphat/tap/visor
 ```
 
+Visor keeps itself up to date: it checks for a new version every 6 hours, downloads it in the background and installs it when Visor quits or restarts. The menu has **Restart to Update** once one is ready, and **Install Updates Automatically** to turn this off (then Visor asks first).
+
 Visor is signed ad hoc, not notarized. The cask clears the quarantine flag on install and upgrade for you. If you install it another way and macOS says "Visor is damaged", run:
 
 ```sh
