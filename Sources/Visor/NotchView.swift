@@ -27,6 +27,7 @@ struct NotchLayout {
     static let approvalSize = CGSize(width: width, height: 193)
     static let approvalAlwaysExtra: CGFloat = 25
     static let musicSize = CGSize(width: width, height: 182)
+    static let nothingPlayingHeight: CGFloat = 150
     /// The compact Now Playing row: artwork beside title and controls.
     static let compactMusicContent: CGFloat = 70
     /// The "limit is back" card: a title row and one meter.
@@ -111,6 +112,8 @@ struct NotchLayout {
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
+            // Nothing playing: a little shorter than the other panels, it's only a message.
+            if model.tab == .music && model.nowPlaying == nil { return CGSize(width: Self.width, height: Self.nothingPlayingHeight) }
             return model.tab == .music && model.nowPlaying != nil ? Self.musicSize : Self.expandedSize
         }
         let ears = showsEars(model) ? leftEar(model) + rightEar(model) : 0
