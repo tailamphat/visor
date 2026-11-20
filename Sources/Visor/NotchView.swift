@@ -541,7 +541,7 @@ struct TabButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: tab.symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: tab.symbolSize, weight: .semibold))
                 .foregroundStyle(selected ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: width, height: 22)
                 .background(

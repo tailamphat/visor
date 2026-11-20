@@ -21,6 +21,10 @@ enum Tab: String, CaseIterable {
         }
     }
 
+    /// The puzzle piece is wide and short; drawn a little larger it matches the
+    /// other icons' height and weight.
+    var symbolSize: CGFloat { self == .plugins ? 13.5 : 12 }
+
     /// The tabs in the top bar. Bar is hidden for now; its code stays so it can come back.
     /// Plugins joins them once a plugin is installed (AppModel.shownTabs).
     static let shown: [Tab] = [.agents, .usage, .music, .clipboard]
