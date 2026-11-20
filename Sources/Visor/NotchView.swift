@@ -158,14 +158,6 @@ struct NotchView: View {
         .animation(Theme.spring, value: model.expanded)
         .animation(Theme.spring, value: size)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .overlay(alignment: .top) {
-            // Under the camera, not the shifted shape: the strip stays centred on the notch.
-            if !model.expanded && layout.showsEars(model) && !model.quotas.isEmpty {
-                QuotaStrip(quotas: model.quotas)
-                    .offset(y: layout.notch.height - 0.5)
-                    .transition(.opacity.animation(.easeOut(duration: 0.12)))
-            }
-        }
         .environment(\.colorScheme, .dark)
     }
 }
@@ -286,47 +278,31 @@ struct CollapsedView: View {
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
-        } else if !model.pluginBadges.isEmpty {
-            // The quotas sit in the strip under the camera (`QuotaStrip`).
+        } else if !model.quotas.isEmpty || !model.pluginBadges.isEmpty {
             HStack(spacing: 6) {
+                // Plugins' badges first, nearest the notch: they're news; the quotas are standing numbers.
                 ForEach(Array(model.pluginBadges.enumerated()), id: \.offset) { _, badge in
                     PluginBadgeView(badge: badge)
                 }
-            }
-        }
-    }
-}
-
-/// Every AI tool's quota in a thin black strip hanging under the camera while
-/// the notch shows its sides, so the right side stays short however many
-/// tools there are.
-struct QuotaStrip: View {
-    let quotas: [NotchQuota]
-    static let height: CGFloat = 15
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(quotas) { quota in
-                HStack(spacing: 3) {
-                    // Always the agent's own colour, so each is recognisable;
-                    // the percent carries the warning colour.
-                    AgentMark(agent: quota.agent, size: 9)
-                    // The time left when it runs out within the hour.
-                    Text(quota.text)
-                        .font(.system(size: 9, weight: .semibold).monospacedDigit())
-                        .lineLimit(1)
-                        .fixedSize()
-                        .foregroundStyle(quota.level == .critical ? Theme.critical
-                            : quota.level == .warning ? Theme.warning
-                            : Theme.textSecondary)
+                ForEach(model.quotas) { quota in
+                    // Mark on top, percent below, so each agent is one narrow column.
+                    VStack(spacing: 1.5) {
+                        // Always the agent's own colour, so each is recognisable;
+                        // the percent below carries the warning colour.
+                        AgentMark(agent: quota.agent, size: 10)
+                        // The time left when it runs out within the hour.
+                        Text(quota.text)
+                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .lineLimit(1)
+                            .fixedSize()
+                            .foregroundStyle(quota.level == .critical ? Theme.critical
+                                : quota.level == .warning ? Theme.warning
+                                : Theme.textSecondary)
+                    }
+                    .help(quota.runsOutSoon ? quota.label + ", runs out in " + quota.text + " at this pace" : quota.label)
                 }
-                .help(quota.runsOutSoon ? quota.label + ", runs out in " + quota.text + " at this pace" : quota.label)
             }
         }
-        .padding(.horizontal, 10)
-        .frame(height: Self.height)
-        .padding(.bottom, 1)
-        .background(UnevenRoundedRectangle(bottomLeadingRadius: 8, bottomTrailingRadius: 8, style: .continuous).fill(.black))
     }
 }
 

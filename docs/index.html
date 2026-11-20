@@ -79,10 +79,6 @@
   .notch.open .ears { opacity: 0; pointer-events: none; position: absolute; inset: 0 0 auto; }
   .ears .side { display: flex; align-items: center; gap: 6px; }
   .ears .mark { width: 14px; height: 14px; }
-  /* Closed: every tool's quota in a strip under the camera, so the sides stay short. */
-  .qstrip { position: absolute; top: 31.5px; left: 50%; transform: translateX(-50%); z-index: 2; height: 15px; padding: 0 10px 1px; display: flex; align-items: center; gap: 10px;
-    background: #000; border-radius: 0 0 8px 8px; font: 600 9px/1 var(--sf); font-variant-numeric: tabular-nums; color: #C3C2B7; white-space: nowrap; }
-  .qstrip span { display: flex; align-items: center; gap: 3px; } .qstrip svg { width: 9px; height: 9px; } .qstrip .warn { color: var(--amber); }
   .q-col { display: flex; flex-direction: column; align-items: center; gap: 1.5px; font: 600 9px/1 var(--sf); font-variant-numeric: tabular-nums; color: #C3C2B7; }
   .q-col svg { width: 10px; height: 10px; }
   .q-col.warn { color: var(--amber); }
@@ -468,14 +464,14 @@
       <div class="r"><span>Thu 12 Nov 09:41</span></div>
     </div>
     <div class="stage">
-      <div class="qstrip" id="qstrip" aria-hidden="true" hidden>
-        <span><svg><use href="#claude"/></svg>91%</span><span class="warn"><svg><use href="#copilot"/></svg>13%</span>
-      </div>
       <div class="notch open" id="notch" data-view="usage">
         <div class="glow" id="glow" hidden></div>
         <div class="ears" aria-hidden="true">
           <div class="side"><svg class="mark"><use href="#claude"/></svg><svg class="mark"><use href="#copilot"/></svg></div>
-          <div class="side"></div>
+          <div class="side">
+            <div class="q-col"><svg><use href="#claude"/></svg>91%</div>
+            <div class="q-col warn"><svg><use href="#copilot"/></svg>13%</div>
+          </div>
         </div>
         <div class="panel">
           <div class="phead">
@@ -628,7 +624,7 @@
   <section>
     <h2>Know you'll run out before you do</h2>
     <p>The Usage tab already shows every plan you're on: Claude's session and weekly limits, Copilot premium requests on each GitHub account (company ones too), Antigravity's model limits and OpenCode Go. Now each limit also watches how fast you're going. "On pace" means you'll make it to the reset. "Runs out in ~1h 15m" means it's time to slow down.</p>
-    <p>And when a limit will run out within the hour, the strip under the closed notch swaps its percent for the time left, so you see it coming without looking for it.</p>
+    <p>And when a limit will run out within the hour, the closed notch swaps its percent for the time left, so you see it coming without looking for it.</p>
     <p>New in 0.5: when a Claude or OpenCode Go limit you'd run out of comes back, the notch opens for a few seconds to say so, with when it ran out and when it resets next. No more checking every ten minutes to see if you can get back to work.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:380px">
@@ -757,7 +753,6 @@ end)</pre>
       <li><h3>Agents remember where they were</h3><p>Visor used to forget your running sessions when it restarted, so the list said "No agents running" until each one did something. Now they're right where you left them.</p></li>
       <li><h3>Your plan, as it is today</h3><p>Upgraded from Pro to Max? The plan name now comes from your account, not from when Claude Code last signed in.</p></li>
       <li><h3>"Waiting for your reply" only when it is</h3><p>An agent that finishes with a plain answer no longer shows a blue "?" a minute later. Only a turn that ended with a question does.</p></li>
-      <li><h3>Limits under the notch</h3><p>Each AI tool's percent left now sits in a thin strip under the camera instead of beside it, so the closed notch stays short however many tools you use.</p></li>
       <li><h3>The same breathing room everywhere</h3><p>Every icon in the closed notch sits the same distance from the notch and from the edge, whatever it shows. Music next to busy agents is now a small badge on the artwork.</p></li>
       <li><h3>One switch for approvals</h3><p><b>Approvals in the Notch</b> in the menu now covers Claude Code and Copilot CLI alike. Turn it off and each agent asks in its own terminal. Agents are ticks in the menu, so each connects on its own.</p></li>
       <li><h3>A cleaner close</h3><p>Moving away quickly could leave a line of text hanging below the notch for a moment. Not anymore.</p></li>
@@ -807,7 +802,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [270, 32], usage: [460, 350], agents: [460, 222], office: [460, 353], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 353], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
@@ -823,7 +818,6 @@ end)</pre>
   function show(name) {
     const open = name !== 'closed';
     notch.classList.toggle('open', open);
-    document.getElementById('qstrip').hidden = open;
     notch.classList.toggle('lit', name === 'music');
     notch.dataset.view = name;
     const [w, h] = sizes[name];
