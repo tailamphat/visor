@@ -144,6 +144,14 @@
   /* Agents: two cards a row, the context as a ring around the agent's tile (amber from 80%, with the percent). */
   .agrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .acard { height: 54px; box-sizing: border-box; padding: 0 9px; border-radius: 10px; background: #1A1A19; display: flex; align-items: center; gap: 9px; min-width: 0; }
+  /* Many sessions: a row counting the rest per tool, idle ones folded. */
+  .fold { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; margin-top: 6px; border-radius: 9px; background: rgba(255,255,255,.05); font: 11px var(--sf); color: #C3C2B7; white-space: nowrap; }
+  .fold span { overflow: hidden; text-overflow: ellipsis; }
+  .fold b { color: #fff; }
+  .fold em { margin-left: auto; font-style: normal; font-weight: 600; color: #5AA2F0; }
+  .fold.dashed { height: 26px; background: none; border: 1px dashed rgba(255,255,255,.14); color: #8A8980; }
+  .fold.dashed em { font-weight: 400; }
+  .fold svg { width: 10px; height: 10px; flex: none; }
   .acard.need { box-shadow: inset 0 0 0 1px rgba(250,178,25,.35); }
   .aring { position: relative; width: 34px; height: 34px; flex: none; display: grid; place-items: center; }
   .aring > svg { position: absolute; inset: 0; width: 34px; height: 34px; }
@@ -184,6 +192,10 @@
   .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .btn { font: 600 12px var(--sf); padding: 6px 14px; border-radius: 99px; display: inline-flex; gap: 6px; align-items: center; }
   .btn.deny { background: #2A1714; border: 1px solid #5A2E26; color: #F09A84; }
+  /* "Always" is chosen on purpose: a quiet link under Deny and Allow, its rule in view. */
+  .alink { text-align: center; margin-top: 10px; font: 500 11.5px var(--sf); color: #B9D9C3; }
+  .alink code { font: 11px var(--mono); color: #8FB89C; background: none; padding: 0 2px; }
+  .alink kbd { font: 600 9.5px var(--sf); padding: 1px 5px; border-radius: 4px; background: rgba(185,217,195,.16); margin-left: 3px; }
   .btn.always { background: #142A1C; border: 1px solid #2D5A3C; color: #E7F7EC; }
   .btn.always code { font: 11px var(--mono); color: #B9D9C3; background: none; padding: 0; }
   .btn.allow { background: #97E0A9; color: #05200F; border: 1px solid #97E0A9; }
@@ -640,7 +652,7 @@
 <!-- The art: a dusk wallpaper with the real notch on it. Try it. -->
 <div class="layout">
 <div class="pitch" data-panel="office">
-  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 8</span><span class="dot"></span><span>November 19th 2026</span></div>
+  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 9</span><span class="dot"></span><span>November 20th 2026</span></div>
   <h1>The notch, <em>put to work</em></h1>
   <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
   <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
@@ -674,7 +686,7 @@
             <div class="tabs">
               <button class="tab" role="tab" data-view="clipboard" aria-selected="false" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></button>
               <button class="tab" role="tab" data-view="plugins" aria-selected="false" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></button>
-              <span class="aslot" title="Claude Code and Copilot CLI sessions"><svg><use href="#claude"/></svg><b class="n-agents">3</b></span>
+              <span class="aslot" title="Claude Code: 8, Copilot CLI: 4"><svg><use href="#claude"/></svg><b class="n-agents">9+</b></span>
             </div>
           </div>
 
@@ -705,10 +717,10 @@
           </div>
 
           <div class="view" data-name="agents" hidden>
-            <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
-            <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div></div>
-            <div class="group" style="margin-top:6px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
-            <div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+            <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
+            <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+            <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
+            <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
           </div>
 
           <div class="view" data-name="office" hidden>
@@ -723,7 +735,7 @@
             <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
             <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
             <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-            <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn always">↻ Always <code>git push</code> <kbd>A</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div>
+            <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink">↻ Always allow <code>git push</code> <kbd>A</kbd></div>
           </div>
 
           <div class="view" data-name="clipboard" hidden>
@@ -867,8 +879,8 @@
 
   <section class="feat" data-panel="approval">
   <div class="f-text">
-    <h2>Say yes without leaving what you're doing <span class="tag">Keys new in 0.5</span></h2>
-    <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Allow it, deny it, or allow it always, with a click or a key: with the pointer over the card, Return allows, A always allows and Esc denies. Visor only takes the keyboard while the pointer is there, so your typing never goes astray. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
+    <h2>Say yes without leaving what you're doing <span class="tag">New card in 0.7</span></h2>
+    <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Deny and Allow sit side by side; "Always allow", with its rule in view, is a quiet link underneath, so you choose it on purpose. With the pointer over the card, Return allows, A always allows and Esc denies. Visor only takes the keyboard while the pointer is there, so your typing never goes astray. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code and Copilot CLI. Copilot's "Always" rules are kept per project.</div>
     <button class="peek" type="button" data-show="approval">Show an approval in the MacBook →</button>
   </div>
@@ -878,7 +890,7 @@
         <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
         <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
         <div class="cmd"><span>$</span>git push origin fix/checkout</div>
-        <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn always">↻ Always <code>git push</code> <kbd>A</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div>
+        <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div><div class="alink">↻ Always allow <code>git push</code> <kbd>A</kbd></div>
       </div></div>
     </figure>
   </div>
@@ -924,19 +936,20 @@
 
   <section class="feat" data-panel="agents">
   <div class="f-text">
-    <h2>Every agent, in one list <span class="tag">New in 0.5</span></h2>
+    <h2>Every agent, in one list <span class="tag">Many sessions new in 0.7</span></h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
     <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
+    <p>Running a dozen? Past eight, the list shows whoever needs you first, then the busiest, then the most recent, and counts the rest by tool with Show all; idle sessions fold into one line. In the office each tool keeps up to eight seats, with the rest counted on its label.</p>
     <button class="peek" type="button" data-show="agents">Show Agents in the MacBook →</button>
   </div>
   <div class="f-media">
     <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
-        <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
-        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div></div>
-        <div class="group" style="margin-top:6px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
-        <div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
-      </div></div>
+        <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
+        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+        <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
+        <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+</div></div>
     </figure>
   </div>
   </section>
@@ -1039,6 +1052,8 @@ end)</pre>
   </div>
   <div class="f-media">
     <ul class="more">
+      <li><h3>Always, on purpose</h3><p>The approval card is the same width as every panel: Deny and Allow in the centre, and "Always allow" a quiet link under them with its rule in view.</p></li>
+      <li><h3>A dozen agents, still calm</h3><p>Past eight sessions the Agents list shows who needs you and the busiest and counts the rest, the office counts extra people on each table's label, and the header badge reads 9+.</p></li>
       <li><h3>One header, balanced around the camera</h3><p>Every panel now has the same header: Agents, Usage and Music left of the camera; Clipboard, Plugins and your agents right of it. The panel stays put as you switch tabs, and the Usage gear moved into its own bar.</p></li>
       <li><h3>Now Playing, snug around the camera</h3><p>Music gets a narrow panel, just wide enough for the header, with the artwork beside the title and controls.</p></li>
       <li><h3>Room between tools</h3><p>In the Usage tab, each tool gets more space before the next, so Claude, Copilot, Antigravity and OpenCode each read as their own group, headed by their mark and name.</p></li>
@@ -1124,7 +1139,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 362], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [385, 136], plugins: [460, 238] };
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 268], office: [460, 362], tokens: [460, 454], approval: [460, 218], clipboard: [460, 232], music: [385, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
@@ -1132,7 +1147,6 @@ end)</pre>
   const views = [...document.querySelectorAll('.view')];
   const tries = [...document.querySelectorAll('[data-try]')];
   const glow = document.getElementById('glow');
-  const agentCount = document.querySelector('.aslot .n-agents');
 
   function show(name) {
     const open = name !== 'closed';
@@ -1144,8 +1158,6 @@ end)</pre>
     notch.style.setProperty('--h', h + 'px');
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
-    // Like the app: the agents' slot counts the sessions in view (the office picture has more).
-    agentCount.textContent = name === 'office' ? '11' : '3';
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
     document.querySelector('.dock .wpick').hidden = name !== 'office';
