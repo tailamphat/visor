@@ -131,18 +131,6 @@ public enum NotchEars {
         content > 0 ? min(maxWidth, (content + 2 * inset).rounded(.up)) : 0
     }
 
-    /// How many of `count` limits (each `item` wide, `spacing` apart) go on the
-    /// left so the two sides come out closest in width, given what each side
-    /// already shows. A tie keeps more on the right.
-    public static func leftShare(count: Int, left: Double, right: Double, item: Double, spacing: Double) -> Int {
-        func side(_ base: Double, _ k: Int) -> Double {
-            guard k > 0 else { return base }
-            return base + Double(k) * item + Double(k - 1) * spacing + (base > 0 ? spacing : 0)
-        }
-        guard count > 0 else { return 0 }
-        return (0...count).min { abs(side(left, $0) - side(right, count - $0)) < abs(side(left, $1) - side(right, count - $1)) } ?? 0
-    }
-
     /// How far right to move the shape so the hardware notch stays covered
     /// when one ear is wider than the other.
     public static func shift(left: Double, right: Double) -> Double {

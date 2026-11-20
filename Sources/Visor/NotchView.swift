@@ -209,58 +209,7 @@ struct CollapsedView: View {
         }
     }
 
-    /// Limits shown on the closed notch, when the right side isn't taken by
-    /// a peek, an alert or music: split across both sides to even them out.
-    private var limitsShown: Bool {
-        let peekOnRight: Bool
-        switch model.peek {
-        case .answered, .plugin: peekOnRight = true
-        case .done, nil: peekOnRight = false
-        }
-        return !model.quotas.isEmpty && model.attentionNote == nil && !model.isPlaying && !peekOnRight
-    }
-
-    private var leftLimits: Int {
-        guard limitsShown else { return 0 }
-        return NotchEars.leftShare(count: model.quotas.count, left: Double(model.leftEarBase), right: Double(model.rightEarBase),
-                                   item: 22, spacing: 6)
-    }
-
-    private var left: some View {
-        HStack(spacing: 6) {
-            limits(Array(model.quotas.prefix(leftLimits)))
-            measured(leftBase) { model.leftEarBase = $0 }
-        }
-    }
-
-    private var right: some View {
-        HStack(spacing: 6) {
-            measured(rightBase) { model.rightEarBase = $0 }
-            if limitsShown { limits(Array(model.quotas.dropFirst(leftLimits))) }
-        }
-    }
-
-    /// Each limit as one narrow column: the agent's mark on top, its percent below.
-    private func limits(_ quotas: [NotchQuota]) -> some View {
-        ForEach(quotas) { quota in
-            VStack(spacing: 1.5) {
-                // Always the agent's own colour, so each is recognisable;
-                // the percent below carries the warning colour.
-                AgentMark(agent: quota.agent, size: 10)
-                // The time left when it runs out within the hour.
-                Text(quota.text)
-                    .font(.system(size: 9, weight: .semibold).monospacedDigit())
-                    .lineLimit(1)
-                    .fixedSize()
-                    .foregroundStyle(quota.level == .critical ? Theme.critical
-                        : quota.level == .warning ? Theme.warning
-                        : Theme.textSecondary)
-            }
-            .help(quota.runsOutSoon ? quota.label + ", runs out in " + quota.text + " at this pace" : quota.label)
-        }
-    }
-
-    @ViewBuilder private var leftBase: some View {
+    @ViewBuilder private var left: some View {
         if let peek = model.peek, case .plugin(let icon, let news) = peek {
             Image(systemName: news.icon ?? icon)
                 .font(.system(size: 13, weight: .semibold))
@@ -288,7 +237,7 @@ struct CollapsedView: View {
         }
     }
 
-    @ViewBuilder private var rightBase: some View {
+    @ViewBuilder private var right: some View {
         if let peek = model.peek, case .answered = peek {
             Text("Answered")
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -329,11 +278,28 @@ struct CollapsedView: View {
             } else {
                 EqualizerBars(color: NSColor(hex: 0xC3C2B7))
             }
-        } else if !model.pluginBadges.isEmpty {
-            // Plugins' badges nearest the notch: they're news; the limits are standing numbers.
+        } else if !model.quotas.isEmpty || !model.pluginBadges.isEmpty {
             HStack(spacing: 6) {
+                // Plugins' badges first, nearest the notch: they're news; the quotas are standing numbers.
                 ForEach(Array(model.pluginBadges.enumerated()), id: \.offset) { _, badge in
                     PluginBadgeView(badge: badge)
+                }
+                ForEach(model.quotas) { quota in
+                    // Mark on top, percent below, so each agent is one narrow column.
+                    VStack(spacing: 1.5) {
+                        // Always the agent's own colour, so each is recognisable;
+                        // the percent below carries the warning colour.
+                        AgentMark(agent: quota.agent, size: 10)
+                        // The time left when it runs out within the hour.
+                        Text(quota.text)
+                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .lineLimit(1)
+                            .fixedSize()
+                            .foregroundStyle(quota.level == .critical ? Theme.critical
+                                : quota.level == .warning ? Theme.warning
+                                : Theme.textSecondary)
+                    }
+                    .help(quota.runsOutSoon ? quota.label + ", runs out in " + quota.text + " at this pace" : quota.label)
                 }
             }
         }

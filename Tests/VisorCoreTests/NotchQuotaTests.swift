@@ -104,18 +104,6 @@ struct PanelSpacingTests {
 
     /// The Agents list grows with its rows: a 15 pt label per agent group,
     /// a 44 pt row per session, 6 pt between them, nothing left over.
-    /// The limits go where they even out the sides: the first few on the left
-    /// (outer edge first), the rest on the right, keeping their order across the camera.
-    @Test func limitsSplitToBalanceTheSides() {
-        let q = 22.0, gap = 6.0
-        #expect(NotchEars.leftShare(count: 0, left: 16, right: 0, item: q, spacing: gap) == 0)
-        #expect(NotchEars.leftShare(count: 1, left: 16, right: 0, item: q, spacing: gap) == 0, "one limit balances a lone agent mark")
-        #expect(NotchEars.leftShare(count: 3, left: 16, right: 0, item: q, spacing: gap) == 1)
-        #expect(NotchEars.leftShare(count: 3, left: 0, right: 0, item: q, spacing: gap) == 1, "a tie keeps the extra one on the right")
-        #expect(NotchEars.leftShare(count: 4, left: 0, right: 0, item: q, spacing: gap) == 2)
-        #expect(NotchEars.leftShare(count: 3, left: 0, right: 24, item: q, spacing: gap) == 2, "a plugin badge on the right pushes one more left")
-    }
-
     /// Two cards a row per agent group, each with its header; the context ring
     /// sits inside the card, so it adds no height.
     @Test func agentsGridIsAsTallAsItsRows() {
