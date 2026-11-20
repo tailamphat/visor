@@ -361,6 +361,177 @@
     .art { border-radius: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .notch, .panel, .ears { transition: none; } .eq i { animation: none; } }
+
+  /* ---------- Read left to right: text on the left, the notch on the right ---------- */
+  nav.wide { max-width: none; }
+  nav { position: sticky; top: 0; z-index: 20; background: var(--paper);
+    border-image: linear-gradient(var(--paper), var(--paper)) fill 0 / 0 / 0 100vw; }
+  nav .links { align-items: center; }
+  nav .links a.navcta { background: var(--ink); color: var(--paper); font-weight: 600; padding: 7px 15px; border-radius: 99px; }
+  nav .links a.navcta:hover { color: var(--paper); opacity: .88; }
+
+  /* Two columns: the story scrolls on the left, the MacBook stays docked on the right. */
+  .layout { display: grid; grid-template-columns: minmax(0, 580px) minmax(0, 1fr); column-gap: 64px; padding-left: clamp(0px, 3vw, 48px); }
+  .pitch { grid-column: 1; grid-row: 1; padding: 56px 0 0; }
+  .rest { grid-column: 1; grid-row: 2; min-width: 0; }
+  .dock { grid-column: 2; grid-row: 1 / span 2; }
+  .dock-in { position: sticky; top: 64px; height: calc(100vh - 64px); min-height: 520px; display: flex; flex-direction: column; justify-content: center; padding: 8px 0 16px; }
+  /* As big as the window's height allows, against the right edge (the base's overhang included). */
+  .dock .device { width: min(calc(94% - 72px), calc((100vh - 150px) * 1.5)); margin: 0 calc(3% + 36px) 0 auto; }
+  .pitch .byline { margin: 0 0 16px; }
+  .pitch h1 { font-size: clamp(42px, 4.6vw, 64px); }
+  .pitch .lede { font-size: 18.5px; }
+  .works { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-top: 26px; font-size: 13.5px; color: var(--ink-3); }
+  .works > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+  .works svg { width: 16px; height: 16px; }
+
+  /* The MacBook: a dark lid with a thin bezel, the wallpaper as its screen, the silver base under it.
+     The Visor notch sits where the camera notch is, over the menu bar. */
+  .device { position: relative; padding-bottom: 6px; }
+  .device .lid { background: #0B0B0D; border-radius: 22px 22px 8px 8px; padding: 12px 12px 16px;
+    box-shadow: inset 0 0 0 1.5px #44444A, inset 0 0 0 4px #0B0B0D, 0 40px 70px -36px rgba(40,25,10,.55); }
+  .device .art { border-radius: 8px; box-shadow: none; aspect-ratio: 16 / 10.2; }
+  .device .menubar { height: 32px; font-size: 12.5px; position: relative; z-index: 1; }
+  .device .menubar .l span:nth-child(n+3) { display: none; }
+  .device .art { background: #0A1A4A; }
+  .device .menubar { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .device .stage { position: absolute; inset: 0; height: auto; z-index: 2; }
+  .device .base { position: relative; height: 15px; margin: 0 -4%; border-radius: 3px 3px 22px 22px / 3px 3px 14px 14px;
+    background: linear-gradient(#ECECEF, #C9C9CF 45%, #8E8E95); box-shadow: 0 18px 30px -16px rgba(40,25,10,.5); }
+  .device .base::before { content: ""; position: absolute; left: 50%; top: 0; width: 15%; height: 6px; transform: translateX(-50%);
+    background: linear-gradient(#A6A6AD, #C4C4CA); border-radius: 0 0 10px 10px; }
+  .dock .credit { margin-top: 14px; justify-content: center; text-align: center; }
+  .dock .credit > span { display: none; }
+  .dock .try { justify-content: center; }
+
+  /* ---------- Highlights ---------- */
+  .eyebrow { font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--link); margin: 0 0 10px; }
+  .why { margin-top: 104px; }
+  .why h2 { max-width: 640px; }
+  .why > p { max-width: 620px; color: var(--ink-2); margin: 0; }
+  .bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(210px, auto); gap: 14px; margin-top: 30px; }
+  .cardx { position: relative; overflow: hidden; border-radius: 20px; background: #111112; color: #fff; padding: 20px; display: flex; flex-direction: column;
+    gap: 6px; border: 1px solid rgba(255,255,255,.06); text-align: left; font: inherit; box-shadow: var(--frame-shadow); transition: transform .25s cubic-bezier(.3,.9,.3,1); }
+  button.cardx { cursor: pointer; }
+  button.cardx:hover { transform: translateY(-4px); }
+  .cardx h3 { font: 600 17px/1.3 var(--sans); margin: auto 0 0; }
+  .cardx p { margin: 0; font-size: 14px; line-height: 1.45; color: rgba(255,255,255,.7); }
+  .cardx .go { font-size: 12.5px; font-weight: 600; color: #F0936C; margin-top: 4px; }
+  .cardx.big { grid-column: span 2; min-height: 400px; padding: 0; }
+  .cardx.big .cyc { flex: 1; min-height: 0; display: grid; }
+  .cardx.big .cyc img { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: opacity .6s; }
+  .cardx.big .cyc img[hidden] { display: block; opacity: 0; }
+  /* The office worlds: dots on the card, chips under the MacBook and in the office section. */
+  .wdots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .wdots span { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.7); }
+  .wdots span.on { background: #fff; color: #111; }
+  .wpick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+  .wpick[hidden] { display: none; }
+  .wbtn { font: 500 13px var(--sans); color: var(--ink-2); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 4px 12px; cursor: pointer; }
+  .wbtn[aria-pressed="true"] { background: var(--link); border-color: var(--link); color: #fff; }
+  .dock .wpick { justify-content: center; margin-top: 10px; }
+  .real[data-world][hidden], .room[data-world][hidden] { display: none; }
+  .wl-narrow { display: none; }
+  @media (max-width: 1080px) { .wl-wide { display: none; } .wl-narrow { display: inline; } }
+  .cardx.big .cap2 { padding: 0 22px 22px; margin-top: -60px; position: relative; background: linear-gradient(transparent, #111112 60px); padding-top: 60px; }
+  .cardx.big h3 { font-size: 22px; }
+  .cardx.span2 { grid-column: span 2; }
+  .cardx .vis { font: 12px/1.35 var(--sf); }
+  .vis .cmd { margin: 0 0 10px; font-size: 11.5px; }
+  .vis .keys { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #C3C2B7; }
+  .vis kbd { font: 600 10px var(--sf); padding: 2px 6px; border-radius: 5px; background: rgba(255,255,255,.12); color: #fff; margin-right: 3px; }
+  .vis .big { font: 700 30px/1 var(--sf); letter-spacing: -.01em; }
+  .vis .big small { font: 500 12px var(--sf); color: #C3C2B7; margin-left: 5px; }
+  .vis .bars { display: flex; align-items: flex-end; gap: 3px; height: 38px; margin-top: 10px; }
+  .vis .bars i { flex: 1; border-radius: 2px 2px 0 0; background: linear-gradient(#D97757 0 40%, #A78BFA 40% 70%, #3186FF 70%); }
+  .vis pre { margin: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); color: #E8E6DF; font-size: 11.5px; padding: 8px 10px; }
+  .vis pre b { color: #F0936C; font-weight: 500; }
+  .vis .num { color: #fff; }
+  .vis .num small { color: #C3C2B7; }
+  .vis .row2 { display: flex; gap: 14px; align-items: center; }
+  .vis .row2 .cover { width: 44px; height: 44px; border-radius: 8px; }
+  /* Music: a little player lit by its own artwork, the clipboard beside it. */
+  .cardx.tunes { background: radial-gradient(circle at 12% 18%, rgba(246,180,143,.28), transparent 260px), radial-gradient(circle at 40% 70%, rgba(110,114,200,.35), transparent 320px), #111112; }
+  .duo { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; margin-bottom: 14px; width: 100%; }
+  .player { display: flex; gap: 14px; align-items: center; min-width: 0; }
+  .alb { position: relative; flex: none; }
+  .alb .cover { width: 84px; height: 84px; border-radius: 12px; position: relative; }
+  .alb .glowc { position: absolute; inset: 6px -4px -10px; width: auto; height: auto; filter: blur(16px); opacity: .7; }
+  .pmeta { min-width: 0; flex: 1; }
+  .pmeta .title { display: flex; align-items: center; gap: 6px; }
+  .pmeta .title b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pmeta .src { font-size: 11.5px; color: #C3C2B7; }
+  .prog { height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); margin-top: 10px; overflow: hidden; }
+  .prog i { display: block; width: 40%; height: 100%; background: #fff; border-radius: 2px; }
+  .times { display: flex; justify-content: space-between; font-size: 9.5px; color: #8A8980; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .ctl { display: flex; gap: 18px; align-items: center; justify-content: center; margin-top: 4px; }
+  .ctl svg { width: 14px; height: 14px; fill: #fff; }
+  .ctl .pp { width: 28px; height: 28px; border-radius: 50%; background: #6E72C8; display: grid; place-items: center; }
+  .ctl .pp svg { width: 11px; height: 11px; fill: #000; }
+  .clips { background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 10px; min-width: 0; }
+  .clips .kc { display: flex; gap: 3px; margin-bottom: 8px; }
+  .clips .kc kbd { margin: 0; min-width: 20px; text-align: center; }
+  .clips .cl { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 4px 7px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clips .cl.mono { font-family: var(--mono); font-size: 10.5px; }
+  .clips .cl.sel { background: rgba(57,135,229,.3); }
+  .clips .cl i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+  .vis .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); font-size: 12px; margin: 0 6px 6px 0; }
+  .vis .chip i { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* ---------- Features: text left, picture right ---------- */
+  article section { margin-top: 120px; }
+  .feat .f-text > :last-child { margin-bottom: 0; }
+  .feat .f-media { margin-top: 26px; }
+  .feat .f-media > figure:first-child, .feat .f-media > .split:first-child figure,
+  .feat .f-media > .numbers:first-child, .feat .f-media > .more:first-child,
+  .feat .f-media > .steps:first-child, .feat .f-media > .privacy:first-child { margin-top: 0 !important; }
+  .feat .f-media .signals:not([style]) { grid-template-columns: 1fr 1fr; row-gap: 18px; padding-top: 6px; }
+  .feat .f-media .numbers { gap: 12px; }
+  .feat .f-media .numbers > div { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 16px; padding: 20px 18px; }
+  .feat .f-media .num { font-size: 40px; }
+  .feat .f-media .privacy li { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px 16px 38px; }
+  .feat .f-media .privacy li::before { left: 18px; top: 1.6em; }
+  .feat .f-text .avail { margin-top: 18px; }
+  .steps > li { grid-template-columns: 44px minmax(0, 1fr); }
+  /* The section the MacBook is showing gets a mark in the margin. */
+  .feat[data-panel] .f-text { border-left: 2px solid transparent; padding-left: 22px; margin-left: -24px; transition: border-color .3s; }
+  .feat.on .f-text { border-left-color: var(--link); }
+  .peek { font: 600 13.5px var(--sans); color: var(--link); background: none; border: 1px solid color-mix(in srgb, var(--link) 40%, transparent); border-radius: 99px; padding: 6px 14px; margin-top: 4px; cursor: pointer; }
+  .peek:hover { background: color-mix(in srgb, var(--link) 10%, transparent); }
+  /* On a wide screen the MacBook shows these panels live, so their pictures step aside. */
+  @media (min-width: 1081px) { .feat .dup { display: none; } .feat .dup + .avail, .feat .f-media:has(> .dup:only-child) { display: none; } }
+
+  /* ---------- Last call ---------- */
+  /* A slice of the MacBook's screen: the same wallpaper, the notch hanging from the top edge. */
+  .cta { margin-top: 140px !important; text-align: center; background: #0A1A4A; color: #fff; border-radius: 28px; padding: 104px 24px 64px; position: relative; overflow: hidden; isolation: isolate; box-shadow: var(--frame-shadow); }
+  .cta .scene { opacity: 1; }
+  .cta-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 200px; height: 36px; padding: 0 14px; background: #000; border-radius: 0 0 14px 14px;
+    display: flex; align-items: center; }
+  .cta-notch svg { width: 16px; height: 16px; display: block; }
+  .cta-notch .hw { flex: 1; }
+  .cta h2 { font-size: clamp(34px, 5vw, 52px); margin-bottom: 12px; text-shadow: 0 2px 20px rgba(5,15,50,.5); }
+  .cta p { color: rgba(255,255,255,.88); margin: 0 auto 26px; max-width: 520px; text-shadow: 0 1px 12px rgba(5,15,50,.6); }
+  .cta .install { max-width: 520px; margin: 0 auto; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); color: #fff; text-align: left;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .cta .copy { background: #fff; color: #0A1A4A; }
+  .cta .small { color: rgba(255,255,255,.75); }
+  .cta .small a { color: #A9DBFF; }
+
+  @media (max-width: 1080px) {
+    .layout { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; padding-left: 0; }
+    .pitch, .rest, .dock { grid-column: 1; grid-row: auto; }
+    .dock-in { position: static; height: auto; min-height: 0; padding: 36px 0 0; }
+    .dock .device { width: 100%; margin: 0 auto; }
+    .dock .credit > span { display: inline; }
+    .peek { display: none; }
+    .feat[data-panel] .f-text { border: 0; padding-left: 0; margin-left: 0; }
+  }
+  @media (max-width: 760px) {
+    .device .lid { padding: 7px 7px 10px; border-radius: 14px 14px 6px 6px; }
+    .bento { grid-template-columns: 1fr; }
+    .cardx.big, .cardx.span2 { grid-column: auto; }
+    .duo { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -446,19 +617,41 @@
       <path d="M-40 245C110 215 220 238 320 250S500 228 640 244V340H-40Z" fill="#5D3474"/>
       <path d="M-40 272C140 255 260 268 380 276S520 262 640 270V340H-40Z" fill="#33204F"/>
     </g></symbol>
+    <linearGradient id="g-mac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A1A4A"/><stop offset=".55" stop-color="#1B3FA0"/><stop offset="1" stop-color="#0B1440"/></linearGradient>
+    <linearGradient id="g-wave1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4FB6FF"/><stop offset=".5" stop-color="#7B8CFF"/><stop offset="1" stop-color="#2E6BFF"/></linearGradient>
+    <linearGradient id="g-wave2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1E4FD8"/><stop offset=".6" stop-color="#58C8FF"/><stop offset="1" stop-color="#A68BFF"/></linearGradient>
+    <filter id="soft" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="softer" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+    <symbol id="sc-mac" viewBox="0 0 1200 760">
+      <rect width="1200" height="760" fill="url(#g-mac)"/>
+      <ellipse cx="900" cy="140" rx="420" ry="200" fill="#3E7BFF" opacity=".35" filter="url(#soft)"/>
+      <path d="M-50 520C200 380 420 600 660 470S1020 300 1260 380V560C1020 480 860 640 640 640S220 480-50 640Z" fill="url(#g-wave2)" opacity=".75" filter="url(#soft)"/>
+      <path d="M-50 430C230 300 430 500 680 400S1030 240 1260 300V350C1030 300 880 470 680 470S230 380-50 500Z" fill="url(#g-wave1)" opacity=".9" filter="url(#softer)"/>
+      <path d="M-50 455C230 330 440 520 690 425S1040 270 1260 325" fill="none" stroke="#DDF1FF" stroke-width="3" opacity=".7" filter="url(#softer)"/>
+      <path d="M-50 640C260 560 520 700 760 640S1080 560 1260 600V760H-50Z" fill="#081036" opacity=".7" filter="url(#soft)"/>
+    </symbol>
   </defs>
 </svg>
 
 <div class="gutter">
 <nav class="wide">
   <a class="brand" href="#"><img src="assets/visor-icon.png" alt="">Visor</a>
-  <div class="links"><a href="#new">What's new</a><a href="#install">Install</a><a href="https://github.com/tailamphat/visor">GitHub</a></div>
+  <div class="links"><a href="#why">Features</a><a href="#new">What's new</a><a href="https://github.com/tailamphat/visor">GitHub</a><a class="navcta" href="#install">Install</a></div>
 </nav>
 
 <!-- The art: a dusk wallpaper with the real notch on it. Try it. -->
-<header class="wide">
-  <div class="art">
-    <svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 600"><use href="#sc-hero"/></svg>
+<div class="layout">
+<div class="pitch" data-panel="office">
+  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 8</span><span class="dot"></span><span>November 19th 2026</span></div>
+  <h1>The notch, <em>put to work</em></h1>
+  <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
+  <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
+  <p class="small">Free and open source · macOS 14 or later · Apple Silicon and Intel · <a href="#install">Setup, step by step</a></p>
+  <div class="works">Works with<span><svg><use href="#claude"/></svg>Claude Code</span><span><svg><use href="#copilot"/></svg>Copilot CLI</span><span><svg><use href="#agy"/></svg>Antigravity</span><span><svg style="color:var(--ink)"><use href="#opencode"/></svg>OpenCode</span></div>
+</div>
+<aside class="dock" aria-label="Visor on a MacBook"><div class="dock-in">
+  <div class="device"><div class="lid"><div class="art">
+    <svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 600"><use href="#sc-mac"/></svg>
     <div class="menubar" aria-hidden="true">
       <div class="l"><span style="font-weight:700">Terminal</span><span>Shell</span><span>Edit</span><span>View</span></div>
       <div class="r"><span>Thu 12 Nov 09:41</span></div>
@@ -518,7 +711,7 @@
           </div>
 
           <div class="view" data-name="office" hidden>
-            <img class="room" src="assets/office-room.png" width="436" height="290" alt="The agent office: a table for each tool with little people at work, one waiting at your desk, one at the web hologram, one on the sofa.">
+            <img class="room" data-world="studio" src="assets/office-studio.png" width="436" height="298" alt="The Night Studio office: little people at wooden tables, at the terminal, the bookshelf and the web hologram, resting on the sofa."><img class="room" data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden><img class="room" data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
           </div>
 
           <div class="view" data-name="tokens" hidden>
@@ -566,7 +759,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </div></div><div class="base"></div></div>
   <div class="credit">
     <div class="try" role="group" aria-label="Try the notch">
       <button type="button" data-try="closed">Closed</button>
@@ -580,20 +773,84 @@
       <button type="button" data-try="plugins">Plugins</button>
     </div>
     <span>Try it: pick a panel, or hover the notch.</span>
+    <div class="wpick" role="group" aria-label="Office world" hidden>World<button type="button" class="wbtn" data-world="studio" aria-pressed="true">Night Studio</button><button type="button" class="wbtn" data-world="galaxy" aria-pressed="false">Galaxy</button><button type="button" class="wbtn" data-world="starfleet" aria-pressed="false">Starfleet</button></div>
   </div>
-</header>
+</div></aside>
+<div class="rest">
+<section class="why" id="why">
+  <p class="eyebrow">Why people keep it on</p>
+  <h2>Everything your agents need from you, in the one place you always look</h2>
+  <p>Hover the notch and it opens. Click any card and it opens in the MacBook beside you.</p>
+  <div class="bento">
+    <button class="cardx big" type="button" data-show="office">
+      <div class="cyc">
+        <img data-world="studio" src="assets/office-studio.png" width="436" height="298" alt="The Night Studio office: little people at wooden tables, at the terminal, the bookshelf and the web hologram, resting on the sofa.">
+        <img data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden>
+        <img data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
+      </div>
+      <div class="cap2"><span class="tag" style="color:#F0936C;border-color:rgba(240,147,108,.4)">Worlds new in 0.7</span><h3>Watch your agents work</h3>
+      <p>Each session is a little person at work in a cozy night studio, a Galaxy hangar or a Starfleet deck. They walk to the terminal, the bookshelf and the web, and wait at your desk when they need you.</p>
+      <span class="wdots"><span data-world="studio" class="on">Night Studio</span><span data-world="galaxy">Galaxy</span><span data-world="starfleet">Starfleet</span></span></div>
+    </button>
+    <button class="cardx" type="button" data-show="approval">
+      <div class="vis"><div class="cmd"><span>$</span>git push origin fix/checkout</div><div class="keys"><span><kbd>↩</kbd>allow</span><span><kbd>A</kbd>always</span><span><kbd>esc</kbd>deny</span></div></div>
+      <h3>Say yes from the notch</h3><p>Approve a command without finding the terminal.</p><span class="go">Try it →</span>
+    </button>
+    <button class="cardx" type="button" data-show="usage">
+      <div class="vis"><div class="meter" style="margin:0"><div class="top"><span>Premium requests</span><b>13% <small>left</small></b></div><div class="bar"><i class="warn" style="width:87%"></i></div><div class="cap"><span class="hot">Runs out ~Sat 14 Nov</span></div></div></div>
+      <h3>Know you'll run out first</h3><p>Every plan's limits, and when your pace empties them.</p><span class="go">See Usage →</span>
+    </button>
+    <button class="cardx" type="button" data-show="tokens">
+      <div class="vis"><div class="big">1.84B<small>tokens</small></div><div class="bars"><i style="height:40%"></i><i style="height:65%"></i><i style="height:30%"></i><i style="height:85%"></i><i style="height:55%"></i><i style="height:100%"></i><i style="height:70%"></i></div></div>
+      <h3>Every token, counted</h3><p>Six tools, one chart, by model.</p><span class="go">See Tokens →</span>
+    </button>
+    <button class="cardx" type="button" data-show="plugins">
+      <div class="vis"><span class="chip"><i style="background:#E5534B"></i>CI failed on main</span><span class="chip"><i style="background:#3987E5"></i>#482 needs review</span></div>
+      <h3>Teach it anything</h3><p>Plugins are a few lines of Lua. GitHub ships built in.</p><span class="go">See Plugins →</span>
+    </button>
+    <button class="cardx span2 tunes" type="button" data-show="music">
+      <div class="vis duo">
+        <div class="player">
+          <div class="alb"><div class="cover glowc" aria-hidden="true"></div><div class="cover" role="img" aria-label="Album artwork"></div></div>
+          <div class="pmeta">
+            <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+            <div class="src">Zen · YouTube Music</div>
+            <div class="prog"><i></i></div><div class="times"><span>1:42</span><span>-2:31</span></div>
+            <div class="ctl" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg><span class="pp"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg></span><svg viewBox="0 0 16 16"><path d="M1 3v10l7-5zM8 3v10l7-5z"/></svg></div>
+          </div>
+        </div>
+        <div class="clips">
+          <div class="kc"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
+          <div class="cl mono sel">brew upgrade --cask visor</div>
+          <div class="cl"><i style="background:#3987E5"></i>#3987E5</div>
+          <div class="cl">github.com/tailamphat/visor</div>
+        </div>
+      </div>
+      <h3>Your music and clipboard, a hover away</h3><p>Spotify, Apple Music or any browser tab: play, pause and skip from the notch. And everything you copied today, one shortcut away.</p><span class="go">See Music →</span>
+    </button>
+    <div class="cardx">
+      <div class="vis"><div class="num" style="font:400 44px/1 var(--serif)">~0<small style="font:500 14px var(--sans);margin-left:4px">% CPU</small></div></div>
+      <h3>Light as air</h3><p>Native Swift, event driven, ~50 MB. A 2 MB download.</p>
+    </div>
+    <div class="cardx">
+      <div class="vis"><span class="chip">No server</span><span class="chip">No account</span><span class="chip">No analytics</span></div>
+      <h3>Free, open, private</h3><p>Open source, and your data never leaves your Mac.</p>
+    </div>
+  </div>
+</section>
 
-<article class="col">
-  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 8</span><span class="dot"></span><span>November 19th 2026</span></div>
-  <h1>The notch, <em>put to work</em></h1>
-  <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
-  <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
-  <p class="small">Free and open source · macOS 14 or later · Apple Silicon and Intel · <a href="#install">Setup, step by step</a></p>
 
-  <section>
+<article>
+
+  <section class="feat" data-panel="closed">
+  <div class="f-text">
     <h2>A sliver of black that knows who needs you</h2>
     <p>Closed, Visor is barely there: a little black on each side of the notch. That's enough to tell you everything that matters without opening a thing. Busy agents pulse on the left. When one needs you, the app it's running in appears on the right with a badge: amber to approve, blue to answer. Finished turns get a green check.</p>
     <p>Hover, and it opens. Move away, and it's gone.</p>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Claude Code, Copilot CLI and Antigravity CLI.</div>
+    <button class="peek" type="button" data-show="closed">Show the closed notch in the MacBook →</button>
+  </div>
+  <div class="f-media">
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-dusk"/></svg>
         <div class="signals">
@@ -604,13 +861,18 @@
         </div>
       </div>
     </figure>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Claude Code, Copilot CLI and Antigravity CLI.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="approval">
+  <div class="f-text">
     <h2>Say yes without leaving what you're doing <span class="tag">Keys new in 0.5</span></h2>
     <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Allow it, deny it, or allow it always, with a click or a key: with the pointer over the card, Return allows, A always allows and Esc denies. Visor only takes the keyboard while the pointer is there, so your typing never goes astray. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
-    <figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code and Copilot CLI. Copilot's "Always" rules are kept per project.</div>
+    <button class="peek" type="button" data-show="approval">Show an approval in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-desert"/></svg><div class="np" style="max-width:520px"><div class="glow"></div>
         <div class="who"><span class="tile"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div>
         <div class="ask">wants to run a command<span>· ship the checkout fix</span></div>
@@ -618,42 +880,56 @@
         <div class="btns"><span class="btn deny">✕ Deny <kbd>esc</kbd></span><span class="btn always">↻ Always <code>git push</code> <kbd>A</kbd></span><span class="btn allow">✓ Allow <kbd>↩</kbd></span></div>
       </div></div>
     </figure>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code and Copilot CLI. Copilot's "Always" rules are kept per project.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="usage">
+  <div class="f-text">
     <h2>Know you'll run out before you do</h2>
     <p>The Usage tab already shows every plan you're on: Claude's session and weekly limits, Copilot premium requests on each GitHub account (company ones too), Antigravity's model limits and OpenCode Go. Now each limit also watches how fast you're going. "On pace" means you'll make it to the reset. "Runs out in ~1h 15m" means it's time to slow down.</p>
     <p>And when a limit will run out within the hour, the closed notch swaps its percent for the time left, so you see it coming without looking for it.</p>
     <p>New in 0.5: when a Claude or OpenCode Go limit you'd run out of comes back, the notch opens for a few seconds to say so, with when it ran out and when it resets next. No more checking every ten minutes to see if you can get back to work.</p>
-    <figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Claude, Copilot, Antigravity and OpenCode Go. Your own sign-ins, nothing new to log in to.</div>
+    <button class="peek" type="button" data-show="usage">Show Usage in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:380px">
         <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
         <div class="meter"><div class="top"><span>Session (5h)</span><b>36% <small>left</small></b></div><div class="bar"><i style="width:64%"></i></div><div class="cap"><span class="hot">Runs out in ~1h 15m</span> · resets in 2h 10m</div></div>
         <div class="meter"><div class="top"><span>Weekly</span><b>59% <small>left</small></b></div><div class="bar"><i style="width:41%"></i></div><div class="cap"><span class="ok">On pace</span> · ~5% left when it resets Fri 09:00</div></div>
       </div></div>
     </figure>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Claude, Copilot, Antigravity and OpenCode Go. Your own sign-ins, nothing new to log in to.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="tokens">
+  <div class="f-text">
     <h2>Every token, counted <span class="tag">New in 0.6</span></h2>
     <p>How much have your agents actually read and written? Flip the switch at the top of the Usage tab to <b>Tokens</b>: every token you've used across Claude Code, Copilot CLI, Antigravity, OpenCode, Codex and Gemini CLI, by model, a little like <a href="https://github.com/junhoyeo/tokscale">tokscale</a> in your notch.</p>
     <p>The headline counts everything, and beside it the tokens without cache reads, the conversation each agent re-reads from cache on every reply: cheap, and usually most of the total. A stacked bar for each day shows which models did the work, and Overview, Models, Daily and Tools pages break it down for the last week, month or all time.</p>
     <p>Your tools clean up after themselves (Claude Code deletes transcripts after a month), so Visor keeps its own daily totals. "All time" keeps counting.</p>
-    <figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Read from each tool's own logs on your Mac. Codex and Gemini CLI too.</div>
+    <button class="peek" type="button" data-show="tokens">Show Tokens in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-hills"/></svg><div class="np" style="max-width:480px">
-        <div class="tk-bar"><span class="on">Overview</span><span>Models</span><span>Daily</span><span>Tools</span><span class="rng"><i>7D</i><i class="on">30D</i><i>All</i></span><span class="sw2" aria-hidden="true"><span ><span class="sym s-gauge" aria-hidden="true"></span></span><span class="on"><span class="sym s-chart" aria-hidden="true"></span></span></span></div><div class="tk-hero"><div class="tot"><b>1.84B</b><small>tokens</small></div><div class="fact"><em>212M</em><span>without cache reads</span></div><div class="fact"><em>24</em><span>active days</span></div><div class="fact"><em>186M</em><span>peak · 12 Nov</span></div></div><div class="tk-chart" aria-hidden="true"><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:14%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:18%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i></div><div class="tk-dates"><span>21 Oct</span><span>19 Nov</span></div><div class="tk-legend"><span><i style="background:#D97757"></i>claude-opus-5-5</span><span><i style="background:#A78BFA"></i>claude-sonnet-5-5</span><span><i style="background:#7EE0A0"></i>big-pickle</span></div><div class="tk-label">TOP MODELS</div><div class="tk-row"><div class="top"><s style="background:#D97757"></s><b>claude-opus-5-5</b><small>Claude Code</small><em>1.52B</em><span class="pc">82.6%</span></div><div class="share"><i style="width:82.6%;background:#D97757"></i></div><div class="split">In 31K · Out 6.2M · Cache read 1.48B · Cache write 35M</div></div><div class="tk-row"><div class="top"><s style="background:#A78BFA"></s><b>claude-sonnet-5-5</b><small>Copilot CLI</small><em>288M</em><span class="pc">15.7%</span></div><div class="share"><i style="width:15.7%;background:#A78BFA"></i></div><div class="split">In 141M · Out 1.3M · Cache read 131M · Cache write 15M</div></div><div class="tk-row"><div class="top"><s style="background:#7EE0A0"></s><b>big-pickle</b><small>OpenCode</small><em>31.4M</em><span class="pc">1.7%</span></div><div class="share"><i style="width:1.7%;background:#7EE0A0"></i></div><div class="split">In 1.9M · Out 288K · Cache read 29.2M · Cache write 0</div></div>
+        <div class="tk-bar"><span class="on">Overview</span><span>Models</span><span>Daily</span><span>Tools</span><span class="rng"><i>7D</i><i class="on">30D</i><i>All</i></span><span class="sw2" aria-hidden="true"><span ><span class="sym s-gauge" aria-hidden="true"></span></span><span class="on"><span class="sym s-chart" aria-hidden="true"></span></span></span></div><div class="tk-hero"><div class="tot"><b>1.84B</b><small>tokens</small></div><div class="fact"><em>212M</em><span>without cache reads</span></div><div class="fact"><em>24</em><span>active days</span></div><div class="fact"><em>186M</em><span>peak · 12 Nov</span></div></div><div class="tk-chart" aria-hidden="true"><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:14%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:0%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:30%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:22%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:46%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:70%;background:#D97757"></u><u style="height:20%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:0%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:60%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:18%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:3%;background:#7EE0A0"></u></i><i><u style="height:10%;background:#D97757"></u><u style="height:4%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:40%;background:#D97757"></u><u style="height:8%;background:#A78BFA"></u><u style="height:0%;background:#7EE0A0"></u></i><i><u style="height:6%;background:#D97757"></u><u style="height:12%;background:#A78BFA"></u><u style="height:5%;background:#7EE0A0"></u></i></div><div class="tk-dates"><span>21 Oct</span><span>19 Nov</span></div><div class="tk-legend"><span><i style="background:#D97757"></i>claude-opus-5-5</span><span><i style="background:#A78BFA"></i>claude-sonnet-5-5</span><span><i style="background:#7EE0A0"></i>big-pickle</span></div><div class="tk-label">TOP MODELS</div><div class="tk-row"><div class="top"><s style="background:#D97757"></s><b>claude-opus-5-5</b><small>Claude Code</small><em>1.52B</em><span class="pc">82.6%</span></div><div class="share"><i style="width:82.6%;background:#D97757"></i></div><div class="split dup">In 31K · Out 6.2M · Cache read 1.48B · Cache write 35M</div></div><div class="tk-row"><div class="top"><s style="background:#A78BFA"></s><b>claude-sonnet-5-5</b><small>Copilot CLI</small><em>288M</em><span class="pc">15.7%</span></div><div class="share"><i style="width:15.7%;background:#A78BFA"></i></div><div class="split">In 141M · Out 1.3M · Cache read 131M · Cache write 15M</div></div><div class="tk-row"><div class="top"><s style="background:#7EE0A0"></s><b>big-pickle</b><small>OpenCode</small><em>31.4M</em><span class="pc">1.7%</span></div><div class="share"><i style="width:1.7%;background:#7EE0A0"></i></div><div class="split">In 1.9M · Out 288K · Cache read 29.2M · Cache write 0</div></div>
       </div></div>
     </figure>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Read from each tool's own logs on your Mac. Codex and Gemini CLI too.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="agents">
+  <div class="f-text">
     <h2>Every agent, in one list <span class="tag">New in 0.5</span></h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
     <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
-    <figure>
+    <button class="peek" type="button" data-show="agents">Show Agents in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
         <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
         <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div></div>
@@ -661,24 +937,35 @@
         <div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
       </div></div>
     </figure>
+  </div>
   </section>
 
-  <section>
-    <h2>Or watch them work <span class="tag">New in 0.6</span></h2>
+  <section class="feat" data-panel="office">
+  <div class="f-text">
+    <h2>Or watch them work <span class="tag">Worlds new in 0.7</span></h2>
     <p>Prefer to see your agents at work? Switch the Agents tab to the <b>office</b>. Each tool gets a table and each session a little person sitting at it. They get up and walk to the terminal to run a command, the bookshelf to read, the hologram to search the web, and the sofa when a turn is done. When one needs you, it comes to your desk and waves, with an amber "!" or a blue "?".</p>
     <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants in the corners. The palette button opens a picker that switches it to Galaxy (a hangar with Star Wars characters) or Starfleet (a starship deck with Star Trek characters). A little bar over each head shows how full its context is, amber when it's about to compact, and whoever waits at your desk shows how long. Hover anyone for what they're doing, how long, and what you last asked; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
-    <figure>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
+    <div class="wpick" role="group" aria-label="Office world"><span class="wl-wide">Show it in the MacBook:</span><span class="wl-narrow">World:</span><button type="button" class="wbtn" data-world="studio" aria-pressed="true">Night Studio</button><button type="button" class="wbtn" data-world="galaxy" aria-pressed="false">Galaxy</button><button type="button" class="wbtn" data-world="starfleet" aria-pressed="false">Starfleet</button></div>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg>
-        <img class="real" src="assets/office-room.png" width="436" height="290" alt="The agent office: Claude Code, Copilot CLI and Antigravity tables with little people at work, one waiting at your desk, one at the web hologram, one resting on the sofa.">
+        <img class="real" data-world="studio" src="assets/office-studio.png" width="436" height="298" alt="The Night Studio office: little people at wooden tables, at the terminal, the bookshelf and the web hologram, resting on the sofa."><img class="real" data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden><img class="real" data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
       </div>
     </figure>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="plugins">
+  <div class="f-text">
     <h2>Bring your own: plugins <span class="tag">New in 0.7</span></h2>
     <p>Want the notch to watch something Visor doesn't? Write a plugin: a few lines of Lua in a folder. It gets its own section in the new <b>Plugins</b> tab, a badge on the closed notch while something needs you, and a peek when something happens. Visor draws it all, so plugins look like the rest of the notch and can't slow it down.</p>
     <p>The first one ships with Visor: <b>GitHub</b>. It watches GitHub Actions on exactly the branches your agents are working on, with nothing to set up, and lists the pull requests waiting for your review. When a build breaks, the notch shows a red badge and tells you once. It works with github.com and GitHub Enterprise through your <code>gh</code> sign-in.</p>
+    <div class="avail">Lua 5.4, sandboxed: only the sites a plugin names, sign-ins only through <code>gh</code>, 1Password or the Keychain, no files, no programs. <a href="https://github.com/tailamphat/visor/blob/main/docs/plugins.md">Writing Visor plugins</a> has the whole API.</div>
+    <button class="peek" type="button" data-show="plugins">Show Plugins in the MacBook →</button>
+  </div>
+  <div class="f-media">
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-dusk"/></svg>
         <div class="signals" style="grid-template-columns: repeat(3, 1fr)">
@@ -697,21 +984,25 @@
     { title = run.name, status = run.conclusion or run.status, url = run.html_url, time = run.updated_at } } } })
   visor.badge(run.conclusion == "failure" and { icon = "xmark.octagon.fill", state = "bad" } or nil)
 end)</pre>
-    <div class="avail">Lua 5.4, sandboxed: only the sites a plugin names, sign-ins only through <code>gh</code>, 1Password or the Keychain, no files, no programs. <a href="https://github.com/tailamphat/visor/blob/main/docs/plugins.md">Writing Visor plugins</a> has the whole API.</div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat" data-panel="music">
+  <div class="f-text">
     <h2>Your clipboard and your music, a hover away <span class="tag">Any browser new in 0.6</span></h2>
     <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. And whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect. Add the <b>Visor Media</b> browser extension and that works in any browser, Firefox and Zen included: it sees every music and video tab and plays, pauses and skips exactly the one you mean.</p>
-    <div class="split">
-      <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
+    <button class="peek" type="button" data-show="music">Show Music in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <div class="split dup">
+      <figure class="dup" style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
         <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search</div>
         <div class="day">TODAY</div>
         <div class="clip mono sel"><span class="txt">brew upgrade --cask visor</span></div>
         <div class="clip"><span class="sw" style="background:#3987E5"></span><span class="txt">#3987E5</span></div>
         <div class="clip"><span class="txt">github.com/tailamphat/visor</span></div>
       </div></div></figure>
-      <figure style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
+      <figure class="dup" style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
         <div class="song" style="margin-top:0"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
           <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
           <div class="src">Zen · YouTube Music</div>
@@ -723,21 +1014,29 @@ end)</pre>
         </div></div>
       </div></div></figure>
     </div>
+  </div>
   </section>
 
-  <section>
+  <section class="feat">
+  <div class="f-text">
     <h2>Built to sit there quietly</h2>
     <p>It's always on screen, so it had better not cost you anything. Visor is native Swift with no web view. It waits for events instead of checking on a timer, and its little animations run in the window server, not on your CPU.</p>
+  </div>
+  <div class="f-media">
     <div class="numbers">
       <div><div class="num">~0<small>% CPU</small></div><p>when idle. Nothing ticks while you work.</p></div>
       <div><div class="num">~50<small>MB</small></div><p>of memory, about what a single browser tab uses.</p></div>
       <div><div class="num">2<small>MB</small></div><p>download. One app for Apple Silicon and Intel.</p></div>
     </div>
+  </div>
   </section>
 
-  <section id="new">
+  <section id="new" class="feat">
+  <div class="f-text">
     <h2>What else is new</h2>
     <p>Small things that add up, in Visor 0.4 to 0.6.</p>
+  </div>
+  <div class="f-media">
     <ul class="more">
       <li><h3>Room between tools</h3><p>In the Usage tab, each tool gets more space before the next, so Claude, Copilot, Antigravity and OpenCode each read as their own group, headed by their mark and name.</p></li>
       <li><h3>Pin from the clipboard</h3><p>Hover an item for a pin next to ✕. Pinned items keep a small green pin and survive Clear and the 200-item / 30-day cleanup. Hovering down the list is smoother too.</p></li>
@@ -757,11 +1056,15 @@ end)</pre>
       <li><h3>One switch for approvals</h3><p><b>Approvals in the Notch</b> in the menu now covers Claude Code and Copilot CLI alike. Turn it off and each agent asks in its own terminal. Agents are ticks in the menu, so each connects on its own.</p></li>
       <li><h3>A cleaner close</h3><p>Moving away quickly could leave a line of text hanging below the notch for a moment. Not anymore.</p></li>
     </ul>
+  </div>
   </section>
 
-  <section id="install">
+  <section id="install" class="feat">
+  <div class="f-text">
     <h2>Make yourself at home</h2>
     <p>Visor isn't from the App Store, so macOS asks you to approve it once. Here's every prompt you'll see, in order.</p>
+  </div>
+  <div class="f-media">
     <ol class="steps">
       <li><div><h3>Install with Homebrew</h3><pre>brew install --cask tailamphat/tap/visor</pre><p>Already have it? From the next release (after 0.6.5) Visor updates itself: it downloads new versions in the background and installs them when it restarts (or pick <b>Restart to Update</b> in its menu). On an older version, run <code>brew update &amp;&amp; brew upgrade --cask visor</code> once.</p></div></li>
       <li><div><h3>Let macOS open it</h3>
@@ -784,25 +1087,41 @@ end)</pre>
       <li><div><h3>Hover the notch</h3><p>Usage fills in from the tools you're signed in to. If one is missing, the gear on the Usage tab says why, with one button to fix it.</p></div></li>
     </ol>
     <p class="small">Turned something down by mistake? Every permission can be changed in System Settings → Privacy &amp; Security. Uninstall with <code>brew uninstall --cask visor</code>.</p>
+  </div>
   </section>
 
-  <section>
+  <section class="feat">
+  <div class="f-text">
     <h2>Your data stays on your Mac</h2>
     <p>Visor has no server of its own, no account and no analytics.</p>
+  </div>
+  <div class="f-media">
     <ul class="privacy">
       <li style="--c:var(--claude)"><b>Your own sign-ins.</b> Claude Code's keychain entry, <code>gh</code>, Copilot CLI and OpenCode, read when needed and never stored.</li>
       <li style="--c:var(--copilot)"><b>Each tool's own API.</b> Usage comes straight from Anthropic, GitHub and OpenCode. Spend is worked out from Claude Code's logs, on your Mac.</li>
       <li style="--c:var(--agy)"><b>A clipboard that stays home.</b> 200 items or 30 days, pins kept. Anything your password manager marks as secret is skipped.</li>
     </ul>
+  </div>
+  </section>
+
+  <section class="cta">
+    <svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 760"><use href="#sc-mac"/></svg>
+    <div class="cta-notch" aria-hidden="true"><svg><use href="#claude"/></svg><span class="hw"></span><span class="bdg"><svg><use href="#copilot"/></svg><span class="b ok">✓</span></span></div>
+    <h2>Give your notch a job</h2>
+    <p>Free and open source. One command, and your agents can find you.</p>
+    <div class="install"><code>brew install --cask tailamphat/tap/visor</code><button class="copy" type="button">Copy</button></div>
+    <p class="small" style="margin:14px 0 0">macOS 14 or later · <a href="#install">Setup, step by step</a> · <a href="https://github.com/tailamphat/visor">Star it on GitHub</a></p>
   </section>
 
   <footer><span class="fbrand"><img src="assets/visor-icon.png" alt="">Visor · free and open source</span><span><a href="https://github.com/tailamphat/visor">Source</a> · <a href="https://github.com/tailamphat/visor/releases">Releases</a></span></footer>
 </article>
 </div>
+</div>
+</div>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 353], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 362], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
@@ -827,29 +1146,80 @@ end)</pre>
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
     // Like the app: the badge counts the agents in view (the office picture has more), and Usage has its gear.
     const office = name === 'office';
-    badgeClaude.textContent = office ? '5' : '2';
+    badgeClaude.textContent = office ? '8' : '2';
     badgeCopilot.textContent = office ? '2' : '';
     badgeMore.hidden = !office;
     gear.hidden = !(name === 'usage' || name === 'tokens');
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
+    document.querySelector('.dock .wpick').hidden = name !== 'office';
   }
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
   tries.forEach(b => b.addEventListener('click', () => show(b.dataset.try)));
   notch.addEventListener('mouseenter', () => { if (!notch.classList.contains('open')) show('office'); });
   show('office');
 
-  const copy = document.getElementById('copy');
-  copy.addEventListener('click', () => {
-    const text = document.getElementById('cmd').textContent;
-    const done = () => { copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1600); };
-    try { navigator.clipboard.writeText(text).then(done, selectCmd); } catch (e) { selectCmd(); }
-  });
-  function selectCmd() {
-    const range = document.createRange();
-    range.selectNodeContents(document.getElementById('cmd'));
-    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  // The MacBook stays beside the story on a wide screen: cards and buttons open a panel in place,
+  // and each section shows its own panel as it reaches the middle of the window.
+  const docked = matchMedia('(min-width: 1081px)');
+  let mark = null;
+  function focusSection(s) {
+    if (mark) mark.classList.remove('on');
+    mark = s && s.classList.contains('feat') ? s : null;
+    if (mark) mark.classList.add('on');
   }
+  document.querySelectorAll('[data-show]').forEach(c => c.addEventListener('click', () => {
+    show(c.dataset.show);
+    focusSection(c.closest('.feat'));
+    if (!docked.matches) document.querySelector('.dock').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+  const spy = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting && docked.matches) { show(e.target.dataset.panel); focusSection(e.target); }
+  }), { rootMargin: '-45% 0px -50% 0px' });
+  document.querySelectorAll('.pitch[data-panel], .feat[data-panel]').forEach(s => spy.observe(s));
+
+  // Scale the notch with the screen, so the tallest panel always fits.
+  const screen = document.querySelector('.device .art');
+  new ResizeObserver(() => {
+    notch.style.zoom = Math.max(.5, Math.min(1, screen.clientWidth / 740, screen.clientHeight / 520)).toFixed(3);
+  }).observe(screen);
+
+  // Office worlds: one choice for the MacBook and the office pictures; the card takes turns on its own.
+  function setWorld(w) {
+    document.querySelectorAll('.room[data-world], .real[data-world]').forEach(i => { i.hidden = i.dataset.world !== w; });
+    document.querySelectorAll('.wbtn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.world === w)));
+  }
+  document.querySelectorAll('.wbtn').forEach(b => b.addEventListener('click', () => {
+    setWorld(b.dataset.world);
+    show('office');
+    focusSection(b.closest('.feat'));
+  }));
+  const card = document.querySelector('.cardx.big');
+  const cardWorlds = ['studio', 'galaxy', 'starfleet'];
+  let cardWorld = 0;
+  function turnCard(i) {
+    cardWorld = i;
+    card.querySelectorAll('.cyc img').forEach(img => { img.hidden = img.dataset.world !== cardWorlds[i]; });
+    card.querySelectorAll('.wdots span').forEach(d => d.classList.toggle('on', d.dataset.world === cardWorlds[i]));
+  }
+  card.querySelectorAll('.wdots span').forEach(d => d.addEventListener('click', () => turnCard(cardWorlds.indexOf(d.dataset.world))));
+  card.addEventListener('click', () => setWorld(cardWorlds[cardWorld]));
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setInterval(() => { if (!card.matches(':hover')) turnCard((cardWorld + 1) % cardWorlds.length); }, 3200);
+  }
+
+  document.querySelectorAll('.install').forEach(box => {
+    const code = box.querySelector('code'), button = box.querySelector('.copy');
+    const select = () => {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    };
+    button.addEventListener('click', () => {
+      const done = () => { button.textContent = 'Copied'; setTimeout(() => { button.textContent = 'Copy'; }, 1600); };
+      try { navigator.clipboard.writeText(code.textContent).then(done, select); } catch (e) { select(); }
+    });
+  });
 </script>
 </body>
 </html>
