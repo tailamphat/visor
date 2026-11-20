@@ -30,15 +30,15 @@ struct OfficeTests {
 
     /// A tool with more sessions than one table holds gets a second table.
     @Test func bigGroupsSplit() {
-        let islands = Office.place(sessions([("Claude Code", 22)])).layout.islands
-        #expect(islands.map(\.seats) == [20, 2])
-        #expect(islands.map(\.total) == [22, 22])
+        let islands = Office.place(sessions([("Claude Code", 18)])).layout.islands
+        #expect(islands.map(\.seats) == [16, 2])
+        #expect(islands.map(\.total) == [18, 18])
     }
 
     /// Two rows of tables at most; the rest are counted, not drawn.
     @Test func overflowIsCounted() {
-        let scene = Office.place(sessions([("Claude Code", 20), ("Copilot CLI", 20), ("Antigravity", 20)]))
-        #expect(scene.layout.rows == 2 && scene.agents.count == 40 && scene.hidden == 20)
+        let scene = Office.place(sessions([("Claude Code", 16), ("Copilot CLI", 16), ("Antigravity", 16)]))
+        #expect(scene.layout.rows == 2 && scene.agents.count == 32 && scene.hidden == 16)
     }
 
     /// Seats alternate: top of the table facing you, bottom facing the table.
@@ -132,7 +132,7 @@ struct OfficeTests {
         let lower = OfficePoint(x: 23, y: 68)
         let you = OfficePoint(x: OfficeLayout.youX, y: layout.corridor)
         #expect(layout.route(from: lower, access: 73, to: you, access: layout.corridor)
-                == [OfficePoint(x: 23, y: 73), OfficePoint(x: 91, y: 73), OfficePoint(x: 91, y: layout.corridor), you])
+                == [OfficePoint(x: 23, y: 73), OfficePoint(x: 82, y: 73), OfficePoint(x: 82, y: layout.corridor), you])
 
         let along = OfficePoint(x: 100, y: layout.stationLine)
         #expect(layout.route(from: terminal, access: layout.stationLine, to: along, access: layout.stationLine) == [along])

@@ -141,4 +141,12 @@ struct NotchTabTests {
         #expect(five.width >= 24, "still a comfortable target")
         #expect(NotchEars.tabRoom(panel: 520, notch: 185) == 133.5)
     }
+
+    /// The 460 pt panel: four tabs a little narrower, still beside the camera.
+    @Test func fourTabsFitTheNarrowPanel() {
+        let room = NotchEars.tabRoom(panel: 460, notch: 185)
+        let four = NotchEars.tabLayout(count: 4, room: room)
+        #expect(four.width == 24 && four.spacing == 2)
+        #expect(four.width * 4 + four.spacing * 3 <= room)
+    }
 }

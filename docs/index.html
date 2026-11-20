@@ -69,7 +69,7 @@
   .try button { font: 500 13px var(--sans); color: var(--ink-2); background: transparent; border: 1px solid var(--rule); border-radius: 99px; padding: 4px 12px; cursor: pointer; }
   .try button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
-  /* The notch, drawn from the app: 520 pt panels, 24 pt corners open. */
+  /* The notch, drawn from the app: 460 pt panels, 24 pt corners open. */
   .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: #000; color: #fff;
     width: var(--w, 300px); height: var(--h, 32px); border-radius: 0 0 var(--r, 10px) var(--r, 10px);
     transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), border-radius .3s, box-shadow .3s;
@@ -116,7 +116,7 @@
   .t2 { color: #C3C2B7; } .t3 { color: #8A8980; }
 
   /* Shared pieces of the app's panels (hero and figures) */
-  .ucols { display: grid; grid-template-columns: 1fr 210px; gap: 24px; }
+  .ucols { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 24px; }
   /* Between tools: space alone, like the app. */
   .tooldiv { height: 28px; }
   .solo { padding-right: 0; }
@@ -263,7 +263,7 @@
 
   /* A picture of the notch: wallpaper in a soft frame, the panel hanging from the top. */
   figure { margin: 28px 0 0; }
-  .shot img.real { display: block; width: 100%; max-width: 496px; margin: 0 auto; border-radius: 0 0 22px 22px; }
+  .shot img.real { display: block; width: 100%; max-width: 436px; margin: 0 auto; border-radius: 0 0 22px 22px; }
   .tk-bar { display: flex; align-items: center; gap: 2px; font-weight: 600; color: #8A8980; margin-bottom: 10px; }
   .tk-bar > span.on { color: #fff; box-shadow: inset 0 -1.5px 0 #fff; }
   .tk-bar .sw2 { margin-left: 6px; }
@@ -518,7 +518,7 @@
           </div>
 
           <div class="view" data-name="office" hidden>
-            <img class="room" src="assets/office-room.png" width="496" height="299" alt="The agent office: a table for each tool with little people at work, one waiting at your desk, one at the web hologram, one on the sofa.">
+            <img class="room" src="assets/office-room.png" width="436" height="290" alt="The agent office: a table for each tool with little people at work, one waiting at your desk, one at the web hologram, one on the sofa.">
           </div>
 
           <div class="view" data-name="tokens" hidden>
@@ -669,7 +669,7 @@
     <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants by the door. A little bar over each head shows how full its context is, amber when it's about to compact, and whoever waits at your desk shows how long. Hover anyone for what they're doing, how long, and what you last asked; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg>
-        <img class="real" src="assets/office-room.png" width="496" height="299" alt="The agent office: Claude Code, Copilot CLI and Antigravity tables with little people at work, one waiting at your desk, one at the web hologram, one resting on the sofa.">
+        <img class="real" src="assets/office-room.png" width="436" height="290" alt="The agent office: Claude Code, Copilot CLI and Antigravity tables with little people at work, one waiting at your desk, one at the web hologram, one resting on the sofa.">
       </div>
     </figure>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
@@ -801,8 +801,8 @@ end)</pre>
 </div>
 
 <script>
-  // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 350], agents: [520, 222], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
+  // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
+  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 222], office: [460, 353], tokens: [460, 454], approval: [580, 193], clipboard: [460, 232], music: [340, 136], plugins: [460, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');

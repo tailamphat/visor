@@ -858,30 +858,30 @@ enum OfficeRoom {
             // The lamp on the table.
             p.ellipse(mid - 1.5, island.y + 30, 3, 2, NSColor(hex: 0xF2D08A))
         }
-        let t = layout.stationTop, o = (w - 242) / 2
+        let t = layout.stationTop, o = (w - 212) / 2
         p.fill(0, layout.deskBottom + 3, w, 1, NSColor(hex: 0x3A2C24))
         // Terminal: a dark clay rack with green lights.
-        p.shadow(12 + o, t, 18, 20, radius: 4)
-        p.clay(12 + o, t, 18, 20, radius: 4, top: 0x3A302B, bottom: 0x241D1A)
+        p.shadow(10 + o, t, 18, 20, radius: 4)
+        p.clay(10 + o, t, 18, 20, radius: 4, top: 0x3A302B, bottom: 0x241D1A)
         for i in 0..<4 {
             let row = t + 3 + Double(i) * 4
-            p.round(14 + o, row, 14, 3, radius: 1, NSColor(hex: 0x2E2622))
-            p.fill(15 + o, row + 1, 1, 1, 0x7EE08A); p.fill(17 + o + Double(i * 2 % 7), row + 1, 3, 1, 0x9BE7A2)
+            p.round(12 + o, row, 14, 3, radius: 1, NSColor(hex: 0x2E2622))
+            p.fill(13 + o, row + 1, 1, 1, 0x7EE08A); p.fill(15 + o + Double(i * 2 % 7), row + 1, 3, 1, 0x9BE7A2)
         }
         // Bookshelf
-        p.shadow(44 + o, t, 28, 20, radius: 4)
-        p.clay(44 + o, t, 28, 20, radius: 4, top: 0x8A6440, bottom: 0x5E4228)
+        p.shadow(38 + o, t, 28, 20, radius: 4)
+        p.clay(38 + o, t, 28, 20, radius: 4, top: 0x8A6440, bottom: 0x5E4228)
         let books: [UInt32] = [0xC0504D, 0xD98F4E, 0x9BBB59, 0xF2C14E, 0x8064A2, 0x4BACC6]
         for r in 0..<3 {
-            p.fill(46 + o, t + 6 + Double(r) * 6, 24, 1, 0x4A3220)
-            for i in 0..<7 { p.round(47 + o + Double(i) * 3, t + 2 + Double(r) * 6, 2, 4, radius: 0.6, NSColor(hex: books[(i + r * 2) % books.count])) }
+            p.fill(40 + o, t + 6 + Double(r) * 6, 24, 1, 0x4A3220)
+            for i in 0..<7 { p.round(41 + o + Double(i) * 3, t + 2 + Double(r) * 6, 2, 4, radius: 0.6, NSColor(hex: books[(i + r * 2) % books.count])) }
         }
         // Your desk, its screen amber while someone waits
-        p.shadow(105 + o, t + 8, 32, 9, radius: 4)
-        p.clay(105 + o, t + 8, 32, 9, radius: 4, top: 0xB08560, bottom: 0x7E5A3C)
-        p.round(116 + o, t + 2, 10, 7, radius: 1.5, NSColor(hex: 0x120E0C))
-        p.fill(117 + o, t + 3, 8, 5, scene.waiting > 0 ? 0x6A5012 : 0x241C1A)
-        p.ellipse(130 + o, t + 5, 3, 3, NSColor(hex: 0xF2C14E))
+        p.shadow(92 + o, t + 8, 32, 9, radius: 4)
+        p.clay(92 + o, t + 8, 32, 9, radius: 4, top: 0xB08560, bottom: 0x7E5A3C)
+        p.round(103 + o, t + 2, 10, 7, radius: 1.5, NSColor(hex: 0x120E0C))
+        p.fill(104 + o, t + 3, 8, 5, scene.waiting > 0 ? 0x6A5012 : 0x241C1A)
+        p.ellipse(117 + o, t + 5, 3, 3, NSColor(hex: 0xF2C14E))
         // Web: a hologram projector; its rings turn above it (`OfficeRoom.ring`).
         p.glow(OfficeLayout.webX, t + 9, radius: 14, NSColor(hex: 0x5EF2FF).withAlphaComponent(0.22))
         p.ellipse(OfficeLayout.webX - 9, t + 16, 18, 5, NSColor.black.withAlphaComponent(0.3))
@@ -889,8 +889,8 @@ enum OfficeRoom {
         p.fill(OfficeLayout.webX - 5, t + 15, 10, 1, NSColor(hex: 0x5EF2FF).withAlphaComponent(0.8))
         p.ellipse(OfficeLayout.webX - 1.5, t + 7.5, 3, 3, NSColor(hex: 0xE6FDFF))
         // Sofa back
-        p.shadow(193 + o, t + 6, 40, 9, radius: 4)
-        p.clay(193 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
+        p.shadow(168 + o, t + 6, 40, 9, radius: 4)
+        p.clay(168 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
         // The door agents come in by
         p.round(w - 3, layout.corridor - 12, 3, 16, radius: 1, NSColor(hex: 0x5B4636))
         return p.image
@@ -947,10 +947,10 @@ enum OfficeRoom {
     /// The sofa's seat and arms, drawn over whoever sits on it.
     static func sofaFront(_ layout: OfficeLayout) -> CGImage? {
         guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: detail) else { return nil }
-        let t = layout.stationTop, o = (OfficeLayout.width - 242) / 2
-        p.clay(191 + o, t + 17, 44, 7, radius: 3, top: 0x9A5A48, bottom: 0x6A3E30)
-        p.clay(191 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
-        p.clay(231 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
+        let t = layout.stationTop, o = (OfficeLayout.width - 212) / 2
+        p.clay(166 + o, t + 17, 44, 7, radius: 3, top: 0x9A5A48, bottom: 0x6A3E30)
+        p.clay(166 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
+        p.clay(206 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
         return p.image
     }
 }

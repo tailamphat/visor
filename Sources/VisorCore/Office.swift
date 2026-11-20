@@ -41,7 +41,7 @@ public struct OfficeIsland: Equatable, Sendable {
 /// wait at your desk, and a fixed row of stations.
 public struct OfficeLayout: Equatable, Sendable {
     /// The panel's full width at 2 points a pixel: the room runs edge to edge.
-    public static let width = 248.0
+    public static let width = 218.0
     public static let cell = 22.0
     public static let islandHeight = 52.0
     /// Rows of tables leave room above each for its name and the bars over heads.
@@ -54,12 +54,12 @@ public struct OfficeLayout: Equatable, Sendable {
     static let maxColumns = Int((width - 2 * margin - 8) / cell)
 
     // The bottom row's stations, and the gaps between them to walk through.
-    public static let terminalX = 24.0
-    public static let docsX = 61.0
-    public static let youX = 124.0
-    public static let webX = 175.0
-    public static let sofaX = 215.0
-    static let lanes = [40.0, 91.0, 153.0, 190.0]
+    public static let terminalX = 22.0
+    public static let docsX = 55.0
+    public static let youX = 111.0
+    public static let webX = 151.0
+    public static let sofaX = 191.0
+    static let lanes = [36.0, 82.0, 134.0, 165.0]
     static let walkway = 4.0
     /// Seats on the sofa; whoever else is done stays at their desk.
     public static let sofaSeats = 3

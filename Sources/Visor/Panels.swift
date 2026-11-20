@@ -751,7 +751,8 @@ struct ToolDivider: View {
 }
 
 enum UsageColumns {
-    static let usageWidth: CGFloat = 210
+    /// About 40% of the panel's content; the limits take the rest.
+    static let usageWidth: CGFloat = 170
     static let spacing: CGFloat = 24
 }
 

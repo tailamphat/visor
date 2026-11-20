@@ -17,8 +17,9 @@ struct NotchLayout {
         return CGFloat(NotchEars.shift(left: Double(leftEar(model)), right: Double(rightEar(model))))
     }
 
-    /// The open panel's width for the tabs. Approvals keep 580 for their rule text.
-    static let width: CGFloat = 520
+    /// The open panel's width for every tab (four 24 pt tabs fit left of the
+    /// camera). Approvals keep 580 for their rule text.
+    static let width: CGFloat = 460
     static let expandedSize = CGSize(width: width, height: 200)
     static let approvalSize = CGSize(width: 580, height: 193)
     static let musicSize = CGSize(width: width, height: 182)
