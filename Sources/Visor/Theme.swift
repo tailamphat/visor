@@ -3,6 +3,8 @@ import SwiftUI
 /// Colours for the notch. The surface is pure black so the panel melts into the
 /// hardware notch; chart colours come from the data-viz palette's dark steps.
 enum Theme {
+    /// Every progress bar and meter in the app: Usage, Agents' context, Tokens, Music, plugins.
+    static let barHeight: CGFloat = 4
     static let surface = Color.black
     static let raised = Color(hex: 0x1A1A19)
     static let textPrimary = Color.white

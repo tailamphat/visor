@@ -186,7 +186,7 @@ struct Meter: View {
                 Capsule().fill(color).frame(width: geo.size.width * min(1, max(0, value)))
             }
         }
-        .frame(width: 44, height: 4)
+        .frame(width: 44, height: Theme.barHeight)
     }
 }
 

@@ -136,7 +136,7 @@ struct AgentRow: View {
                     Capsule().fill(color).frame(width: max(3, geo.size.width * percent / 100))
                 }
             }
-            .frame(height: 3)
+            .frame(height: Theme.barHeight)
             Text(high ? "\(Int(percent))% · compacts soon" : "\(Int(percent))% context")
                 .font(.system(size: 10).monospacedDigit())
                 .foregroundStyle(high ? Theme.warning : Theme.textMuted)
@@ -1025,7 +1025,7 @@ struct LimitMeter: View {
                     Capsule().fill(fill).frame(width: max(4, geo.size.width * min(used, 100) / 100))
                 }
             }
-            .frame(height: 4)
+            .frame(height: Theme.barHeight)
             if let forecast, let resetsAt {
                 forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             } else if let caption, !caption.isEmpty {
@@ -1431,7 +1431,7 @@ struct Progress: View {
                         Capsule().fill(Theme.textPrimary)
                             .frame(width: now.duration > 0 ? geo.size.width * min(1, position / now.duration) : 0)
                     }
-                    .frame(height: 4)
+                    .frame(height: Theme.barHeight)
                     .frame(maxHeight: .infinity)
                 }
                 Text(Self.time(now.duration))

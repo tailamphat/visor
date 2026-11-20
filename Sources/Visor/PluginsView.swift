@@ -202,7 +202,7 @@ struct PluginNodeView: View {
                         if !pending { Capsule().fill(tint(state)).frame(width: max(3, geo.size.width * value)) }
                     }
                 }
-                .frame(height: 6)
+                .frame(height: Theme.barHeight)
                 if !caption.isEmpty { Text(caption).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted) }
             }
         case .bars(let values, let states, let labels, let pending):
@@ -276,7 +276,7 @@ struct PluginNodeView: View {
                         Capsule().fill(accent).frame(width: max(3, geo.size.width * value))
                     }
                 }
-                .frame(height: 6)
+                .frame(height: Theme.barHeight)
             } else {
                 ProgressView().progressViewStyle(.linear).tint(accent)
             }

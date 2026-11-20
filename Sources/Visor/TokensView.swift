@@ -287,7 +287,7 @@ struct TokensView: View {
                             Capsule().fill(item.color).frame(width: max(2, geo.size.width * share))
                         }
                     }
-                    .frame(height: 3)
+                    .frame(height: Theme.barHeight)
                     Text("In \(TokenCount.compact(item.count.input)) · Out \(TokenCount.compact(item.count.output)) · Cache read \(TokenCount.compact(item.count.cacheRead)) · Cache write \(TokenCount.compact(item.count.cacheWrite))")
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 }
