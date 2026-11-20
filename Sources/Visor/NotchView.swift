@@ -445,7 +445,7 @@ struct ExpandedView: View {
         }
     }
 
-    /// Room between the camera and the music panel's tabs, the same on both sides.
+    /// Room between the camera and the header on each side: the same on both, in every panel.
     static let cameraGap: CGFloat = 4
 
     /// Tabs left of the hardware notch, a glanceable status right of it. Now
@@ -509,9 +509,10 @@ struct ExpandedView: View {
     private var fullHeader: some View {
         HStack(spacing: 0) {
             // The main tabs left of the camera; they shrink only if ever more than fit.
+            // Each side hugs the camera with the same gap (`cameraGap`), in every panel.
             tabs(Tab.shown[...], fit: NotchEars.tabRoom(panel: layout.size(for: model).width, notch: layout.notch.width))
-            .padding(.leading, NotchLayout.inset)
-            Spacer(minLength: layout.notch.width + 16)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            Color.clear.frame(width: layout.notch.width + 2 * Self.cameraGap)
             HStack(spacing: 8) {
                 // The badge never squeezes; with many agents "% left" makes way (it's on the Usage tab too).
                 ViewThatFits(in: .horizontal) {
@@ -542,8 +543,9 @@ struct ExpandedView: View {
                     tabs([Tab.plugins][...])
                 }
             }
-            .padding(.trailing, NotchLayout.inset)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, NotchLayout.inset)
     }
 }
 
