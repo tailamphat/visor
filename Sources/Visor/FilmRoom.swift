@@ -74,7 +74,6 @@ enum FilmRoom {
         for (mx, color) in [(brk - 4, 0x7CD0F5), (brk + 3, 0x9FE0A8), (brk, 0xF2B0D8)] {
             p.ellipse(mx - 1.2, t + 1.5, 2.4, 3.5, NSColor(hex: UInt32(color)).withAlphaComponent(0.85))
         }
-        door(p, layout, color: 0x5C4D3D)
         return p.image
     }
 
@@ -139,7 +138,6 @@ enum FilmRoom {
         for (k, color) in [0xC8463C, 0xE8C46A, 0x5A8FD0].enumerated() {
             for n in 0..<3 { p.ellipse(brk - 1.5 + Double(k) * 1.6, t + 6 - Double(n) * 0.6, 2, 0.9, NSColor(hex: UInt32(color))) }
         }
-        door(p, layout, color: 0x34374F)
         return p.image
     }
 
@@ -184,9 +182,5 @@ enum FilmRoom {
                 p.clay(x + 3 + Double(i) * 3.2, ry + 5 - tall, 2.6, tall, radius: 0.6, top: a, bottom: b)
             }
         }
-    }
-
-    private static func door(_ p: Pixels, _ layout: OfficeLayout, color: UInt32) {
-        p.round(OfficeLayout.width - 3, layout.corridor - 12, 3, 16, radius: 1, NSColor(hex: color))
     }
 }

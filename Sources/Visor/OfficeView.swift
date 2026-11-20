@@ -196,7 +196,7 @@ final class OfficeLayerView: NSView {
                 build(person)
                 if old == nil || snap { settle(person, in: layout) }
                 else {
-                    // A new session walks in through the door on the right.
+                    // A new session walks in from the right edge.
                     person.body.position = point(OfficePoint(x: OfficeLayout.width + 6, y: layout.corridor), in: layout)
                     walk(person, from: layout.corridor, to: agent, in: layout)
                 }
@@ -1137,8 +1137,6 @@ enum OfficeRoom {
         // Sofa back
         p.shadow(168 + o, t + 6, 40, 9, radius: 4)
         p.clay(168 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
-        // The door agents come in by
-        p.round(w - 3, layout.corridor - 12, 3, 16, radius: 1, NSColor(hex: 0x5B4636))
         return p.image
     }
 
