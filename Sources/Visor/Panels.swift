@@ -1243,24 +1243,26 @@ struct SpendChart: View {
 /// controls on the right, with the play button in the artwork's colour.
 struct MusicView: View {
     let model: AppModel
+    /// The artwork and the column beside it: 70% of the 100 pt it used to be.
+    static let contentHeight: CGFloat = 70
 
     var body: some View {
         if let now = model.nowPlaying {
             let tint = model.artworkTint ?? NSColor(hex: 0xC3C2B7)
-            HStack(alignment: .center, spacing: 18) {
-                Artwork(image: model.artwork, size: 96, corner: 12)
-                    .shadow(color: .black.opacity(0.45), radius: 14, y: 6)
-                VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .center, spacing: 13) {
+                Artwork(image: model.artwork, size: 67, corner: 9)
+                    .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        Text(now.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                        Text(now.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).help(now.title)
                         EqualizerBars(color: tint, active: now.surelyPlaying)
                         Spacer(minLength: 8)
                         volume(tint: tint)
                     }
                     Text([now.artist, now.sourceName].filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                    Spacer(minLength: 4)
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Spacer(minLength: 2)
                     if now.duration > 0 {
                         Progress(now: now)
                     } else if now.usesMediaKeys && !model.mediaKeysAllowed {
@@ -1271,12 +1273,12 @@ struct MusicView: View {
                             .padding(.bottom, 10)
                     }
                     // Centred in the text column, under the progress bar.
-                    HStack(spacing: 18) {
+                    HStack(spacing: 13) {
                         control("backward.fill", .previous)
                         Button { model.musicCommand?(.playPause) } label: {
                             Image(systemName: now.playPauseSymbol)
-                                .font(.system(size: 17)).foregroundStyle(.black)
-                                .frame(width: 40, height: 40)
+                                .font(.system(size: 12)).foregroundStyle(.black)
+                                .frame(width: 28, height: 28)
                                 .background(Circle().fill(Color(nsColor: tint)))
                                 .contentShape(Circle())
                         }
@@ -1287,7 +1289,7 @@ struct MusicView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 100)
+                .frame(height: Self.contentHeight)
             }
             // Fill the panel below the tabs so the artwork sits in its vertical centre.
             .frame(maxHeight: .infinity)
@@ -1306,15 +1308,15 @@ struct MusicView: View {
                 Slider(value: Binding(get: { model.volume ?? volume }, set: { model.setVolume?($0) }), in: 0...1)
                     .controlSize(.mini)
                     .tint(Color(nsColor: tint))
-                    .frame(width: 70)
+                    .frame(width: 56)
             }
         }
     }
 
     private func control(_ symbol: String, _ command: MusicCommand) -> some View {
         Button { model.musicCommand?(command) } label: {
-            Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(Theme.textPrimary)
-                .frame(width: 30, height: 30).contentShape(Rectangle())
+            Image(systemName: symbol).font(.system(size: 11)).foregroundStyle(Theme.textPrimary)
+                .frame(width: 22, height: 22).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

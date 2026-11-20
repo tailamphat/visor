@@ -22,7 +22,8 @@ struct NotchLayout {
     static let width: CGFloat = 460
     static let expandedSize = CGSize(width: width, height: 200)
     static let approvalSize = CGSize(width: 580, height: 193)
-    static let musicSize = CGSize(width: width, height: 182)
+    /// Now Playing: 30 pt shorter than the other panels since its content is 70 pt.
+    static let musicSize = CGSize(width: width, height: 152)
     /// The compact Now Playing row: artwork beside title and controls.
     static let compactMusicContent: CGFloat = 70
     /// The "limit is back" card: a title row and one meter.
