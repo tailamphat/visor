@@ -63,10 +63,6 @@ public enum ConnectionProvider: String, CaseIterable, Sendable {
     public static func dropIndex(from index: Int, translation: Double, pitch: Double, count: Int) -> Int {
         max(0, min(count - 1, index + Int((translation / pitch).rounded())))
     }
-
-    /// Claude and OpenCode show what they used beside their limits; the others
-    /// are limits only.
-    public var hasUsageColumn: Bool { self == .claude || self == .openCode }
 }
 
 /// What a keychain read through `/usr/bin/security` found.

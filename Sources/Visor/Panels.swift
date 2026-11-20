@@ -499,14 +499,11 @@ struct UsageView: View {
                                          window: usage.resetsAt.flatMap { BurnForecast.monthWindow(endingAt: $0) }))
                 }
             }
-            .padding(.trailing, limitsOnlyInset)
-        case .antigravity: AntigravityBlock(model: model).padding(.trailing, limitsOnlyInset)
+        // No chart: the limits take the full width (the heading starts the section).
+        case .antigravity: AntigravityBlock(model: model)
         }
     }
 
-    /// No usage column, but the meters line up with the rows that have one.
-    /// With none to line up with, they take the full width.
-    private var limitsOnlyInset: CGFloat { model.usageLimitsOnly ? 0 : UsageColumns.usageWidth + UsageColumns.spacing }
 
     private var claudeRow: some View {
         // The heading spans the panel and starts the section; limits and spend sit below it.

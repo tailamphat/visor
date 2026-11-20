@@ -227,11 +227,6 @@ final class AppModel {
     }
     /// The Connected accounts row being dragged, and how far.
     var accountsDrag: (provider: ConnectionProvider, translation: CGFloat)?
-    /// Usage without a usage column: no shown tool has one, so the limits take the full width.
-    var usageLimitsOnly: Bool {
-        let shown = ConnectionProvider.allCases.filter(shows)
-        return !shown.isEmpty && !shown.contains { $0.hasUsageColumn }
-    }
 
     func installed(_ provider: ConnectionProvider) -> Bool {
         switch provider {

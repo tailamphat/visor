@@ -265,10 +265,4 @@ struct ToolOrderTests {
         #expect(ConnectionProvider.dropIndex(from: 3, translation: -500, pitch: 48, count: 4) == 0)
         #expect(ConnectionProvider.dropIndex(from: 1, translation: 500, pitch: 48, count: 4) == 3)
     }
-
-    /// Only Claude and OpenCode have a usage column beside their limits.
-    @Test func usageColumn() {
-        #expect(ConnectionProvider.claude.hasUsageColumn && ConnectionProvider.openCode.hasUsageColumn)
-        #expect(!ConnectionProvider.copilot.hasUsageColumn && !ConnectionProvider.antigravity.hasUsageColumn)
-    }
 }
