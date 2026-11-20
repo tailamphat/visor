@@ -882,7 +882,9 @@ struct AntigravityBlock: View {
                     if model.antigravityLoading {
                         Text("Checking…")
                     } else if let updated = model.antigravityUpdated {
-                        (Text("Updated ") + Text(updated, style: .relative) + Text(" ago"))
+                        TimelineView(.periodic(from: .now, by: 15)) { context in
+                            Text("Updated \(ShortAgo.text(updated, now: context.date))").lineLimit(1).fixedSize()
+                        }
                     }
                 }
                 if let usage = model.antigravity {
@@ -1023,7 +1025,7 @@ struct LimitMeter: View {
                     Capsule().fill(fill).frame(width: max(4, geo.size.width * min(used, 100) / 100))
                 }
             }
-            .frame(height: 6)
+            .frame(height: 4)
             if let forecast, let resetsAt {
                 forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             } else if let caption, !caption.isEmpty {
