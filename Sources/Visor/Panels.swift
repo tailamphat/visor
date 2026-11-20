@@ -31,7 +31,10 @@ struct AgentsView: View {
                         }
                         .frame(height: 15)
                         .padding(.top, 2)
-                        ForEach(group.sessions) { AgentRow(session: $0, focus: model.focusAgent) }
+                        // Two cards a row.
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent) }
+                        }
                     }
                     if !model.hooksInstalled {
                         Button("Connect Claude Code for approvals") { model.installHooks?() }
@@ -92,81 +95,98 @@ struct AgentsViewSwitch: View {
     }
 }
 
-struct AgentRow: View {
+/// One session in the Agents list: the agent's round tile inside a ring that
+/// shows how full its context is (amber from 80%, with the percent under it),
+/// then the project and time, the app, and what it's doing. Half the panel wide.
+struct AgentCard: View {
     let session: AgentSession
     var focus: ((AgentSession) -> Void)?
 
     var body: some View {
-        HStack(spacing: 10) {
-            tile
+        HStack(spacing: 9) {
+            ringTile
             VStack(alignment: .leading, spacing: 1) {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
-                    Spacer(minLength: 8)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
                     time
                 }
+                Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
+                    .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                if let percent = session.contextPercent { context(percent) }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: NotchEars.agentCard)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
             .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : .clear, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture { focus?(session) }
-        .help(session.host.map { "Open \($0)" } ?? "")
+        .help(help)
     }
 
     private var needsYou: Bool {
         session.state.attention != nil
     }
 
-    /// How full the context window is; amber from 80%, when Claude Code is about to compact.
-    private func context(_ percent: Double) -> some View {
-        let high = percent >= 80
-        let color = high ? Theme.warning : Theme.accent
-        return HStack(spacing: 6) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(color.opacity(0.25))
-                    Capsule().fill(color).frame(width: max(3, geo.size.width * percent / 100))
-                }
-            }
-            .frame(height: Theme.barHeight)
-            Text(high ? "\(Int(percent))% · compacts soon" : "\(Int(percent))% context")
-                .font(.system(size: 10).monospacedDigit())
-                .foregroundStyle(high ? Theme.warning : Theme.textMuted)
-                .lineLimit(1)
-                .fixedSize()
+    private var help: String {
+        var lines: [String] = []
+        if let host = session.host { lines.append("Open \(host)") }
+        if let percent = session.contextPercent {
+            lines.append("\(Int(percent))% context: \((session.contextTokens ?? 0).formatted()) of \((session.contextWindow ?? 0).formatted()) tokens"
+                         + (percent >= 80 ? ", compacts soon" : ""))
         }
-        .frame(height: NotchEars.contextLine - 2)
-        .padding(.top, 1)
-        .help("\((session.contextTokens ?? 0).formatted()) of \((session.contextWindow ?? 0).formatted()) tokens in context")
+        return lines.joined(separator: "\n")
     }
 
-    /// Elapsed or relative time, sitting on the project line so it lines up with it.
+    /// The tile in its context ring, the status dot on its corner, and the percent from 80%.
+    private var ringTile: some View {
+        let percent = session.contextPercent
+        let high = (percent ?? 0) >= 80
+        return ZStack {
+            Circle().stroke(Color.white.opacity(0.1), lineWidth: 2.5)
+            if let percent {
+                Circle().trim(from: 0, to: max(0.02, min(1, percent / 100)))
+                    .stroke(high ? Theme.warning : Theme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            ZStack {
+                Circle().fill(AgentStyle.tile)
+                AgentMark(agent: session.agent, size: 14)
+            }
+            .frame(width: 24, height: 24)
+        }
+        .frame(width: 34, height: 34)
+        .overlay(alignment: .bottomTrailing) {
+            Circle().fill(dotColor).frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(Theme.raised, lineWidth: 2))
+                .offset(x: 1, y: 1)
+        }
+        .overlay(alignment: .bottom) {
+            if high, let percent {
+                Text("\(Int(percent))%")
+                    .font(.system(size: 8.5, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.warning)
+                    .padding(.horizontal, 3)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Theme.raised))
+                    .offset(y: 7)
+            }
+        }
+    }
+
+    /// Elapsed or relative time, on the project line.
     @ViewBuilder private var time: some View {
         if session.isActive {
             Text(session.since, style: .timer)
-                .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
         } else {
-            Text(session.since, style: .relative)
-                .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-        }
-    }
-
-    /// The agent's tile with a status dot: mint working, amber waiting, grey done or idle.
-    private var tile: some View {
-        AgentIcon(agent: session.agent, size: 26)
-            .overlay(alignment: .bottomTrailing) {
-                Circle().fill(dotColor).frame(width: 9, height: 9)
-                    .overlay(Circle().strokeBorder(Theme.raised, lineWidth: 2))
-                    .offset(x: 3, y: 3)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                Text(ShortAgo.text(session.since, now: context.date))
+                    .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
             }
+        }
     }
 
     private var dotColor: Color {
@@ -188,7 +208,6 @@ struct AgentRow: View {
         case .done: return "Finished"
         }
     }
-
 }
 
 struct EmptyState: View {

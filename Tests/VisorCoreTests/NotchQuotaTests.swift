@@ -104,11 +104,15 @@ struct PanelSpacingTests {
 
     /// The Agents list grows with its rows: a 15 pt label per agent group,
     /// a 44 pt row per session, 6 pt between them, nothing left over.
-    @Test func agentsListIsAsTallAsItsRows() {
-        #expect(NotchEars.agentsList(groups: 1, sessions: 1) == 15 + 44 + 6)
-        #expect(NotchEars.agentsList(groups: 2, sessions: 2) == 136)
-        #expect(NotchEars.agentsList(groups: 2, sessions: 5) == 30 + 220 + 6 * 6)
-        #expect(NotchEars.agentsList(groups: 1, sessions: 2, withContext: 1) == 15 + 88 + 15 + 12, "a context bar adds a line")
+    /// Two cards a row per agent group, each with its header; the context ring
+    /// sits inside the card, so it adds no height.
+    @Test func agentsGridIsAsTallAsItsRows() {
+        let card = NotchEars.agentCard, gap = 6.0
+        #expect(NotchEars.agentsGrid(groupSizes: [1]) == 17 + gap + card)
+        #expect(NotchEars.agentsGrid(groupSizes: [2]) == 17 + gap + card, "two sessions share a row")
+        #expect(NotchEars.agentsGrid(groupSizes: [3]) == 17 + gap + 2 * card + gap)
+        #expect(NotchEars.agentsGrid(groupSizes: [5, 1, 1]) == 3 * 17 + (3 + 1 + 1) * card + 2 * gap + 5 * gap)
+        #expect(NotchEars.agentsGrid(groupSizes: []) == 0)
     }
 }
 

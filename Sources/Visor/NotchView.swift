@@ -90,10 +90,9 @@ struct NotchLayout {
                               height: notch.height + Self.contentTop + OfficeView.height(for: model.board.sessions))
             }
             if model.tab == .agents && !model.board.sessions.isEmpty {
-                // Grow with the list: a header per agent group and a row per session, then scroll.
-                let groups = Set(model.board.sessions.map(\.agent)).count
-                var content = CGFloat(NotchEars.agentsList(groups: groups, sessions: model.board.sessions.count,
-                                                           withContext: model.board.sessions.filter { $0.contextPercent != nil }.count))
+                // Grow with the list: a header per agent group and rows of two cards, then scroll.
+                let sizes = AgentsView.groups(model.board.sessions).map(\.sessions.count)
+                var content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes))
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }

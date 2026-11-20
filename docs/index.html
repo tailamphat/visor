@@ -143,6 +143,21 @@
   .axis b { color: #fff; font-weight: 600; }
   .group { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: #C3C2B7; margin: 4px 0 6px; }
   .group svg { width: 11px; height: 11px; }
+  /* Agents: two cards a row, the context as a ring around the agent's tile (amber from 80%, with the percent). */
+  .agrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .acard { height: 54px; box-sizing: border-box; padding: 0 9px; border-radius: 10px; background: #1A1A19; display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .acard.need { box-shadow: inset 0 0 0 1px rgba(250,178,25,.35); }
+  .aring { position: relative; width: 34px; height: 34px; flex: none; display: grid; place-items: center; }
+  .aring > svg { position: absolute; inset: 0; width: 34px; height: 34px; }
+  .aring .rt { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.08); display: grid; place-items: center; }
+  .aring .rt svg { width: 14px; height: 14px; }
+  .aring .sdot { position: absolute; right: 0; bottom: 0; width: 7px; height: 7px; border-radius: 50%; outline: 2px solid #1A1A19; }
+  .aring .pct { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); font: 600 8.5px var(--sf); color: var(--amber); background: #1A1A19; padding: 0 3px; border-radius: 3px; font-variant-numeric: tabular-nums; }
+  .at { min-width: 0; flex: 1; display: grid; gap: 1px; }
+  .at > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .a1 { display: flex; align-items: baseline; gap: 6px; } .a1 b { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .atime { margin-left: auto; font-size: 10.5px; color: #8A8980; font-variant-numeric: tabular-nums; }
+  .a2 { font-size: 10px; color: #8A8980; } .a3 { font-size: 11px; color: #C3C2B7; }
   .sess { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #1A1A19; margin-top: 4px; }
   .sess .t { flex: 1; min-width: 0; }
   .sess .t div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -497,10 +512,9 @@
 
           <div class="view" data-name="agents" hidden>
             <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
-            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div><div class="ctx warn"><span class="bar"><i class="warn" style="width:85%"></i></span>85% · compacts soon</div></div><span class="time">2:14</span></div>
-            <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div><div class="ctx"><span class="bar"><i style="width:30%"></i></span>30% context</div></div><span class="time">0:05</span></div>
-            <div class="group" style="margin-top:10px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
-            <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
+            <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div></div>
+            <div class="group" style="margin-top:6px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
+            <div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
           </div>
 
           <div class="view" data-name="office" hidden>
@@ -638,14 +652,13 @@
   <section>
     <h2>Every agent, in one list <span class="tag">New in 0.5</span></h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
-    <p>Each Claude Code session now shows how full its context window is, under what it's doing. The bar turns amber from 80%, so you know a session is about to compact before it does.</p>
+    <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
     <figure>
       <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
         <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2</div>
-        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="wait">!</span></div><div class="t"><div><b>web-shop</b><span>Claude Code · Ghostty</span></div><div>Waiting for you: git push origin fix/checkout</div><div class="ctx warn"><span class="bar"><i class="warn" style="width:85%"></i></span>85% · compacts soon</div></div><span class="time">2:14</span></div>
-        <div class="sess"><div class="tile"><svg><use href="#claude"/></svg><span class="live"></span></div><div class="t"><div><b>api</b><span>Claude Code · Terminal</span></div><div>Bash: npm test</div><div class="ctx"><span class="bar"><i style="width:30%"></i></span>30% context</div></div><span class="time">0:05</span></div>
-        <div class="group" style="margin-top:10px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
-        <div class="sess"><div class="tile"><svg><use href="#copilot"/></svg><span class="live"></span></div><div class="t"><div><b>docs</b><span>Copilot CLI · VS Code</span></div><div>Edit: README.md</div></div><span class="time">1:32</span></div>
+        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div></div>
+        <div class="group" style="margin-top:6px"><svg><use href="#copilot"/></svg>COPILOT CLI · 1</div>
+        <div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
       </div></div>
     </figure>
   </section>
@@ -789,7 +802,7 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 520 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [520, 350], agents: [520, 292], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
+  const sizes = { closed: [300, 32], usage: [520, 350], agents: [520, 222], office: [520, 362], tokens: [520, 454], approval: [580, 193], clipboard: [520, 232], music: [340, 136], plugins: [520, 238] };
   // The office lives in the Agents tab and Tokens in Usage.
   const tabOf = { office: 'agents', tokens: 'usage' };
   const notch = document.getElementById('notch');
