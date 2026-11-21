@@ -926,8 +926,17 @@ struct ProviderHeader<Note: View>: View {
     /// The note right after the title (an account's host) instead of at the far right ("Updated … ago").
     var inlineNote = false
     @ViewBuilder var note: Note
+    @Environment(\.providerIncidents) private var incidents
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            heading
+            // An incident on this tool's status page: what's wrong, since when, the link.
+            if let incident = incidents[agent] { IncidentLine(incident: incident) }
+        }
+    }
+
+    private var heading: some View {
         HStack(spacing: 7) {
             AgentMark(agent: agent, size: 18)
             if inlineNote {
@@ -945,6 +954,64 @@ struct ProviderHeader<Note: View>: View {
                 note.font(.system(size: 10)).foregroundStyle(Theme.textMuted)
             }
         }
+    }
+}
+
+/// The provider's open incidents, for the Usage headings.
+private struct ProviderIncidentsKey: EnvironmentKey {
+    static let defaultValue: [String: ProviderIncident] = [:]
+}
+
+extension EnvironmentValues {
+    var providerIncidents: [String: ProviderIncident] {
+        get { self[ProviderIncidentsKey.self] }
+        set { self[ProviderIncidentsKey.self] = newValue }
+    }
+}
+
+/// Under a tool's heading in Usage while its provider has an incident: red for
+/// major, amber for minor, the title, since when, and the status page.
+struct IncidentLine: View {
+    let incident: ProviderIncident
+    static let height: CGFloat = 44
+
+    static func color(_ incident: ProviderIncident) -> Color {
+        incident.severity == .major ? Color(hex: 0xF06A5A) : Theme.warning
+    }
+
+    /// "Claude", "Copilot": how the peek names a tool.
+    static func name(_ agent: String) -> String {
+        switch agent {
+        case "Copilot CLI": return "Copilot"
+        case "Claude Code": return "Claude"
+        default: return agent
+        }
+    }
+
+    var body: some View {
+        let color = Self.color(incident)
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 7) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(incident.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Spacer(minLength: 6)
+                if let since = incident.since {
+                    Text("since \(since.formatted(date: .omitted, time: .shortened))").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                        .lineLimit(1).fixedSize()
+                }
+            }
+            HStack(spacing: 4) {
+                Text("Your agents may be slow or fail.").foregroundStyle(Theme.textSecondary)
+                if let url = URL(string: incident.link) {
+                    Link(destination: url) { Text("\(url.host ?? "Status page") ↗").foregroundStyle(Color(hex: 0x5AA2F0)) }
+                }
+            }
+            .font(.system(size: 11)).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: Self.height, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(color.opacity(0.09)))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(color.opacity(0.3), lineWidth: 1))
     }
 }
 

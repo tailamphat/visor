@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var bar = BarService(model: model)
     private lazy var clipboard = ClipboardService(model: model)
     private let intro = IntroController()
+    private lazy var status = StatusService(model: model)
     /// Two sessions changing the same file within ten minutes.
     private var clashWatch = ClashWatch()
     private var clashExpiry: DispatchWorkItem?
@@ -136,6 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
         model.focusAgent = { [weak self] session in self?.focus(session) }
         model.viewDiff = { [weak self] turn in self?.openDiff(turn) }
+        status.onNew = { [weak self] agent, incident in self?.show(.status(agent: agent, incident), for: 6) }
+        status.start()
         model.dismissClash = { [weak self] clash in
             self?.clashWatch.dismiss(clash)
             self?.refreshClashes()
@@ -397,6 +400,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
+        // {"event":"_incident","raw":{"agent":"Claude Code","title":"…","major":true}} fakes a status-page incident; no title clears it.
+        if message.event == "_incident", let agent = message.payload["agent"] as? String {
+            if let title = message.payload["title"] as? String {
+                let incident = ProviderIncident(id: UUID().uuidString, title: title,
+                                                severity: message.payload["major"] as? Bool == true ? .major : .minor,
+                                                since: Date(), link: "https://status.claude.com")
+                model.incidents[agent] = incident
+                show(.status(agent: agent, incident), for: 6)
+            } else {
+                model.incidents[agent] = nil
+            }
+            return
+        }
         if message.event == "_intro" {
             playIntro()
             return

@@ -76,7 +76,9 @@ struct NotchLayout {
                 // Plan limits sit under a bar with the switch to Tokens.
                 let bar = UsageBar.height + UsageBar.gap
                 // The gap between tools is a little more than the old 20pt.
+                // Plus a line under each tool whose provider has an incident.
                 let dividers = CGFloat(max(0, model.usageSections.count - 1)) * UsageView.toolGapExtra
+                    + CGFloat(model.incidents.count) * (IncidentLine.height + 8)
                 // No taller than the tallest panel the window has room for; past that, the list scrolls.
                 func taller(_ size: CGSize) -> CGSize {
                     CGSize(width: size.width, height: min(size.height + bar + dividers, Self.usageWithAntigravitySize.height + bar))
@@ -178,6 +180,7 @@ struct NotchView: View {
         .animation(Theme.spring, value: size)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
+        .environment(\.providerIncidents, model.incidents)
     }
 }
 
@@ -227,6 +230,8 @@ struct CollapsedView: View {
             return ("", news.subtitle.isEmpty ? news.title : news.title + ": " + news.subtitle)
         case .clash(let clash):
             return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
+        case .status(let agent, let incident):
+            return (agent, incident.title)
         }
     }
 
@@ -235,6 +240,9 @@ struct CollapsedView: View {
             Image(systemName: news.icon ?? icon)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(PluginStyle.color(news.state))
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .status(_, let incident) = peek {
+            Circle().fill(IncidentLine.color(incident)).frame(width: 9, height: 9)
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash(let clash) = peek {
             // Both agents' marks with an orange ⇄ between them.
@@ -267,7 +275,11 @@ struct CollapsedView: View {
     }
 
     @ViewBuilder private var right: some View {
-        if let peek = model.peek, case .clash = peek {
+        if let peek = model.peek, case .status(let agent, _) = peek {
+            Text("\(IncidentLine.name(agent)) is having issues")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .clash = peek {
             Text("same file")
                 .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
@@ -323,6 +335,13 @@ struct CollapsedView: View {
                         // Always the agent's own colour, so each is recognisable;
                         // the percent below carries the warning colour.
                         AgentMark(agent: quota.agent, size: 10)
+                            // An open incident on this tool: a small dot on its mark.
+                            .overlay(alignment: .topTrailing) {
+                                if let incident = model.incidents[quota.agent] {
+                                    Circle().fill(IncidentLine.color(incident)).frame(width: 5, height: 5)
+                                        .background(Circle().fill(.black).padding(-1.5)).offset(x: 3, y: -2)
+                                }
+                            }
                         // The time left when it runs out within the hour.
                         Text(quota.text)
                             .font(.system(size: 9, weight: .semibold).monospacedDigit())

@@ -196,6 +196,8 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// Open incidents on the tools you use, by agent ("Claude Code", "Copilot CLI").
+    var incidents: [String: ProviderIncident] = [:]
     /// Sessions changing the same file right now (`ClashWatch`), newest first.
     var clashes: [Clash] = []
     var dismissClash: ((Clash) -> Void)?
@@ -412,6 +414,8 @@ enum Peek: Equatable {
     case plugin(icon: String, PluginPeek)
     /// Two sessions just changed the same file.
     case clash(Clash)
+    /// A provider's status page reports an incident on a tool you use.
+    case status(agent: String, ProviderIncident)
 }
 
 enum MusicCommand { case playPause, next, previous }

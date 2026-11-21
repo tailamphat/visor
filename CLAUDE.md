@@ -36,6 +36,7 @@ Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on
 
 - `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
+- `{"event":"_incident","raw":{"agent":"Claude Code","title":"Elevated errors","major":true}}` fakes a status-page incident (no `title` clears it)
 - `{"event":"_intro"}` replays the first-launch intro; `VISOR_INTRO=1` plays it at launch (`0` never), otherwise it plays once (`introShown` in defaults)
 - `{"event":"_music","raw":{"title":..,"playing":true}}` fakes a song
 - `{"event":"_musicCommand","raw":{"command":"playPause|next|previous"}}` presses a music button
