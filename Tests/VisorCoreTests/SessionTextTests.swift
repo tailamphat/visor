@@ -44,3 +44,21 @@ struct SessionTextTests {
         #expect(SessionText.contextHigh(80) && !SessionText.contextHigh(79.9) && !SessionText.contextHigh(nil))
     }
 }
+
+@Suite("ISO dates")
+struct ISODateTests {
+    /// The fast path reads the tools' timestamps exactly as Foundation does.
+    @Test func matchesFoundation() {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        for text in ["2026-10-31T02:31:01.360Z", "2026-10-31T02:31:01Z", "2024-02-29T23:59:59.999Z", "1999-12-31T00:00:00.5Z",
+                     "2026-11-21T07:02:00.000Z", "2026-03-01T12:00:00+07:00", "2026-03-01T12:00:00.25-05:30"] {
+            let expected = fractional.date(from: text) ?? plain.date(from: text)
+            let parsed = ISODate.parse(text)
+            #expect(parsed != nil && abs(parsed!.timeIntervalSince(expected!)) < 0.0005, "\(text)")
+            #expect(ISODate.fast(text) != nil, "the fast path reads \(text) itself")
+        }
+        #expect(ISODate.parse("not a date") == nil && ISODate.parse("2026-13-01T00:00:00Z") == nil)
+    }
+}

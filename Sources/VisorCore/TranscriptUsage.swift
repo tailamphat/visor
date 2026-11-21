@@ -67,17 +67,29 @@ public final class TranscriptUsage: @unchecked Sendable {
 
     static let chunkSize = 4 << 20
 
-    private static let usageMarker = Data("\"usage\"".utf8)
+    private static let usageMarkerBytes = Array("\"usage\"".utf8)
 
     /// Parses complete JSONL lines.
     public func ingest(_ data: Data) {
-        var lineStart = data.startIndex
-        while lineStart < data.endIndex {
-            let lineEnd = data[lineStart...].firstIndex(of: 0x0A) ?? data.endIndex
-            let line = data[lineStart..<lineEnd]
-            lineStart = lineEnd + 1
-            // Cheap byte search first: most lines (user turns, tool results) carry no usage.
-            guard line.range(of: Self.usageMarker) != nil else { continue }
+        // memchr and memmem: Data's own byte search went through generic collection code.
+        let marker = Self.usageMarkerBytes
+        let lines: [Range<Int>] = data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> [Range<Int>] in
+            guard let base = raw.baseAddress else { return [] }
+            var found: [Range<Int>] = []
+            var start = 0
+            while start < raw.count {
+                var end = raw.count
+                if let newline = memchr(base + start, 0x0A, raw.count - start) {
+                    end = UnsafeRawPointer(newline) - base
+                }
+                // Cheap byte search first: most lines (user turns, tool results) carry no usage.
+                if memmem(base + start, end - start, marker, marker.count) != nil { found.append(start..<end) }
+                start = end + 1
+            }
+            return found
+        }
+        for range in lines {
+            let line = data[(data.startIndex + range.lowerBound)..<(data.startIndex + range.upperBound)]
             if let record = Self.parse(line: line) { add(record.key, record.usage) }
         }
     }
