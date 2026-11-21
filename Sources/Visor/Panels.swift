@@ -8,7 +8,11 @@ struct AgentsView: View {
 
     var body: some View {
         // The cards' one clock: ticks only while the list is on screen.
-        content.onReceive(Timer.publish(every: 1, tolerance: 0.2, on: .main, in: .common).autoconnect()) { model.agentsNow = $0 }
+        VStack(spacing: 6) {
+            if let clash = model.clashes.first { ClashBanner(clash: clash, sessions: model.board.sessions) { model.dismissClash?(clash) } }
+            content
+        }
+        .onReceive(Timer.publish(every: 1, tolerance: 0.2, on: .main, in: .common).autoconnect()) { model.agentsNow = $0 }
     }
 
     @ViewBuilder private var content: some View {
@@ -40,7 +44,7 @@ struct AgentsView: View {
                         .padding(.top, 2)
                         // Two cards a row.
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model) }
+                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
                         }
                     }
                     if AgentsDigest(sessions: model.board.sessions).capped {
@@ -72,7 +76,7 @@ struct AgentsView: View {
             .frame(height: 15)
             .padding(.top, 2)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model) }
+                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
             }
             foldRow(HStack(spacing: 8) {
                 Text("+\(digest.more) more").fontWeight(.semibold).foregroundStyle(Theme.textPrimary)
@@ -105,6 +109,11 @@ struct AgentsView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// The other agent on the same file as `session`, if any.
+    static func clash(for session: AgentSession, in clashes: [Clash]) -> String? {
+        clashes.lazy.compactMap { $0.other(than: session.id) }.first
     }
 
     static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
@@ -157,6 +166,53 @@ struct AgentsViewSwitch: View {
     }
 }
 
+/// The orange ⇄ that marks two agents on the same file.
+struct ClashBadge: View {
+    var body: some View {
+        Text("⇄").font(.system(size: 9.5, weight: .heavy)).foregroundStyle(Color(hex: 0x2A1200))
+            .frame(width: 15, height: 15)
+            .background(RoundedRectangle(cornerRadius: 4.5, style: .continuous).fill(Theme.clash))
+    }
+}
+
+/// Over the Agents list while two agents change the same file: which file, and ✕ to dismiss.
+struct ClashBanner: View {
+    let clash: Clash
+    let sessions: [AgentSession]
+    let dismiss: () -> Void
+    static let height: CGFloat = 32
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ClashBadge()
+            (Text("Both are editing ") + Text(shortPath).font(.system(size: 11, design: .monospaced)).foregroundColor(Theme.textPrimary))
+                .font(.system(size: 11.5)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 6)
+            Button(action: dismiss) {
+                Image(systemName: "xmark").font(.system(size: 9.5, weight: .bold)).foregroundStyle(Theme.textMuted)
+                    .frame(width: 18, height: 18).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+        }
+        .padding(.horizontal, 10)
+        .frame(height: Self.height)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.clash.opacity(0.1)))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.clash.opacity(0.35), lineWidth: 1))
+        .help("\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
+    }
+
+    /// The path inside the project, when the file is in one of the two sessions' folders.
+    private var shortPath: String {
+        for id in clash.sessions {
+            if let cwd = sessions.first(where: { $0.id == id })?.cwd, !cwd.isEmpty, clash.path.hasPrefix(cwd + "/") {
+                return String(clash.path.dropFirst(cwd.count + 1))
+            }
+        }
+        return (clash.path as NSString).lastPathComponent
+    }
+}
+
 /// A card's time from the list's one clock: elapsed while busy, "4m ago" after.
 /// Only this small view redraws each second, not the card.
 struct AgentClock: View {
@@ -182,6 +238,8 @@ struct AgentCard: View {
     var focus: ((AgentSession) -> Void)?
     /// For the shared clock (`AppModel.agentsNow`).
     var model: AppModel?
+    /// Another agent changing the same file as this session right now.
+    var clashWith: String?
 
     var body: some View {
         HStack(spacing: 9) {
@@ -193,8 +251,13 @@ struct AgentCard: View {
                     Spacer(minLength: 4)
                     time
                 }
-                Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
-                    .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                if let clashWith {
+                    Text("⇄ \(clashWith) too")
+                        .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.clash).lineLimit(1)
+                } else {
+                    Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                }
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
         }
@@ -203,7 +266,7 @@ struct AgentCard: View {
         .frame(height: NotchEars.agentCard)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : .clear, lineWidth: 1))
+            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : clashWith != nil ? Theme.clash.opacity(0.45) : .clear, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture { focus?(session) }
         .help(help)

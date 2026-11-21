@@ -196,6 +196,9 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// Sessions changing the same file right now (`ClashWatch`), newest first.
+    var clashes: [Clash] = []
+    var dismissClash: ((Clash) -> Void)?
     /// The Agents list's one clock: every card's time reads it, and one timer
     /// moves it each second only while the list is on screen.
     var agentsNow = Date()
@@ -407,6 +410,8 @@ enum Peek: Equatable {
     case answered(agent: String)
     /// News from a plugin: its icon (or the peek's) on the left, the title on the right.
     case plugin(icon: String, PluginPeek)
+    /// Two sessions just changed the same file.
+    case clash(Clash)
 }
 
 enum MusicCommand { case playPause, next, previous }

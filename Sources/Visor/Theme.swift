@@ -19,6 +19,8 @@ enum Theme {
     static let good = Color(hex: 0x0CA30C)
     /// "On pace": the good green, light enough for small text on black.
     static let onPace = Color(hex: 0x5FC95F)
+    /// Two agents on the same file: orange, so it never reads as an approval's amber.
+    static let clash = Color(hex: 0xFF8A3D)
     static let warning = Color(hex: 0xFAB219)
     /// An agent asking you something: blue, apart from an approval's amber.
     static let question = Color(hex: 0x5AA2F0)

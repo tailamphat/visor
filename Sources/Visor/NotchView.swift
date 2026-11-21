@@ -111,6 +111,7 @@ struct NotchLayout {
                     content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
                 }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
+                if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             // Nothing playing: a little shorter than the other panels, it's only a message.
@@ -224,6 +225,8 @@ struct CollapsedView: View {
             return (agent, "\(agent): answered")
         case .plugin(_, let news):
             return ("", news.subtitle.isEmpty ? news.title : news.title + ": " + news.subtitle)
+        case .clash(let clash):
+            return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
         }
     }
 
@@ -233,6 +236,14 @@ struct CollapsedView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(PluginStyle.color(news.state))
                 .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .clash(let clash) = peek {
+            // Both agents' marks with an orange ⇄ between them.
+            HStack(spacing: 5) {
+                AgentMark(agent: clash.agents[0], size: 14)
+                ClashBadge()
+                AgentMark(agent: clash.agents[1], size: 14)
+            }
+            .help(Self.describe(peek).help)
         } else if let peek = model.peek {
             // The agent's mark with a green ✓ on its corner, like the "?" and
             // "!" badges on the right; the project and time are in the hover text.
@@ -256,7 +267,11 @@ struct CollapsedView: View {
     }
 
     @ViewBuilder private var right: some View {
-        if let peek = model.peek, case .answered = peek {
+        if let peek = model.peek, case .clash = peek {
+            Text("same file")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .answered = peek {
             Text("Answered")
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
         } else if let peek = model.peek, case .plugin(_, let news) = peek {

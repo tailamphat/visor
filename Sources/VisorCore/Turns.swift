@@ -54,6 +54,15 @@ public struct TurnStats: Equatable, Sendable, Codable {
         }
     }
 
+    /// The file an event changes (an edit or a write, before it runs); nil for
+    /// anything else, reads included.
+    public static func editedPath(_ message: HookMessage) -> String? {
+        guard message.event == "PreToolUse" else { return nil }
+        let name = (message.toolName ?? "").lowercased()
+        guard ["edit", "str_replace_editor", "replace", "multiedit", "write", "create", "write_file"].contains(name) else { return nil }
+        return (message.toolInput["file_path"] ?? message.toolInput["path"]) as? String
+    }
+
     private mutating func note(_ path: String) {
         if !files.contains(path) { files.append(path) }
     }

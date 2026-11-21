@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var bar = BarService(model: model)
     private lazy var clipboard = ClipboardService(model: model)
     private let intro = IntroController()
+    /// Two sessions changing the same file within ten minutes.
+    private var clashWatch = ClashWatch()
+    private var clashExpiry: DispatchWorkItem?
     private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
     private var statusItem: NSStatusItem?
@@ -133,6 +136,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
         model.focusAgent = { [weak self] session in self?.focus(session) }
         model.viewDiff = { [weak self] turn in self?.openDiff(turn) }
+        model.dismissClash = { [weak self] clash in
+            self?.clashWatch.dismiss(clash)
+            self?.refreshClashes()
+        }
 
         restoreAgents()
         // The first launch: the intro plays once, then the notch says hello.
@@ -415,6 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var message = message
         message.pid = ProcessTree.agentAncestor(of: message.pid)
         agents.apply(message)
+        noteEdit(message)
         readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
             if let app = ProcessTree.hostAppPath(of: message.pid) {
@@ -463,6 +471,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Brings the app an agent runs in to the front, where its prompt is.
+    /// An edit to a file another session changed in the last ten minutes: peek
+    /// once, and mark both sessions until it goes quiet.
+    private func noteEdit(_ message: HookMessage) {
+        guard let path = TurnStats.editedPath(message), let id = message.sessionID else { return }
+        let agent = agents.sessions.first { $0.id == id }?.agent ?? AgentBoard.agentName(message.provider)
+        if let clash = clashWatch.record(session: id, agent: agent, path: path, at: Date()) { show(.clash(clash), for: 6) }
+        refreshClashes()
+    }
+
+    /// The clashes still going, and one wake-up when the next goes quiet (no polling).
+    private func refreshClashes() {
+        let now = Date()
+        let active = clashWatch.active(at: now)
+        if active != model.clashes { model.clashes = active }
+        clashExpiry?.cancel()
+        guard let next = clashWatch.nextChange(after: now) else { return }
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshClashes() } }
+        clashExpiry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
+    }
+
     /// The changes a turn made, as a diff in the default text editor.
     private func openDiff(_ turn: FinishedTurn) {
         let files = turn.stats.files, cwd = turn.cwd
