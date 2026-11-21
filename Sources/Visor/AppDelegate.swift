@@ -132,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.refreshVolume = { [weak self] in self?.music.refreshVolume() }
         model.decide = { [weak self] request, decision in self?.decide(request, decision) }
         model.focusAgent = { [weak self] session in self?.focus(session) }
+        model.viewDiff = { [weak self] turn in self?.openDiff(turn) }
 
         restoreAgents()
         // The first launch: the intro plays once, then the notch says hello.
@@ -445,7 +446,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         publishAgents()
-        if let done = agents.finished(message) { show(.done(done), for: 5) }
+        if let done = agents.finished(message) {
+            // Its summary waits behind the peek, unless the notch is already open for something else.
+            if !model.expanded && !done.stats.isEmpty { model.summary = done }
+            show(.done(done), for: 5)
+        }
     }
 
     /// A question answered in the terminal shows "Answered" in the closed notch.
@@ -458,6 +463,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Brings the app an agent runs in to the front, where its prompt is.
+    /// The changes a turn made, as a diff in the default text editor.
+    private func openDiff(_ turn: FinishedTurn) {
+        let files = turn.stats.files, cwd = turn.cwd
+        DispatchQueue.global(qos: .userInitiated).async {
+            /// Runs git in the project; its output, and whether it exited cleanly.
+            func git(_ arguments: [String]) -> (Data, Bool) {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+                process.arguments = ["-C", cwd] + arguments
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = FileHandle.nullDevice
+                guard (try? process.run()) != nil else { return (Data(), false) }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                return (data, process.terminationStatus == 0)
+            }
+            // Tracked files as usual; files git doesn't know yet as new files, without touching the repo.
+            var data = git(["diff", "--"] + files).0
+            for file in files where !git(["ls-files", "--error-unmatch", "--", file]).1 {
+                data.append(git(["diff", "--no-index", "--", "/dev/null", file]).0)
+            }
+            guard !data.isEmpty else { return }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("visor-\(turn.project).diff")
+            guard (try? data.write(to: url)) != nil else { return }
+            let open = Process()
+            open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            open.arguments = ["-t", url.path]
+            try? open.run()
+        }
+    }
+
     private func focus(_ session: AgentSession) {
         guard let id = ProcessTree.hostBundleID(of: session.pid) else { return }
         NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate()
@@ -466,7 +503,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func show(_ peek: Peek, for seconds: TimeInterval) {
         model.peek = peek
         finishedWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.model.peek = nil } }
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                self?.model.peek = nil
+                // Not opened in time: the summary goes with the peek.
+                if self?.model.expanded == false { self?.model.summary = nil }
+            }
+        }
         finishedWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }

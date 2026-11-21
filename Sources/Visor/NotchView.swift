@@ -63,6 +63,7 @@ struct NotchLayout {
                               height: Self.approvalSize.height + (first.alwaysAllowLabel == nil ? 0 : Self.approvalAlwaysExtra))
             }
             if model.welcome { return CGSize(width: Self.width, height: fitting(WelcomeView.height)) }
+            if model.summary != nil { return CGSize(width: Self.width, height: fitting(TurnSummaryView.height)) }
             if model.limitBack != nil { return CGSize(width: Self.expandedSize.width, height: fitting(Self.limitBackContent)) }
             if model.narrowMusic {
                 // Narrow: just wide enough for the header's three slots each side.
@@ -418,7 +419,9 @@ struct ExpandedView: View {
 
     /// The office runs to the panel's edges; everything else sits inside the inset.
     private var fullBleed: Bool {
+        // Only the office itself; anything shown in its place (a summary, the hello) keeps the inset.
         model.showsOffice && model.approvals.isEmpty && model.limitBack == nil && !model.compactMusic
+            && model.summary == nil && !model.welcome
     }
 
     var body: some View {
@@ -429,6 +432,8 @@ struct ExpandedView: View {
                     ApprovalView(model: model, request: approval)
                 } else if model.welcome {
                     WelcomeView(model: model)
+                } else if let summary = model.summary {
+                    TurnSummaryView(model: model, turn: summary)
                 } else if let back = model.limitBack {
                     LimitBackView(back: back)
                 } else {

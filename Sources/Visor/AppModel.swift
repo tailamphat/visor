@@ -80,7 +80,15 @@ struct NowPlaying: Equatable {
 @MainActor @Observable
 final class AppModel {
     // Notch state
-    var expanded = false
+    var expanded = false {
+        // The turn summary is for the moment it finished; once the notch closes it's gone.
+        didSet { if !expanded && oldValue { summary = nil } }
+    }
+    /// A turn that just finished, shown as its summary when the notch opens
+    /// during its "done" peek.
+    var summary: FinishedTurn?
+    /// Opens a diff of the files a turn changed.
+    var viewDiff: ((FinishedTurn) -> Void)?
     var tab: Tab = .agents
     /// Keeps the panel open regardless of the pointer (debug screenshots).
     var pinned = false

@@ -30,11 +30,19 @@ public struct FinishedTurn: Equatable, Sendable {
     public var project: String
     /// Seconds from the prompt to the end; nil when the prompt wasn't seen.
     public var duration: TimeInterval?
+    /// For the turn summary: whose turn, where, and what it did.
+    public var sessionID: String
+    public var cwd: String
+    public var stats: TurnStats
 
-    public init(agent: String, project: String, duration: TimeInterval?) {
+    public init(agent: String, project: String, duration: TimeInterval?, sessionID: String = "", cwd: String = "",
+                stats: TurnStats = TurnStats()) {
         self.agent = agent
         self.project = project
         self.duration = duration
+        self.sessionID = sessionID
+        self.cwd = cwd
+        self.stats = stats
     }
 
     public var durationText: String? { duration.map(Self.text(for:)) }

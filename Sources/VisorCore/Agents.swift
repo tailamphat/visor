@@ -175,6 +175,13 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var turnStart: Date?
     /// The last finished turn ended by asking you something ("Should I commit?").
     public var askedForReply = false
+    /// What it did this turn (files, lines, commands, tests). Optional so
+    /// sessions saved by older versions still load.
+    var turnStats: TurnStats?
+    public var turn: TurnStats {
+        get { turnStats ?? TurnStats() }
+        set { turnStats = newValue }
+    }
     /// Tokens in its context window after the last reply, and the window's size.
     public var contextTokens: Int?
     public var contextWindow: Int?
@@ -227,6 +234,7 @@ public struct AgentBoard: Equatable, Sendable {
         if let cwd = message.cwd, !cwd.isEmpty { sessions[index].cwd = cwd }
         if message.pid > 0 { sessions[index].pid = message.pid }
         sessions[index].lastEvent = now
+        sessions[index].turn.record(message)
 
         let next: AgentState?
         switch message.event {
@@ -234,6 +242,7 @@ public struct AgentBoard: Equatable, Sendable {
         case "UserPromptSubmit":
             if let prompt = message.payload["prompt"] as? String { sessions[index].task = Self.summarize(prompt) }
             sessions[index].turnStart = now
+            sessions[index].turn = TurnStats()
             next = .working("Thinking")
         case "PreInvocation": next = .working("Thinking")
         case "PreToolUse" where message.toolName == AgentQuestion.tool,
@@ -349,7 +358,8 @@ public struct AgentBoard: Equatable, Sendable {
         guard message.event == "Stop", let id = message.sessionID,
               let session = sessions.first(where: { $0.id == id }) else { return nil }
         return FinishedTurn(agent: session.agent, project: session.project,
-                            duration: session.turnStart.map { now.timeIntervalSince($0) })
+                            duration: session.turnStart.map { now.timeIntervalSince($0) },
+                            sessionID: session.id, cwd: session.cwd, stats: session.turn)
     }
 
     /// The first line of a prompt, short enough for one row.
