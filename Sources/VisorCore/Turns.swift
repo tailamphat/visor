@@ -79,27 +79,35 @@ public struct TurnStats: Equatable, Sendable, Codable {
         return text.hasSuffix("\n") ? parts.count - 1 : parts.count
     }
 
+    private static func regex(_ pattern: String) -> NSRegularExpression {
+        try! NSRegularExpression(pattern: pattern)
+    }
+
+    private static func matches(_ regex: NSRegularExpression, _ text: String) -> Bool {
+        regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    // Compiled once: these run on every shell hook event, on the main thread.
+    private static let testCommand = regex([
+        #"(^|[\s;&|])(npm|pnpm|yarn|bun)( run)? test\b"#, #"\bpytest\b"#, #"\bgo test\b"#, #"\bcargo test\b"#,
+        #"\bswift test\b"#, #"\bmake test\b"#, #"\b(rspec|jest|vitest|mocha|phpunit)\b"#, #"(^|[\s/])test\.sh\b"#,
+        #"\bxcodebuild\b.*\btest\b"#, #"\bgradlew? test\b"#, #"\bmvn test\b"#, #"\bdotnet test\b"#,
+    ].joined(separator: "|"))
+    private static let failedOutput = regex(#"(?m)\b[1-9]\d* (failed|failing|failures?|errors?)\b|tests? failed|^fail\b|\bfailed after\b"#)
+    private static let passedOutput = regex(#"(?m)\b\d+ passed\b|\ball tests passed\b|^ok\b|\btests? passed\b"#)
+
     /// Whether a shell command runs tests: the usual test runners and scripts.
     public static func isTest(_ command: String) -> Bool {
-        let patterns = [
-            #"(^|[\s;&|])(npm|pnpm|yarn|bun)( run)? test\b"#, #"\bpytest\b"#, #"\bgo test\b"#, #"\bcargo test\b"#,
-            #"\bswift test\b"#, #"\bmake test\b"#, #"\b(rspec|jest|vitest|mocha|phpunit)\b"#, #"(^|[\s/])test\.sh\b"#,
-            #"\bxcodebuild\b.*\btest\b"#, #"\bgradlew? test\b"#, #"\bmvn test\b"#, #"\bdotnet test\b"#,
-        ]
-        return patterns.contains { command.range(of: $0, options: .regularExpression) != nil }
+        guard ["test", "jest", "mocha", "rspec", "phpunit"].contains(where: command.contains) else { return false }
+        return matches(testCommand, command)
     }
 
     /// Passed (true) or failed (false), from a test run's output; nil when it doesn't say.
+    /// Runners print their summary last, so only the tail is searched.
     static func outcome(of output: String) -> Bool? {
-        let text = output.lowercased()
-        let failed = [#"\b[1-9]\d* (failed|failing|failures?|errors?)\b"#, #"tests? failed"#, #"(?m)^fail\b"#, #"\bfailed after\b"#]
-        if output.contains("✘") || failed.contains(where: { text.range(of: $0, options: .regularExpression) != nil }) {
-            return false
-        }
-        if output.contains("✔") || text.range(of: #"(?m)\b\d+ passed\b|\ball tests passed\b|^ok\b|\btests? passed\b"#,
-                                                options: .regularExpression) != nil {
-            return true
-        }
+        let text = String(output.suffix(16_384)).lowercased()
+        if output.contains("✘") || matches(failedOutput, text) { return false }
+        if output.contains("✔") || matches(passedOutput, text) { return true }
         return nil
     }
 

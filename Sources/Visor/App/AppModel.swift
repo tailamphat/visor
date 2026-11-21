@@ -267,13 +267,16 @@ final class AppModel {
     }
     /// The tools the Usage tab shows a section for, in order: chosen, installed and with something to show.
     var usageSections: [ConnectionProvider] {
-        providerOrder.filter(shows).filter { provider in
-            switch provider {
-            case .claude: return true
-            case .copilot: return !copilot.isEmpty
-            case .antigravity: return antigravity != nil || antigravityError != nil || antigravityLoading
-            case .openCode: return openCode != nil || openCodeGo != nil || openCodeError != nil
-            }
+        providerOrder.filter(shows).filter(hasContent)
+    }
+
+    /// Whether a provider has numbers, an error or a loading state to show.
+    func hasContent(_ provider: ConnectionProvider) -> Bool {
+        switch provider {
+        case .claude: return true
+        case .copilot: return !copilot.isEmpty
+        case .antigravity: return antigravity != nil || antigravityError != nil || antigravityLoading
+        case .openCode: return openCode != nil || openCodeGo != nil || openCodeError != nil
         }
     }
     /// The Connected accounts row being dragged, and how far.

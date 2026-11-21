@@ -53,11 +53,6 @@ public enum DayAxis {
     private static func format(_ index: Int, of days: Int, _ template: String, _ today: Date,
                                _ calendar: Calendar, _ locale: Locale) -> String {
         let date = calendar.date(byAdding: .day, value: index - (days - 1), to: today) ?? today
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.locale = locale
-        formatter.dateFormat = template
-        return formatter.string(from: date)
+        return DateTemplates.formatter(template, localized: false, calendar: calendar, locale: locale).string(from: date)
     }
 }

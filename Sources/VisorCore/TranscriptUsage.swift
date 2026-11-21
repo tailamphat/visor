@@ -6,14 +6,23 @@ import Foundation
 ///
 /// Claude Code writes one line per content block, repeating the same usage on
 /// each, so responses are de-duplicated by message id + request id.
+///
+/// Totals by day are kept as records arrive, so a rescan never walks all history again.
 public final class TranscriptUsage: @unchecked Sendable {
     public private(set) var records: [TokenUsage] = []
+    /// Cost and tokens by local day (start of day).
+    public private(set) var spendDays: [Date: SpendSummary.Day] = [:]
+    /// Tokens by day and model, in the ledger's shape.
+    public private(set) var tokenDays: [String: [String: TokenCount]] = [:]
+    private let calendar: Calendar
     private var offsets: [String: UInt64] = [:]
     /// Responses already counted, as hashes of "message id:request id" (8 bytes
     /// each instead of a ~60-character string; this process only, never saved).
     private var seen = Set<Int>()
 
-    public init() {}
+    public init(calendar: Calendar = .current) {
+        self.calendar = calendar
+    }
 
     /// Reads whatever is new in every transcript under `root`.
     /// Returns true when new usage was found.
@@ -78,18 +87,11 @@ public final class TranscriptUsage: @unchecked Sendable {
             guard seen.insert(key.hashValue).inserted else { return }
         }
         records.append(usage)
+        spendDays[calendar.startOfDay(for: usage.timestamp), default: .init()].add(usage)
+        TokenLedger.add(claude: usage, to: &tokenDays, calendar: calendar)
     }
 
-    private static let isoFractional: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let iso = ISO8601DateFormatter()
-
-    static func date(_ string: String) -> Date? {
-        isoFractional.date(from: string) ?? iso.date(from: string)
-    }
+    static func date(_ string: String) -> Date? { ISODate.parse(string) }
 
     static func parse(line: Data) -> (key: String?, usage: TokenUsage)? {
         guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
@@ -98,17 +100,16 @@ public final class TranscriptUsage: @unchecked Sendable {
               let usage = message["usage"] as? [String: Any],
               let model = message["model"] as? String,
               let stamp = (object["timestamp"] as? String).flatMap(date) else { return nil }
-        func int(_ dict: [String: Any]?, _ key: String) -> Int { (dict?[key] as? NSNumber)?.intValue ?? 0 }
         var record = TokenUsage(model: model, timestamp: stamp,
-                                input: int(usage, "input_tokens"),
-                                output: int(usage, "output_tokens"),
-                                cacheRead: int(usage, "cache_read_input_tokens"),
+                                input: usage.int("input_tokens"),
+                                output: usage.int("output_tokens"),
+                                cacheRead: usage.int("cache_read_input_tokens"),
                                 fast: usage["speed"] as? String == "fast")
         if let split = usage["cache_creation"] as? [String: Any] {
-            record.cacheWrite5m = int(split, "ephemeral_5m_input_tokens")
-            record.cacheWrite1h = int(split, "ephemeral_1h_input_tokens")
+            record.cacheWrite5m = split.int("ephemeral_5m_input_tokens")
+            record.cacheWrite1h = split.int("ephemeral_1h_input_tokens")
         } else {
-            record.cacheWrite5m = int(usage, "cache_creation_input_tokens")
+            record.cacheWrite5m = usage.int("cache_creation_input_tokens")
         }
         let id = message["id"] as? String
         let request = object["requestId"] as? String
@@ -129,22 +130,40 @@ public struct SpendSummary: Equatable, Sendable {
 
     public init() {}
 
+    /// Cost and tokens of one day.
+    public struct Day: Equatable, Sendable {
+        public var cost: Double = 0
+        public var tokens = 0
+        public init() {}
+
+        mutating func add(_ usage: TokenUsage) {
+            cost += usage.cost
+            tokens += usage.input + usage.output + usage.cacheRead + usage.cacheWrite5m + usage.cacheWrite1h
+        }
+    }
+
     public static func make(from records: [TokenUsage], now: Date = Date(),
                             calendar: Calendar = .current, days: Int = 14) -> SpendSummary {
+        var byDay: [Date: Day] = [:]
+        for record in records { byDay[calendar.startOfDay(for: record.timestamp), default: Day()].add(record) }
+        return make(days: byDay, now: now, calendar: calendar, count: days)
+    }
+
+    /// From totals by start of day: one step per day, however many records there are.
+    public static func make(days byDay: [Date: Day], now: Date = Date(),
+                            calendar: Calendar = .current, count days: Int = 14) -> SpendSummary {
         var summary = SpendSummary()
         let today = calendar.startOfDay(for: now)
         summary.daily = Array(repeating: 0, count: days)
-        for record in records {
-            let day = calendar.startOfDay(for: record.timestamp)
+        for (day, total) in byDay {
             guard let ago = calendar.dateComponents([.day], from: day, to: today).day, ago >= 0 else { continue }
-            let cost = record.cost
             if ago == 0 {
-                summary.today += cost
-                summary.tokensToday += record.input + record.output + record.cacheRead + record.cacheWrite5m + record.cacheWrite1h
+                summary.today += total.cost
+                summary.tokensToday += total.tokens
             }
-            if ago < 7 { summary.last7Days += cost }
-            if ago < 30 { summary.last30Days += cost }
-            if ago < days { summary.daily[days - 1 - ago] += cost }
+            if ago < 7 { summary.last7Days += total.cost }
+            if ago < 30 { summary.last30Days += total.cost }
+            if ago < days { summary.daily[days - 1 - ago] += total.cost }
         }
         return summary
     }

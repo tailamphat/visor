@@ -8,16 +8,24 @@ public enum NativeMessaging {
         return Data(bytes: &length, count: 4) + message
     }
 
-    /// Takes every whole message off the front of `buffer`.
-    public static func unframe(_ buffer: inout Data) -> [Data] {
+    /// The largest message a browser sends a host (Chrome's limit).
+    public static let maxLength = 64 << 20
+
+    public struct TooLong: Error {}
+
+    /// Takes every whole message off the front of `buffer`, copying what's left once.
+    /// Throws on a length past `maxLength`: the stream is corrupt.
+    public static func unframe(_ buffer: inout Data) throws -> [Data] {
         var out: [Data] = []
-        while buffer.count >= 4 {
-            let start = buffer.startIndex
+        var start = buffer.startIndex
+        while buffer.endIndex - start >= 4 {
             let length = Int(buffer[start]) | Int(buffer[start + 1]) << 8 | Int(buffer[start + 2]) << 16 | Int(buffer[start + 3]) << 24
-            guard buffer.count >= 4 + length else { break }
+            guard length <= maxLength else { throw TooLong() }
+            guard buffer.endIndex - start >= 4 + length else { break }
             out.append(Data(buffer[(start + 4)..<(start + 4 + length)]))
-            buffer = Data(buffer[(start + 4 + length)...])
+            start += 4 + length
         }
+        if start != buffer.startIndex { buffer = Data(buffer[start...]) }
         return out
     }
 }

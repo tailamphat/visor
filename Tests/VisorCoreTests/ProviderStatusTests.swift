@@ -22,7 +22,7 @@ struct ProviderStatusTests {
         let found = try #require(try ProviderStatus.incident(in: data, watching: ProviderStatus.claude.components))
         #expect(found.title == "Elevated errors on Claude Code" && found.severity == .major && found.id == "inc1")
         #expect(found.link == "https://stspg.io/abc")
-        #expect(found.since == ISO8601DateFormatter.withFraction.date(from: "2026-11-21T07:02:00.000Z"))
+        #expect(found.since == ISODate.parse("2026-11-21T07:02:00.000Z"))
     }
 
     /// An incident on parts you don't use stays quiet; minor impact is minor.

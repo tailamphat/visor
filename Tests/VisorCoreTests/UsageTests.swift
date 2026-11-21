@@ -68,6 +68,25 @@ struct TranscriptTests {
         try handle.close()
         #expect(scanner.scan(root: dir) && scanner.records.count == 2, "a finished half-line is picked up next scan")
         #expect(!scanner.scan(root: dir), "an unchanged directory finds nothing new")
+
+        // The running day totals match a full recount of the records.
+        let now = ISO8601DateFormatter().date(from: "2026-11-02T12:00:00Z")!
+        #expect(SpendSummary.make(days: scanner.spendDays, now: now) == SpendSummary.make(from: scanner.records, now: now))
+        #expect(scanner.tokenDays == TokenLedger.daily(claude: scanner.records))
+    }
+
+    /// A transcript rewritten shorter is read again from the start, without counting a response twice.
+    @Test func rewrittenTranscriptStartsOver() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("nb-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("s.jsonl")
+        try Data((Self.line1 + "\n" + Self.line1 + "\n" + String(repeating: " ", count: 500) + "\n").utf8).write(to: file)
+        let scanner = TranscriptUsage()
+        #expect(scanner.scan(root: dir) && scanner.records.count == 1, "the repeated line is one response")
+        let second = Self.line1.replacingOccurrences(of: "msg_1", with: "msg_9")
+        try Data((Self.line1 + "\n" + second + "\n").utf8).write(to: file)
+        #expect(scanner.scan(root: dir) && scanner.records.count == 2, "shorter: read again, the old response not counted twice")
     }
 
     /// `VISOR_REAL=1 swift test --filter realTranscripts` times a scan of this Mac's transcripts.

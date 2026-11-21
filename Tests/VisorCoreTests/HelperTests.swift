@@ -48,6 +48,22 @@ struct HelperTests {
         #expect(board.sessions[0].helpers.map(\.done) == [true, false])
     }
 
+    /// A helper's PostToolUse clears its line; the parent's own tools never finish a running helper.
+    @Test func postToolUseRouting() {
+        var board = AgentBoard()
+        board.apply(task("t1", "Find usages"))
+        board.apply(hook("SubagentStart", #"{\#(base),"agent_id":"a1","agent_type":"Explore"}"#))
+        board.apply(hook("PreToolUse", #"{\#(base),"agent_id":"a1","tool_name":"Read","tool_input":{"file_path":"/Users/me/api/main.swift"}}"#))
+        #expect(board.sessions[0].helpers[0].activity != nil)
+        board.apply(hook("PostToolUse", #"{\#(base),"agent_id":"a1","tool_name":"Read","tool_input":{"file_path":"/Users/me/api/main.swift"}}"#))
+        #expect(board.sessions[0].helpers[0].activity == nil)
+        #expect(!board.sessions[0].helpers[0].done)
+
+        board.apply(task("t2", "Check docs"))
+        board.apply(hook("PostToolUse", #"{\#(base),"tool_name":"Read","tool_input":{"file_path":"/Users/me/api/a.swift"}}"#))
+        #expect(board.sessions[0].helpers.map(\.done) == [false, false])
+    }
+
     /// Many helpers: the session keeps at most `maxHelpers`, dropping finished ones first.
     @Test func manyHelpersAreCapped() {
         var board = AgentBoard()

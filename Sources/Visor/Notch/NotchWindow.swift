@@ -33,7 +33,11 @@ final class NotchController {
     private var collapseWork: DispatchWorkItem?
     /// While the mouse button is down: is something (a file, a link) being dragged?
     private var dragWatch: Timer?
+    private let dragPasteboard = NSPasteboard(name: .drag)
     private var dragBase = 0
+    /// The panel's outline, kept current by `observe()` so mouse moves don't re-run the layout.
+    private var size = CGSize.zero
+    private var shift: CGFloat = 0
     private(set) var dragging = false
     /// Opened from the keyboard (⌘⇧V): stays open until Esc, a paste, or a click elsewhere.
     private(set) var keyboardOpen = false
@@ -76,9 +80,10 @@ final class NotchController {
         observe()
     }
 
-    /// Runs only while the mouse button is held, 20 times a second.
+    /// Runs only while the mouse button is held over an open panel, 20 times a second.
     private func watchForDrag() {
-        dragBase = NSPasteboard(name: .drag).changeCount
+        guard model.expanded else { return }
+        dragBase = dragPasteboard.changeCount
         dragging = false
         dragWatch?.invalidate()
         dragWatch = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
@@ -93,8 +98,8 @@ final class NotchController {
             dragging = false
             return
         }
-        guard NSPasteboard(name: .drag).changeCount != dragBase else { return }
-        // Dragging onto the notch used to open the Bar tab; Bar is hidden for now.
+        guard dragPasteboard.changeCount != dragBase else { return }
+        // Keeps the panel open while something is dragged out of it.
         dragging = true
     }
 
@@ -103,7 +108,8 @@ final class NotchController {
         withObservationTracking {
             _ = model.expanded
             _ = model.showsCard
-            _ = layout.size(for: model)
+            size = layout.size(for: model)
+            shift = layout.shift(model)
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -132,9 +138,11 @@ final class NotchController {
             notch = CGSize(width: screen.frame.width - left.width - right.width, height: screen.safeAreaInsets.top)
         }
         layout = NotchLayout(notch: notch)
-        let size = NotchLayout.windowSize
-        panel.setFrame(NSRect(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
-                              width: size.width, height: size.height), display: false)
+        size = layout.size(for: model)
+        shift = layout.shift(model)
+        let windowSize = NotchLayout.windowSize
+        panel.setFrame(NSRect(x: screen.frame.midX - windowSize.width / 2, y: screen.frame.maxY - windowSize.height,
+                              width: windowSize.width, height: windowSize.height), display: false)
         let view = NotchView(model: model, layout: layout)
         if let hosting {
             hosting.rootView = view
@@ -142,7 +150,7 @@ final class NotchController {
             let hosting = NSHostingView(rootView: view)
             // The window has a fixed size; SwiftUI must never resize it.
             hosting.sizingOptions = []
-            hosting.frame = NSRect(origin: .zero, size: size)
+            hosting.frame = NSRect(origin: .zero, size: windowSize)
             hosting.autoresizingMask = [.width, .height]
             panel.contentView = hosting
             self.hosting = hosting
@@ -151,9 +159,8 @@ final class NotchController {
 
     /// The notch's current outline in screen coordinates.
     private func notchRect() -> NSRect {
-        let size = layout.size(for: model)
         let frame = panel.frame
-        return NSRect(x: frame.midX - size.width / 2 + layout.shift(model), y: frame.maxY - size.height, width: size.width, height: size.height)
+        return NSRect(x: frame.midX - size.width / 2 + shift, y: frame.maxY - size.height, width: size.width, height: size.height)
     }
 
     /// Takes the keyboard while the pointer is over an open approval card,
@@ -168,6 +175,8 @@ final class NotchController {
 
     private func pointerMoved() {
         let point = NSEvent.mouseLocation
+        // Most moves are nowhere near the closed notch.
+        if !model.expanded, expandWork == nil, point.y < panel.frame.maxY - size.height - 40 { return }
         updateClickThrough()
         updateCardKeys()
         if model.expanded {

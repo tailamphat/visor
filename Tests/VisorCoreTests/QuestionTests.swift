@@ -53,7 +53,7 @@ struct QuestionTests {
         board.apply(hook("PreToolUse", "{\(base),\(ask)}"))
         let copilot = #""session_id":"s2","cwd":"/Users/me/workspace/gitlane""#
         board.apply(hook("PermissionRequest", provider: "copilot", #"{\#(copilot),"toolName":"bash","toolArgs":{"command":"rm -rf build"}}"#))
-        let marks = NotchMarks.make(board, pendingApproval: false)
+        let marks = NotchMarks.make(board, approvalsFrom: [])
         #expect(marks.shown.map(\.attention) == [.approval, .question], "approvals first: they block the agent")
         #expect(marks.shown.map(\.agent) == ["Copilot CLI", "Claude Code"])
     }
@@ -61,7 +61,7 @@ struct QuestionTests {
     @Test func waitingForAReplyIsAQuestion() {
         var board = AgentBoard()
         board.apply(hook("Notification", #"{\#(base),"notification_type":"idle_prompt","message":"Claude is waiting for your input"}"#))
-        #expect(NotchMarks.make(board, pendingApproval: false).shown.first?.attention == .question)
+        #expect(NotchMarks.make(board, approvalsFrom: []).shown.first?.attention == .question)
     }
 }
 

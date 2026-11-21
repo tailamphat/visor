@@ -5,16 +5,22 @@ import Testing
 @Suite("Browser extension bridge")
 struct BrowserBridgeTests {
     /// Native messaging: each message is a 4-byte little-endian length, then JSON.
-    @Test func framesAndUnframes() {
+    @Test func framesAndUnframes() throws {
         let one = Data(#"{"type":"tabs"}"#.utf8), two = Data(#"{"a":1}"#.utf8)
         var buffer = NativeMessaging.frame(one) + NativeMessaging.frame(two)
         #expect(buffer.prefix(4) == Data([15, 0, 0, 0]))
         let partial = buffer.suffix(3)
         buffer.removeLast(3)
-        #expect(NativeMessaging.unframe(&buffer) == [one], "the second is still arriving")
+        #expect(try NativeMessaging.unframe(&buffer) == [one], "the second is still arriving")
         buffer.append(partial)
-        #expect(NativeMessaging.unframe(&buffer) == [two])
+        #expect(try NativeMessaging.unframe(&buffer) == [two])
         #expect(buffer.isEmpty)
+    }
+
+    /// A length past the limit means a corrupt stream: refused, rather than waiting for gigabytes.
+    @Test func refusesHugeLengths() {
+        var buffer = Data([0xFF, 0xFF, 0xFF, 0x7F]) + Data("{}".utf8)
+        #expect(throws: NativeMessaging.TooLong.self) { try NativeMessaging.unframe(&buffer) }
     }
 
     /// The extension sends every media tab; the playing one wins, else the latest.

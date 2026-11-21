@@ -105,11 +105,10 @@ public struct OpenCodeUsage: Equatable, Sendable {
         guard let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
         return list.compactMap { item in
             guard let stamp = (item["stamp"] as? NSNumber)?.doubleValue else { return nil }
-            func int(_ key: String) -> Int { (item[key] as? NSNumber)?.intValue ?? 0 }
             return OpenCodeRow(timestamp: Date(timeIntervalSince1970: stamp),
                                cost: (item["cost"] as? NSNumber)?.doubleValue ?? 0,
-                               input: int("input"), output: int("output"), reasoning: int("reasoning"),
-                               cacheRead: int("cache_read"), cacheWrite: int("cache_write"))
+                               input: item.int("input"), output: item.int("output"), reasoning: item.int("reasoning"),
+                               cacheRead: item.int("cache_read"), cacheWrite: item.int("cache_write"))
         }
     }
 }

@@ -92,7 +92,7 @@ If another app (for example Notchy) also registers a `PermissionRequest` hook, b
 ## Layout
 
 - `Sources/VisorCore`: pure logic: pricing, transcript parsing, plan limits, agent state, approval replies.
-- `Sources/Visor`: the app: notch window and hover, SwiftUI views, hook socket server, usage and music services.
+- `Sources/Visor`: the app, a folder per feature: `App` (delegate, model, menu, updates), `Notch` (window, layout, theme, layer animations), `Agents` (list, approvals, hook server and installer), `Office`, `Usage` (service per provider, views), `Music`, `Clipboard`, `Bar`, `Plugins`, `Shared` (small components) and `Support` (shell, sockets, hot keys, media keys).
 - `Tests/VisorCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools). `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. Use `scripts/test.sh` rather than plain `swift test`: with the Command Line Tools, incremental test builds can lose Swift Testing's macro plugin, and the script passes its location.
 
 Debug builds accept extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it) and `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval. See CLAUDE.md for more.

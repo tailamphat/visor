@@ -13,6 +13,20 @@ cd "$(dirname "$0")/.."
 VERSION="${1:-${VISOR_VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo 0.1.0)}}"
 VERSION="${VERSION#v}"
 
+# CFBundleVersion is the commit count, which Sparkle compares: a release must be
+# built from a clean tree at or after the last tag. VISOR_RELEASE_FORCE=1 skips this.
+if [[ "${VISOR_RELEASE_FORCE:-}" != 1 ]]; then
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Uncommitted changes: commit or stash them first." >&2
+    exit 1
+  fi
+  LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+  if [[ -n "$LAST_TAG" ]] && ! git merge-base --is-ancestor "$LAST_TAG" HEAD; then
+    echo "HEAD is behind $LAST_TAG: build releases from the latest commit." >&2
+    exit 1
+  fi
+fi
+
 VISOR_VERSION="$VERSION" ./scripts/bundle.sh --universal
 
 APP=build/Visor.app

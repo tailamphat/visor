@@ -35,10 +35,8 @@ struct NotchLayout {
     static let clipboardSize = CGSize(width: width, height: 240)
     /// Usage with Copilot below Claude.
     static let usageWithCopilotSize = CGSize(width: width, height: 312)
-    /// Usage with Copilot and Antigravity in the provider column; the tallest panel.
+    /// Usage with Antigravity or OpenCode in the provider column; the tallest panel.
     static let usageWithAntigravitySize = CGSize(width: width, height: 450)
-    /// Usage with OpenCode's Go limits and local token card.
-    static let usageWithOpenCodeSize = CGSize(width: width, height: 450)
     /// Connected accounts: a row per tool.
     static let accountsSize = CGSize(width: width, height: 272)
     /// The longest the Agents list grows before it scrolls.
@@ -83,11 +81,11 @@ struct NotchLayout {
                 func taller(_ size: CGSize) -> CGSize {
                     CGSize(width: size.width, height: min(size.height + bar + dividers, Self.usageWithAntigravitySize.height + bar))
                 }
-                if model.shows(.antigravity) && (model.antigravity != nil || model.antigravityError != nil || model.antigravityLoading) {
+                if model.shows(.antigravity) && model.hasContent(.antigravity) {
                     return taller(Self.usageWithAntigravitySize)
                 }
-                if model.shows(.openCode) && (model.openCode != nil || model.openCodeGo != nil || model.openCodeError != nil) {
-                    return taller(Self.usageWithOpenCodeSize)
+                if model.shows(.openCode) && model.hasContent(.openCode) {
+                    return taller(Self.usageWithAntigravitySize)
                 }
                 if model.shows(.copilot) && !model.copilot.isEmpty { return taller(Self.usageWithCopilotSize) }
                 return taller(Self.expandedSize)
@@ -368,23 +366,6 @@ struct CollapsedView: View {
             }
         }
     }
-}
-
-/// What each agent looks like: its mark and colour.
-enum AgentStyle {
-    /// Bright, for marks on black.
-    static func mark(_ agent: String) -> NSColor {
-        switch agent {
-        case "Copilot CLI": return NSColor(hex: 0xA78BFA)
-        case "Antigravity": return NSColor(hex: 0x3186FF)
-        case "OpenCode": return NSColor(hex: 0xEDEDED)
-        case "Codex CLI": return NSColor(hex: 0x10A37F)
-        case "Gemini CLI": return NSColor(hex: 0xE879F9)
-        default: return NSColor(hex: 0xD97757)
-        }
-    }
-    /// The tile behind the mark in lists.
-    static let tile = Color.white.opacity(0.08)
 }
 
 /// Amber "!" bubble: approve something. Blue "?" bubble: answer something.

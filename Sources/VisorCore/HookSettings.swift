@@ -43,10 +43,6 @@ public enum HookSettings {
         return entry
     }
 
-    public static func antigravityFile(script: String) -> [String: Any] {
-        ["visor": antigravityEntry(script: script)]
-    }
-
     public static func installAntigravity(into hooks: [String: Any], script: String) -> [String: Any] {
         var hooks = hooks
         hooks["visor"] = antigravityEntry(script: script)

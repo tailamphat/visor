@@ -19,7 +19,7 @@ final class ClipboardService {
     private var lastRemoved: (removed: ClipHistory.Removed, clearedClipboard: Bool)?
 
     static var fileURL: URL { HookServer.directory.appendingPathComponent("clipboard.json") }
-    static var imagesURL: URL { HookServer.directory.appendingPathComponent("Clips", isDirectory: true) }
+    nonisolated static var imagesURL: URL { HookServer.directory.appendingPathComponent("Clips", isDirectory: true) }
 
     /// Apps whose copies are never kept (set in Visor's preferences file).
     private var excluded: Set<String> {
@@ -53,8 +53,24 @@ final class ClipboardService {
         lastCount = count
         let front = NSWorkspace.shared.frontmostApplication
         let types = pasteboard.types?.map(\.rawValue) ?? []
-        guard ClipHistory.shouldRecord(types: types, app: front?.bundleIdentifier, excluded: excluded),
-              let item = read(app: front?.localizedName ?? "Unknown") else { return }
+        guard ClipHistory.shouldRecord(types: types, app: front?.bundleIdentifier, excluded: excluded) else { return }
+        let app = front?.localizedName ?? "Unknown"
+        if let item = read(app: app) {
+            record(item)
+        } else if let image = pasteboard.data(forType: .png).map({ (data: $0, png: true) })
+                    ?? pasteboard.data(forType: .tiff).map({ (data: $0, png: false) }) {
+            // A Retina screenshot is tens of MB as TIFF: encode and write it off the main thread.
+            let date = Date()
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard let name = Self.saveImage(image.data, isPNG: image.png) else { return }
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.record(ClipItem(kind: .image, content: name, app: app, date: date)) }
+                }
+            }
+        }
+    }
+
+    private func record(_ item: ClipItem) {
         var history = model.clips
         history.add(item, now: Date())
         currentID = history.items.first?.id
@@ -62,7 +78,7 @@ final class ClipboardService {
         save()
     }
 
-    /// Files, then text (links and colours included), then images.
+    /// Files, then text (links and colours included). Images are read in `check`.
     private func read(app: String) -> ClipItem? {
         let now = Date()
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
@@ -71,18 +87,18 @@ final class ClipboardService {
         if let text = pasteboard.string(forType: .string) {
             return ClipItem(kind: ClipItem.kind(of: text), content: text, app: app, date: now)
         }
-        if let image = NSImage(pasteboard: pasteboard), let png = Self.png(image) {
-            let name = "\(UUID().uuidString).png"
-            try? FileManager.default.createDirectory(at: Self.imagesURL, withIntermediateDirectories: true)
-            guard (try? png.write(to: Self.imagesURL.appendingPathComponent(name))) != nil else { return nil }
-            return ClipItem(kind: .image, content: name, app: app, date: now)
-        }
         return nil
     }
 
-    private static func png(_ image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
-        return rep.representation(using: .png, properties: [:])
+    /// Writes an image to the Clips folder as PNG and returns its file name.
+    nonisolated private static func saveImage(_ data: Data, isPNG: Bool) -> String? {
+        autoreleasepool {
+            guard let png = isPNG ? data : NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:]) else { return nil }
+            let name = "\(UUID().uuidString).png"
+            try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+            guard (try? png.write(to: imagesURL.appendingPathComponent(name))) != nil else { return nil }
+            return name
+        }
     }
 
     // MARK: Actions

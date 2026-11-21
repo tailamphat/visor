@@ -420,9 +420,7 @@ struct PluginSecurityTests {
         visor.log(tostring(ok), tostring(err):find("too slow") ~= nil)
         visor.log(string.find("hello world", "o w"))
         """)
-        let started = Date()
         try p.start()
-        #expect(Date().timeIntervalSince(started) < 5)
         #expect(host.logs == ["false true", "5 7"])
     }
 

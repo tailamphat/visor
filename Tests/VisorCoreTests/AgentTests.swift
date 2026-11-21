@@ -156,22 +156,22 @@ struct NotchMarksTests {
     @Test func atMostTwoMarksThenMore() {
         var board = AgentBoard()
         (start("claude", "a") + start("claude", "b")).forEach { board.apply($0) }
-        var marks = NotchMarks.make(board, pendingApproval: false)
+        var marks = NotchMarks.make(board, approvalsFrom: [])
         #expect(marks.shown == [.init(agent: "Claude Code", count: 2, attention: nil)] && marks.more.isEmpty)
 
         (start("copilot", "c") + start("codex", "d")).forEach { board.apply($0) }
-        marks = NotchMarks.make(board, pendingApproval: false)
+        marks = NotchMarks.make(board, approvalsFrom: [])
         #expect(marks.shown.map(\.agent) == ["Claude Code", "Copilot CLI"] && marks.more == ["Codex"])
 
         start("codex", "d", waiting: true).forEach { board.apply($0) }
-        marks = NotchMarks.make(board, pendingApproval: false)
+        marks = NotchMarks.make(board, approvalsFrom: [])
         #expect(marks.shown.first == .init(agent: "Codex", count: 1, attention: .question) && marks.more == ["Copilot CLI"])
     }
 
     @Test func openApprovalCountsAsWaiting() {
         var board = AgentBoard()
         start("claude", "a").forEach { board.apply($0) }
-        #expect(NotchMarks.make(board, pendingApproval: true).shown.first?.waiting == true)
+        #expect(NotchMarks.make(board, approvalsFrom: ["Claude Code"]).shown.first?.waiting == true)
     }
 
 }
@@ -353,7 +353,7 @@ struct AntigravityHookTests {
 @Suite("Antigravity hook settings")
 struct AntigravitySettingsTests {
     @Test func fileShape() throws {
-        let file = HookSettings.antigravityFile(script: "/Users/me/Library/Application Support/Visor/agent-hook.sh")
+        let file = HookSettings.installAntigravity(into: [:], script: "/Users/me/Library/Application Support/Visor/agent-hook.sh")
         let entry = try #require(file["visor"] as? [String: Any])
         #expect(Set(entry.keys) == Set(HookSettings.antigravityEvents))
 

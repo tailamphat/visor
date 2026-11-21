@@ -85,7 +85,7 @@ struct BrowserMediaTests {
     }
 
     @Test func mediaSitesAndAppleScriptSafety() {
-        #expect(BrowserMedia.isMediaSite("https://www.youtube.com/watch?v=1") && !BrowserMedia.isMediaSite("https://github.com"))
+        #expect(BrowserMedia.sites.contains("youtube.com") && !BrowserMedia.sites.contains("github.com"))
         #expect(!BrowserMedia.probe.contains("\""), "no double quotes, so it fits in AppleScript")
     }
 

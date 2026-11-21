@@ -134,10 +134,7 @@ public struct CopilotCLIAccount: Equatable, Sendable {
 
     /// `loggedInUsers` from `~/.copilot/config.json`, which starts with `//` comments.
     public static func parse(config: String) -> [CopilotCLIAccount] {
-        let json = config.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
-            .joined(separator: "\n")
-        guard let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+        guard let object = object(config: config),
               let users = object["loggedInUsers"] as? [[String: Any]] else { return [] }
         let accounts = users.compactMap(account)
         // The account it last signed in with is the one in use: first, so it wins its host.
@@ -148,11 +145,15 @@ public struct CopilotCLIAccount: Equatable, Sendable {
 
     /// The account Copilot CLI last signed in with.
     public static func last(config: String) -> CopilotCLIAccount? {
+        (object(config: config)?["lastLoggedInUser"] as? [String: Any]).flatMap(account)
+    }
+
+    /// The config as JSON, without its `//` comment lines.
+    private static func object(config: String) -> [String: Any]? {
         let json = config.split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
             .joined(separator: "\n")
-        let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
-        return (object?["lastLoggedInUser"] as? [String: Any]).flatMap(account)
+        return try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
     }
 
     private static func account(_ user: [String: Any]) -> CopilotCLIAccount? {

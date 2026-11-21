@@ -88,14 +88,15 @@ public struct TokenLedger: Codable, Equatable, Sendable {
     /// Claude Code's replies by day and model. "<synthetic>" is Claude Code's own placeholder, not a model.
     public static func daily(claude records: [TokenUsage], calendar: Calendar = .current) -> [String: [String: TokenCount]] {
         var out: [String: [String: TokenCount]] = [:]
-        for record in records where record.model != "<synthetic>" {
-            let count = TokenCount(input: record.input, output: record.output, cacheRead: record.cacheRead,
-                                   cacheWrite: record.cacheWrite5m + record.cacheWrite1h)
-            let day = dayKey(record.timestamp, calendar: calendar)
-            let key = key("Claude Code", modelName(record.model))
-            out[day, default: [:]][key] = (out[day]?[key] ?? TokenCount()) + count
-        }
+        for record in records { add(claude: record, to: &out, calendar: calendar) }
         return out
+    }
+
+    static func add(claude record: TokenUsage, to out: inout [String: [String: TokenCount]], calendar: Calendar) {
+        guard record.model != "<synthetic>" else { return }
+        let count = TokenCount(input: record.input, output: record.output, cacheRead: record.cacheRead,
+                               cacheWrite: record.cacheWrite5m + record.cacheWrite1h)
+        add(&out, dayKey(record.timestamp, calendar: calendar), key("Claude Code", modelName(record.model)), count)
     }
 
     /// Copilot CLI's session store (~/.copilot/session-store.db), summed in sqlite.
@@ -149,8 +150,7 @@ public struct TokenLedger: Codable, Equatable, Sendable {
         var out: [String: [String: TokenCount]] = [:]
         for item in list {
             guard let day = item["day"] as? String, let model = item["model"] as? String else { continue }
-            func int(_ key: String) -> Int { (item[key] as? NSNumber)?.intValue ?? 0 }
-            let count = TokenCount(input: int("input"), output: int("output"), cacheRead: int("cache_read"), cacheWrite: int("cache_write"))
+            let count = TokenCount(input: item.int("input"), output: item.int("output"), cacheRead: item.int("cache_read"), cacheWrite: item.int("cache_write"))
             let key = key(tool, modelName(model))
             out[day, default: [:]][key] = (out[day]?[key] ?? TokenCount()) + count
         }

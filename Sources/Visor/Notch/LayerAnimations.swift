@@ -18,6 +18,14 @@ struct PulsingSymbol: NSViewRepresentable {
     let size: CGFloat
     var active = true
 
+    /// What the layer's image was last drawn from: SwiftUI updates this view on
+    /// every board publish, and redrawing an unchanged image is wasted work.
+    final class Coordinator {
+        var drawn: [AnyHashable]?
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         view.wantsLayer = true
@@ -27,21 +35,26 @@ struct PulsingSymbol: NSViewRepresentable {
 
     func updateNSView(_ view: NSView, context: Context) {
         guard let layer = view.layer?.sublayers?.first else { return }
-        let image: NSImage?
-        if let logo {
-            image = Self.logoImage(logo, color: color, size: size)
-        } else {
-            let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
-                .applying(.init(paletteColors: glyph.map { [$0, color] } ?? [color]))
-            image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+        let scale = view.window?.backingScaleFactor ?? 2
+        let key: [AnyHashable] = [name, logo, color, glyph, size, scale]
+        if key != context.coordinator.drawn {
+            context.coordinator.drawn = key
+            let image: NSImage?
+            if let logo {
+                image = Self.logoImage(logo, color: color, size: size)
+            } else {
+                let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
+                    .applying(.init(paletteColors: glyph.map { [$0, color] } ?? [color]))
+                image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
+            }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.contents = image
+            layer.contentsGravity = .resizeAspect
+            layer.contentsScale = scale
+            layer.frame = CGRect(x: 0, y: 0, width: size + 4, height: size + 4)
+            CATransaction.commit()
         }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.contents = image
-        layer.contentsGravity = .resizeAspect
-        layer.contentsScale = view.window?.backingScaleFactor ?? 2
-        layer.frame = CGRect(x: 0, y: 0, width: size + 4, height: size + 4)
-        CATransaction.commit()
         if active, layer.animation(forKey: "pulse") == nil {
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = 1

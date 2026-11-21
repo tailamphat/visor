@@ -43,7 +43,6 @@ public struct ProviderStatus: Sendable {
     public static func incident(in data: Data, watching patterns: [String]) throws -> ProviderIncident? {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let pageURL = (object["page"] as? [String: Any])?["url"] as? String ?? ""
-        let dates = ISO8601DateFormatter.withFraction
         for incident in object["incidents"] as? [[String: Any]] ?? [] {
             guard incident["status"] as? String != "resolved", incident["status"] as? String != "postmortem" else { continue }
             let touched = (incident["components"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
@@ -52,7 +51,7 @@ public struct ProviderStatus: Sendable {
             return ProviderIncident(id: incident["id"] as? String ?? (incident["name"] as? String ?? ""),
                                     title: incident["name"] as? String ?? "Incident",
                                     severity: impact == "major" || impact == "critical" ? .major : .minor,
-                                    since: (incident["created_at"] as? String).flatMap(dates.date(from:)),
+                                    since: (incident["created_at"] as? String).flatMap(ISODate.parse),
                                     link: incident["shortlink"] as? String ?? pageURL)
         }
         let words = ["degraded_performance": "degraded performance", "partial_outage": "partial outage", "major_outage": "major outage"]
@@ -62,17 +61,8 @@ public struct ProviderStatus: Sendable {
             let short = name.components(separatedBy: " (").first ?? name
             return ProviderIncident(id: name + "|" + status, title: "\(short): \(word)",
                                     severity: status == "degraded_performance" ? .minor : .major,
-                                    since: (component["updated_at"] as? String).flatMap(dates.date(from:)), link: pageURL)
+                                    since: (component["updated_at"] as? String).flatMap(ISODate.parse), link: pageURL)
         }
         return nil
     }
-}
-
-extension ISO8601DateFormatter {
-    /// "2026-11-21T07:02:00.000Z": status pages write fractional seconds.
-    nonisolated(unsafe) static let withFraction: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 }

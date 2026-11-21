@@ -50,25 +50,24 @@ public struct CopilotUsage: Equatable, Sendable {
         let login = object["login"] as? String ?? fallback
         let quotas = object["quota_snapshots"] as? [String: Any] ?? [:]
         func quota(_ key: String) -> [String: Any] { quotas[key] as? [String: Any] ?? [:] }
-        func int(_ q: [String: Any], _ key: String) -> Int { (q[key] as? NSNumber)?.intValue ?? 0 }
         let premium = quota("premium_interactions")
         let reset = (object["quota_reset_date_utc"] as? String).flatMap(TranscriptUsage.date)
-            ?? (object["quota_reset_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0 + "T00:00:00Z") }
+            ?? (object["quota_reset_date"] as? String).flatMap { ISODate.parse($0 + "T00:00:00Z") }
         return CopilotUsage(login: login,
                             plan: object["copilot_plan"] as? String ?? "copilot",
                             host: host,
-                            premiumEntitlement: int(premium, "entitlement"),
-                            premiumRemaining: int(premium, "remaining"),
+                            premiumEntitlement: premium.int("entitlement"),
+                            premiumRemaining: premium.int("remaining"),
                             premiumUnlimited: premium["unlimited"] as? Bool ?? false,
                             overagePermitted: premium["overage_permitted"] as? Bool ?? false,
-                            overageUsed: int(premium, "overage_count"),
+                            overageUsed: premium.int("overage_count"),
                             chatUnlimited: quota("chat")["unlimited"] as? Bool ?? false,
                             completionsUnlimited: quota("completions")["unlimited"] as? Bool ?? false,
                             resetsAt: reset,
-                            chatEntitlement: int(quota("chat"), "entitlement"),
-                            chatRemaining: int(quota("chat"), "remaining"),
-                            completionsEntitlement: int(quota("completions"), "entitlement"),
-                            completionsRemaining: int(quota("completions"), "remaining"))
+                            chatEntitlement: quota("chat").int("entitlement"),
+                            chatRemaining: quota("chat").int("remaining"),
+                            completionsEntitlement: quota("completions").int("entitlement"),
+                            completionsRemaining: quota("completions").int("remaining"))
     }
 
     /// The REST API root for a host: api.github.com, or api.<company>.ghe.com.

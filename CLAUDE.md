@@ -29,6 +29,8 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 - Antigravity's `agy -p /usage` takes about 4 s and 200 MB; run it only when the Usage tab opens, off the main thread, with a two-minute cache.
 - Measure with `ps -o %cpu`, `sample` and `footprint`.
 - Publish to the model only when something visible changes (see `AgentBoard.differsVisibly`).
+- Use the shared helpers instead of new copies: `Shell.run`/`Shell.which` for tools, `UnixSocketListener` for sockets, `ISODate.parse` and `DateTemplates` for dates (formatters are made once), `SessionText` for session times and labels. Regexes on hot paths are compiled once (`static let`), never per call.
+- Keep running totals as data arrives (`TranscriptUsage.spendDays`, `CodexReader`) rather than recounting all history on a timer.
 
 ## Testing the UI without a mouse
 

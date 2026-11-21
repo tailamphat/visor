@@ -145,26 +145,15 @@ final class BarService {
 
     private func runShortcut(_ name: String) {
         work.async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
-            process.arguments = ["run", name]
-            try? process.run()
+            Shell.launch("/usr/bin/shortcuts", ["run", name])
         }
     }
 
     /// The user's Shortcuts, for the + menu.
     private func loadShortcuts() {
         work.async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
-            process.arguments = ["list"]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            guard (try? process.run()) != nil else { return }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            let names = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+            guard let output = Shell.run("/usr/bin/shortcuts", ["list"]) else { return }
+            let names = output.text.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
             DispatchQueue.main.async { MainActor.assumeIsolated { self.model.shortcutNames = names.sorted() } }
         }
     }

@@ -31,7 +31,6 @@ public struct BrowserMedia: Equatable, Sendable {
                                "twitch.tv", "vimeo.com", "bandcamp.com", "deezer.com", "tidal.com",
                                "mixcloud.com", "music.amazon.", "pandora.com"]
 
-    public static func isMediaSite(_ url: String) -> Bool { sites.contains { url.contains($0) } }
 
     /// Page scripts off: whether the media tab is playing, judged from the
     /// browser's sound. A browser plays every tab through one audio process,

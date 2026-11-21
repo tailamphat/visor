@@ -80,7 +80,7 @@ struct TokensView: View {
                 hero(summary)
                 switch model.tokensPage {
                 case .overview:
-                    chart(summary, colors)
+                    TokensChart(model: model, summary: summary, colors: colors)
                     section("Top models")
                     rows(summary.models.prefix(3).map { ($0.model, $0.tool, $0.count, colors[$0.model] ?? Theme.textMuted) }, of: summary.total.total)
                 case .models:
@@ -89,7 +89,7 @@ struct TokensView: View {
                         rows(summary.models.map { ($0.model, $0.tool, $0.count, colors[$0.model] ?? Theme.textMuted) }, of: summary.total.total)
                     }
                 case .daily:
-                    chart(summary, colors)
+                    TokensChart(model: model, summary: summary, colors: colors)
                     daily(summary)
                 case .tools:
                     section("By tool")
@@ -188,95 +188,6 @@ struct TokensView: View {
             .foregroundStyle(Theme.textMuted)
     }
 
-    // MARK: Chart
-
-    /// A stacked bar per day, by model; hover a day for its models.
-    private func chart(_ summary: TokenSummary, _ colors: [String: Color]) -> some View {
-        let series = summary.series
-        let peak = max(1, series.map(\.total).max() ?? 1)
-        let order = summary.models.map(\.model)
-        return VStack(alignment: .leading, spacing: 4) {
-            GeometryReader { geo in
-                let width = geo.size.width / CGFloat(max(series.count, 1))
-                Canvas { context, size in
-                    for (i, day) in series.enumerated() {
-                        var y = size.height
-                        for name in order.reversed() {
-                            guard let value = day.byModel[name], value > 0 else { continue }
-                            let h = CGFloat(value) / CGFloat(peak) * size.height
-                            y -= h
-                            let rect = CGRect(x: CGFloat(i) * width + 0.5, y: y, width: max(1, width - 1), height: h)
-                            context.fill(Path(rect), with: .color(colors[name] ?? .gray))
-                        }
-                        if day.day == model.tokensHover {
-                            context.fill(Path(CGRect(x: CGFloat(i) * width, y: 0, width: width, height: size.height)),
-                                         with: .color(.white.opacity(0.06)))
-                        }
-                    }
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let at):
-                        let i = min(max(Int(at.x / width), 0), series.count - 1)
-                        let day = series.isEmpty ? nil : series[i].day
-                        if model.tokensHover != day { model.tokensHover = day }
-                    case .ended:
-                        model.tokensHover = nil
-                    }
-                }
-                .overlay(alignment: .topLeading) {
-                    if let hover = model.tokensHover, let i = series.firstIndex(where: { $0.day == hover }) {
-                        tooltip(series[i], colors, order)
-                            .offset(x: min(max(CGFloat(i) * width - 70, 0), geo.size.width - 170), y: -4)
-                    }
-                }
-            }
-            .frame(height: 96)
-            HStack {
-                if let first = series.first { Text(Self.dayName(first.day, weekday: false)) }
-                Spacer()
-                if let last = series.last, series.count > 1 { Text(Self.dayName(last.day, weekday: false)) }
-            }
-            .font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textMuted)
-            // The biggest four, so names fit; the tooltip names every model.
-            legend(order.prefix(4), colors)
-        }
-    }
-
-    private func tooltip(_ day: TokenSummary.Day, _ colors: [String: Color], _ order: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\(Self.dayName(day.day, weekday: true)) · \(TokenCount.compact(day.total))")
-                .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-            ForEach(order.filter { (day.byModel[$0] ?? 0) > 0 }, id: \.self) { name in
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
-                    Text(name).lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(TokenCount.compact(day.byModel[name] ?? 0)).monospacedDigit()
-                }
-                .font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
-            }
-            if day.total == 0 { Text("No tokens").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted) }
-        }
-        .padding(.horizontal, 9).padding(.vertical, 7)
-        .frame(width: 170, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x1A1A19)))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color(hex: 0x2E2D2B)))
-        .allowsHitTesting(false)
-    }
-
-    private func legend(_ names: ArraySlice<String>, _ colors: [String: Color]) -> some View {
-        HStack(spacing: 10) {
-            ForEach(Array(names), id: \.self) { name in
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
-                    Text(name).lineLimit(1)
-                }
-            }
-        }
-        .font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
-    }
-
     // MARK: Lists
 
     /// A row per model or tool: its total and share, a bar, and the four kinds of tokens.
@@ -346,5 +257,99 @@ struct TokensView: View {
     static func dayName(_ key: String, weekday: Bool) -> String {
         guard let date = parser.date(from: key) else { return key }
         return date.formatted(weekday ? .dateTime.weekday(.abbreviated).month(.abbreviated).day() : .dateTime.month(.abbreviated).day())
+    }
+}
+
+/// A stacked bar per day, by model; hover a day for its models. Its own view,
+/// so hovering redraws only the chart, not the summary and lists around it.
+struct TokensChart: View {
+    let model: AppModel
+    let summary: TokenSummary
+    let colors: [String: Color]
+
+    var body: some View {
+        let series = summary.series
+        let peak = max(1, series.map(\.total).max() ?? 1)
+        let order = summary.models.map(\.model)
+        return VStack(alignment: .leading, spacing: 4) {
+            GeometryReader { geo in
+                let width = geo.size.width / CGFloat(max(series.count, 1))
+                Canvas { context, size in
+                    for (i, day) in series.enumerated() {
+                        var y = size.height
+                        for name in order.reversed() {
+                            guard let value = day.byModel[name], value > 0 else { continue }
+                            let h = CGFloat(value) / CGFloat(peak) * size.height
+                            y -= h
+                            let rect = CGRect(x: CGFloat(i) * width + 0.5, y: y, width: max(1, width - 1), height: h)
+                            context.fill(Path(rect), with: .color(colors[name] ?? .gray))
+                        }
+                        if day.day == model.tokensHover {
+                            context.fill(Path(CGRect(x: CGFloat(i) * width, y: 0, width: width, height: size.height)),
+                                         with: .color(.white.opacity(0.06)))
+                        }
+                    }
+                }
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let at):
+                        let i = min(max(Int(at.x / width), 0), series.count - 1)
+                        let day = series.isEmpty ? nil : series[i].day
+                        if model.tokensHover != day { model.tokensHover = day }
+                    case .ended:
+                        model.tokensHover = nil
+                    }
+                }
+                .overlay(alignment: .topLeading) {
+                    if let hover = model.tokensHover, let i = series.firstIndex(where: { $0.day == hover }) {
+                        tooltip(series[i], colors, order)
+                            .offset(x: min(max(CGFloat(i) * width - 70, 0), geo.size.width - 170), y: -4)
+                    }
+                }
+            }
+            .frame(height: 96)
+            HStack {
+                if let first = series.first { Text(TokensView.dayName(first.day, weekday: false)) }
+                Spacer()
+                if let last = series.last, series.count > 1 { Text(TokensView.dayName(last.day, weekday: false)) }
+            }
+            .font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textMuted)
+            // The biggest four, so names fit; the tooltip names every model.
+            legend(order.prefix(4), colors)
+        }
+    }
+
+    private func tooltip(_ day: TokenSummary.Day, _ colors: [String: Color], _ order: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(TokensView.dayName(day.day, weekday: true)) · \(TokenCount.compact(day.total))")
+                .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            ForEach(order.filter { (day.byModel[$0] ?? 0) > 0 }, id: \.self) { name in
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
+                    Text(name).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(TokenCount.compact(day.byModel[name] ?? 0)).monospacedDigit()
+                }
+                .font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+            }
+            if day.total == 0 { Text("No tokens").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted) }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 7)
+        .frame(width: 170, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x1A1A19)))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color(hex: 0x2E2D2B)))
+        .allowsHitTesting(false)
+    }
+
+    private func legend(_ names: ArraySlice<String>, _ colors: [String: Color]) -> some View {
+        HStack(spacing: 10) {
+            ForEach(Array(names), id: \.self) { name in
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
+                    Text(name).lineLimit(1)
+                }
+            }
+        }
+        .font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
     }
 }

@@ -14,7 +14,7 @@ final class BrowserBridgeServer: @unchecked Sendable {
     #endif
 
     private let queue = DispatchQueue(label: "visor.browser-bridge")
-    private var listener: DispatchSourceRead?
+    private var listener: UnixSocketListener?
     /// Connected bridges by socket, with the browser that started each. `queue` only.
     private var bridges: [Int32: String] = [:]
 
@@ -24,34 +24,7 @@ final class BrowserBridgeServer: @unchecked Sendable {
     var onGone: (@MainActor (_ browser: String) -> Void)?
 
     func start() throws {
-        try FileManager.default.createDirectory(at: HookServer.directory, withIntermediateDirectories: true,
-                                                attributes: [.posixPermissions: 0o700])
-        let path = Self.socketPath
-        unlink(path)
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let bytes = Array(path.utf8CString)
-        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw POSIXError(.ENAMETOOLONG) }
-        withUnsafeMutableBytes(of: &address.sun_path) { raw in
-            bytes.withUnsafeBytes { raw.copyMemory(from: $0) }
-        }
-        let bound = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, SOMAXCONN) == 0 else {
-            close(fd)
-            throw POSIXError(.init(rawValue: errno) ?? .EIO)
-        }
-        _ = fcntl(fd, F_SETFL, O_NONBLOCK)
-        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
-        source.setEventHandler { [weak self] in self?.acceptAll(fd) }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        listener = source
+        listener = try UnixSocketListener(path: Self.socketPath, queue: queue) { [weak self] in self?.read($0) }
         Self.installHosts()
         // Keep a loaded copy in step with this version of the app.
         if FileManager.default.fileExists(atPath: Self.extensionFolder.path) { Self.copyExtension() }
@@ -67,17 +40,6 @@ final class BrowserBridgeServer: @unchecked Sendable {
         }
     }
 
-    private func acceptAll(_ fd: Int32) {
-        while true {
-            let client = accept(fd, nil, nil)
-            guard client >= 0 else { return }
-            var on: Int32 = 1
-            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-            _ = fcntl(client, F_SETFL, O_NONBLOCK)
-            read(client)
-        }
-    }
-
     private func read(_ client: Int32) {
         var buffer = Data()
         let source = DispatchSource.makeReadSource(fileDescriptor: client, queue: queue)
@@ -87,11 +49,12 @@ final class BrowserBridgeServer: @unchecked Sendable {
             let n = Darwin.read(client, &chunk, chunk.count)
             if n > 0 {
                 buffer.append(contentsOf: chunk[0..<n])
-                while let newline = buffer.firstIndex(of: 0x0A) {
-                    let line = Data(buffer[buffer.startIndex..<newline])
-                    buffer = Data(buffer[(newline + 1)...])
-                    self.handle(line, from: client)
+                var start = buffer.startIndex
+                while let newline = buffer[start...].firstIndex(of: 0x0A) {
+                    self.handle(Data(buffer[start..<newline]), from: client)
+                    start = newline + 1
                 }
+                if start != buffer.startIndex { buffer = Data(buffer[start...]) }
                 if buffer.count > 4_000_000 { source.cancel() }
             } else if n == 0 || (errno != EAGAIN && errno != EINTR) {
                 source.cancel()

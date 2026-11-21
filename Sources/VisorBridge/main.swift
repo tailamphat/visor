@@ -55,11 +55,14 @@ Thread.detachNewThread {
         let n = read(visor, &chunk, chunk.count)
         if n <= 0 { exit(0) }
         buffer.append(contentsOf: chunk[0..<n])
-        while let newline = buffer.firstIndex(of: 0x0A) {
-            let line = Data(buffer[buffer.startIndex..<newline])
-            buffer = Data(buffer[(newline + 1)...])
-            if !line.isEmpty, !writeAll(STDOUT_FILENO, NativeMessaging.frame(line)) { exit(0) }
+        var start = buffer.startIndex
+        while let newline = buffer[start...].firstIndex(of: 0x0A) {
+            let line = buffer[start..<newline]
+            start = newline + 1
+            if !line.isEmpty, !writeAll(STDOUT_FILENO, NativeMessaging.frame(Data(line))) { exit(0) }
         }
+        // What's left is copied once per read, not once per line.
+        if start != buffer.startIndex { buffer = Data(buffer[start...]) }
     }
 }
 
@@ -70,7 +73,9 @@ while true {
     let n = read(STDIN_FILENO, &chunk, chunk.count)
     if n <= 0 { exit(0) }
     buffer.append(contentsOf: chunk[0..<n])
-    for message in NativeMessaging.unframe(&buffer) {
+    // A corrupt length would grow the buffer without end: stop instead.
+    guard let messages = try? NativeMessaging.unframe(&buffer) else { exit(1) }
+    for message in messages {
         // One line each: the extension's JSON never holds a raw newline.
         if !writeAll(visor, message + Data([0x0A])) { exit(0) }
     }

@@ -26,6 +26,31 @@ struct TokenSourcesTests {
         #expect(days["2026-11-02"]?["Codex CLI|gpt-5-5"] == TokenCount(input: 100, output: 30, cacheRead: 1900))
     }
 
+    /// Read in pieces as the rollout grows, the totals match one read of the whole file.
+    @Test func codexReadsOnFromWhereItStopped() {
+        let lines = [
+            #"{"timestamp":"2026-11-01T10:00:00Z","type":"turn_context","payload":{"model":"gpt-5.5"}}"#,
+            #"{"timestamp":"2026-11-01T10:00:05Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":600,"output_tokens":50}}}}"#,
+            #"{"timestamp":"2026-11-01T10:02:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3000,"cached_input_tokens":2500,"output_tokens":80}}}}"#,
+        ].map { $0 + "\n" }.joined()
+        let data = Data(lines.utf8)
+        var reader = TokenLedger.CodexReader(calendar: calendar)
+        let cut = data.firstIndex(of: 0x0A)! + 40  // part way into the second line
+        reader.read(data[..<cut])
+        #expect(reader.offset == UInt64(data.firstIndex(of: 0x0A)! + 1), "a half-written line waits")
+        reader.read(data[Int(reader.offset)...])
+        #expect(reader.offset == UInt64(data.count))
+        #expect(reader.days == TokenLedger.daily(codex: data, calendar: calendar))
+        #expect(reader.days["2026-11-01"]?["Codex CLI|gpt-5-5"] == TokenCount(input: 500, output: 80, cacheRead: 2500))
+    }
+
+    /// sqlite's hex() back to bytes, either case; anything else is refused.
+    @Test func hexToBytes() {
+        #expect(Data(hex: "0A1fFF") == Data([0x0A, 0x1F, 0xFF]))
+        #expect(Data(hex: "") == Data())
+        #expect(Data(hex: "0G") == nil)
+    }
+
     /// A running total that drops is a new count: the last response counts on its own.
     /// One that dips a little is a stale snapshot and is skipped.
     @Test func codexHandlesResetsAndStaleSnapshots() {

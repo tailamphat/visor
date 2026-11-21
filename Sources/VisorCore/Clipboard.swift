@@ -148,11 +148,7 @@ public struct ClipHistory: Codable, Equatable, Sendable {
             case ...0: title = "Today"
             case 1: title = "Yesterday"
             default:
-                let formatter = DateFormatter()
-                formatter.calendar = calendar
-                formatter.timeZone = calendar.timeZone
-                formatter.setLocalizedDateFormatFromTemplate("EEEEdMMM")
-                title = formatter.string(from: day)
+                title = DateTemplates.formatter("EEEEdMMM", localized: true, calendar: calendar).string(from: day)
             }
             if groups.last?.title == title { groups[groups.count - 1].items.append(item) } else { groups.append((title, [item])) }
         }

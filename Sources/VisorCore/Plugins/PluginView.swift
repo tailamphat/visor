@@ -199,11 +199,5 @@ extension PluginRow {
         return url
     }
 
-    static func parseDate(_ text: String) -> Date? {
-        let plain = ISO8601DateFormatter()
-        if let date = plain.date(from: text) { return date }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: text)
-    }
+    static func parseDate(_ text: String) -> Date? { ISODate.parse(text) }
 }

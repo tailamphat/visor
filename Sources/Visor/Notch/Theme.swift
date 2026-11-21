@@ -24,7 +24,6 @@ enum Theme {
     static let warning = Color(hex: 0xFAB219)
     /// An agent asking you something: blue, apart from an approval's amber.
     static let question = Color(hex: 0x5AA2F0)
-    static let serious = Color(hex: 0xEC835A)
     static let critical = Color(hex: 0xD03B3B)
 
     static let spring = Animation.spring(response: 0.28, dampingFraction: 0.86)
@@ -65,4 +64,21 @@ struct NotchShape: Shape {
         p.closeSubpath()
         return p
     }
+}
+
+/// What each agent looks like: its mark and colour.
+enum AgentStyle {
+    /// Bright, for marks on black.
+    static func mark(_ agent: String) -> NSColor {
+        switch agent {
+        case "Copilot CLI": return NSColor(hex: 0xA78BFA)
+        case "Antigravity": return NSColor(hex: 0x3186FF)
+        case "OpenCode": return NSColor(hex: 0xEDEDED)
+        case "Codex CLI": return NSColor(hex: 0x10A37F)
+        case "Gemini CLI": return NSColor(hex: 0xE879F9)
+        default: return NSColor(hex: 0xD97757)
+        }
+    }
+    /// The tile behind the mark in lists.
+    static let tile = Color.white.opacity(0.08)
 }

@@ -37,6 +37,14 @@ struct TurnStatsTests {
         #expect(turn.tests == .failed("pytest -q"))
     }
 
+    /// A long run is judged by its summary at the end.
+    @Test func longOutputUsesTheSummary() {
+        let noise = String(repeating: "compiling module\n", count: 20_000)
+        #expect(TurnStats.outcome(of: noise + "Tests: 12 passed, 12 total") == true)
+        #expect(TurnStats.outcome(of: noise + "2 failed, 10 passed") == false)
+        #expect(TurnStats.outcome(of: noise) == nil)
+    }
+
     /// Only test commands count as tests.
     @Test func recognisesTestCommands() {
         for command in ["npm test", "npm run test", "pnpm test", "yarn test", "pytest", "python -m pytest -q", "go test ./...", "cargo test",

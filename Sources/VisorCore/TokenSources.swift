@@ -11,10 +11,34 @@ extension TokenLedger {
     /// a lot is a new count, and its last response counts on its own. Cached
     /// input is part of input, and reasoning part of output.
     public static func daily(codex data: Data, calendar: Calendar = .current) -> [String: [String: TokenCount]] {
-        var out: [String: [String: TokenCount]] = [:]
-        var model = "codex"
-        var previous: CodexTotals?
-        forEachLine(data) { object in
+        var reader = CodexReader(calendar: calendar)
+        reader.read(data.last == 0x0A ? data : data + [0x0A])
+        return reader.days
+    }
+
+    /// Reads a Codex rollout a piece at a time: rollouts only grow, so each
+    /// read takes just the lines added since the last one, carrying the model
+    /// and the running totals across reads.
+    public struct CodexReader: Sendable {
+        public private(set) var days: [String: [String: TokenCount]] = [:]
+        /// Bytes consumed so far (complete lines only).
+        public private(set) var offset: UInt64 = 0
+        private var model = "codex"
+        private var previous: CodexTotals?
+        private let calendar: Calendar
+
+        public init(calendar: Calendar = .current) {
+            self.calendar = calendar
+        }
+
+        /// Reads the complete lines of `data`, which starts at `offset`; a half-written last line waits.
+        public mutating func read(_ data: Data) {
+            let end = data.last == 0x0A ? data.endIndex : (data.lastIndex(of: 0x0A).map { $0 + 1 } ?? data.startIndex)
+            offset += UInt64(end - data.startIndex)
+            forEachLine(data[data.startIndex..<end]) { take($0) }
+        }
+
+        private mutating func take(_ object: [String: Any]) {
             guard let payload = object["payload"] as? [String: Any] else { return }
             if object["type"] as? String == "turn_context", let name = payload["model"] as? String, !name.isEmpty {
                 model = name
@@ -46,12 +70,11 @@ extension TokenLedger {
             guard let delta, delta.sum > 0 else { return }
             let cached = min(delta.cached, delta.input)
             let count = TokenCount(input: delta.input - cached, output: delta.output, cacheRead: cached)
-            add(&out, dayKey(stamp, calendar: calendar), key("Codex CLI", modelName(model)), count)
+            add(&days, dayKey(stamp, calendar: calendar), key("Codex CLI", modelName(model)), count)
         }
-        return out
     }
 
-    struct CodexTotals {
+    struct CodexTotals: Sendable {
         var input = 0, cached = 0, output = 0
 
         init(input: Int = 0, cached: Int = 0, output: Int = 0) {
@@ -206,5 +229,25 @@ enum Protobuf {
             }
         }
         return out
+    }
+}
+
+extension Data {
+    /// Bytes from sqlite's hex(): "0A1F..." -> [0x0A, 0x1F, ...].
+    public init?(hex: String) {
+        var bytes = [UInt8]()
+        bytes.reserveCapacity(hex.utf8.count / 2)
+        var high: UInt8?
+        for c in hex.utf8 {
+            let v: UInt8
+            switch c {
+            case 48...57: v = c - 48
+            case 65...70: v = c - 55
+            case 97...102: v = c - 87
+            default: return nil
+            }
+            if let h = high { bytes.append(h << 4 | v); high = nil } else { high = v }
+        }
+        self.init(bytes)
     }
 }

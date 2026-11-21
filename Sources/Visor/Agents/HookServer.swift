@@ -36,7 +36,7 @@ final class HookServer: @unchecked Sendable {
     #endif
 
     private let queue = DispatchQueue(label: "visor.hooks")
-    private var listener: DispatchSourceRead?
+    private var listener: UnixSocketListener?
     /// Open PermissionRequest connections by approval id. Touched on `queue` only.
     private var pending: [UUID: Held] = [:]
     private struct Held {
@@ -60,45 +60,7 @@ final class HookServer: @unchecked Sendable {
     var onApprovalGone: (@MainActor (UUID, LetGo) -> Void)?
 
     func start() throws {
-        try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true,
-                                                attributes: [.posixPermissions: 0o700])
-        let path = Self.socketPath
-        unlink(path)
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let bytes = Array(path.utf8CString)
-        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw POSIXError(.ENAMETOOLONG) }
-        withUnsafeMutableBytes(of: &address.sun_path) { raw in
-            bytes.withUnsafeBytes { raw.copyMemory(from: $0) }
-        }
-        let bound = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-        guard bound == 0, chmod(path, 0o600) == 0, listen(fd, SOMAXCONN) == 0 else {
-            close(fd)
-            throw POSIXError(.init(rawValue: errno) ?? .EIO)
-        }
-        _ = fcntl(fd, F_SETFL, O_NONBLOCK)
-        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
-        source.setEventHandler { [weak self] in self?.acceptAll(fd) }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        listener = source
-    }
-
-    private func acceptAll(_ fd: Int32) {
-        while true {
-            let client = accept(fd, nil, nil)
-            guard client >= 0 else { return }
-            var on: Int32 = 1
-            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-            _ = fcntl(client, F_SETFL, O_NONBLOCK)
-            read(client)
-        }
+        listener = try UnixSocketListener(path: Self.socketPath, queue: queue) { [weak self] in self?.read($0) }
     }
 
     /// Reads one line, then hands it off.

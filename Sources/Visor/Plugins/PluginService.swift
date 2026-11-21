@@ -169,8 +169,8 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
                 let store = try? Data(contentsOf: storeURL)
                 let plugin = try LuaPlugin(manifest: manifest, source: source, host: self, store: store, settings: settings)
                 self.plugin = plugin
-                mainUpdate { $0.busy = true }
-                defer { mainUpdate { $0.busy = false } }
+                let done = showBusyIfSlow()
+                defer { done() }
                 try plugin.start()
                 for timer in plugin.timers { schedule(timer) }
             } catch {
@@ -195,9 +195,9 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         source.schedule(deadline: .now() + interval, repeating: interval, leeway: .milliseconds(Int(timer.interval * 100)))
         source.setEventHandler { [weak self] in
             guard let self, let plugin = self.plugin else { return }
-            self.mainUpdate { $0.busy = true }
+            let done = self.showBusyIfSlow()
             do { try plugin.fire(timer.id) } catch { self.failed("\(error)") }
-            self.mainUpdate { $0.busy = false }
+            done()
         }
         source.resume()
         timers.append(source)
@@ -212,6 +212,20 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
     }
 
     private var storeURL: URL { PluginService.dataFolder.appendingPathComponent("\(manifest.id).json") }
+
+    /// Shows the spinner only for a run that takes a while: a quick tick that
+    /// flipped it on and off would redraw the notch twice for nothing.
+    /// Call the returned closure when the run ends.
+    private func showBusyIfSlow() -> () -> Void {
+        let id = manifest.id
+        let show = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.service?.update(id) { $0.busy = true } } }
+        let start = DispatchTime.now()
+        DispatchQueue.main.asyncAfter(deadline: start + 0.3, execute: show)
+        return { [self] in
+            show.cancel()
+            if DispatchTime.now() >= start + 0.3 { mainUpdate { $0.busy = false } }
+        }
+    }
 
     private func mainUpdate(_ change: @escaping (inout PluginInfo) -> Void) {
         let id = manifest.id
@@ -248,18 +262,8 @@ final class PluginRunner: PluginHost, @unchecked Sendable {
         let key = "\(name)|\(host ?? "")"
         if let hit = secrets[key], Date().timeIntervalSince(hit.read) < 1800 { return hit.value }
         guard let secret = manifest.secrets[name], let words = PluginSecrets.command(secret.command, host: host),
-              let tool = ToolLocator.candidates(words[0], home: FileManager.default.homeDirectoryForCurrentUser.path)
-                .first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: tool)
-        process.arguments = Array(words.dropFirst())
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        let value = process.terminationStatus == 0 ? String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) : ""
+              let tool = Shell.which(words[0]), let output = Shell.run(tool, Array(words.dropFirst())) else { return nil }
+        let value = output.ok ? output.text.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         secrets[key] = (value.isEmpty ? nil : value, Date())
         return value.isEmpty ? nil : value
     }
