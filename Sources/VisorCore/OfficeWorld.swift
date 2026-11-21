@@ -33,9 +33,9 @@ public enum OfficeCast {
 }
 
 extension OfficeScene {
-    /// The film worlds' break is a game table (holochess, poker), not a sofa:
-    /// whoever's resting stands around it, left, right, then in front, facing
-    /// you. Past three they share the front spot. Everyone else stays put.
+    /// The break corner is a game table (ping-pong, holochess, poker), not a
+    /// sofa: whoever's resting stands around it, left, right, then in front,
+    /// facing you. Past three they share the front spot. Everyone else stays put.
     public func aroundTheTable() -> OfficeScene {
         let x = OfficeLayout.sofaX, t = layout.stationTop
         let spots = [OfficePoint(x: x - 15, y: t + 15), OfficePoint(x: x + 14, y: t + 15), OfficePoint(x: x, y: t + 24)]

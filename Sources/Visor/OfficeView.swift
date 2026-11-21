@@ -24,6 +24,7 @@ struct OfficeView: View {
                 summary(scene)
                 Spacer(minLength: 8)
                 worldMenu
+                AwakeCup(model: model).padding(.trailing, 6)
                 AgentsViewSwitch(model: model)
             }
             .frame(height: Self.barHeight)
@@ -83,7 +84,8 @@ final class OfficeLayerView: NSView {
     private var world: OfficeWorld = .studio
     private var sessions: [String: AgentSession] = [:]
     private let room = CALayer()
-    private let sofaFront = CALayer()
+    /// The break corner's game, rebuilt only when who plays (or the room) changes.
+    private var game: (key: String, layers: [CALayer])?
     /// The web station's hologram: two rings turning opposite ways.
     private let rings = [CALayer(), CALayer()]
     private var labels: [CALayer] = []
@@ -105,6 +107,9 @@ final class OfficeLayerView: NSView {
         /// How full its context is, a bar over its head like a health bar.
         let health = CALayer()
         let healthFill = CALayer()
+        /// Its running subagents: small copies of it at its side, by helper id; and "+n" past three.
+        var helpers: [String: CALayer] = [:]
+        let moreHelpers = CATextLayer()
         var agent: OfficeAgent
         let look: PixelPerson.Look
         init(_ agent: OfficeAgent, look: PixelPerson.Look) {
@@ -117,7 +122,7 @@ final class OfficeLayerView: NSView {
         super.init(frame: frame)
         layer = CALayer()
         wantsLayer = true
-        for layer in [room, sofaFront] {
+        for layer in [room] {
             layer.magnificationFilter = .nearest
             layer.anchorPoint = .zero
             self.layer?.addSublayer(layer)
@@ -149,8 +154,8 @@ final class OfficeLayerView: NSView {
     // MARK: Scene
 
     func show(_ placed: OfficeScene, sessions list: [AgentSession], world nextWorld: OfficeWorld) {
-        // The film worlds play at a game table on break instead of sitting on the sofa.
-        let next = nextWorld == .studio ? placed : placed.aroundTheTable()
+        // Whoever's on break plays at the game table instead of sitting on a sofa.
+        let next = placed.aroundTheTable()
         sessions = Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         if nextWorld != world {
             // Another world: a new room and a new cast, placed at once.
@@ -160,16 +165,19 @@ final class OfficeLayerView: NSView {
             people = [:]
         }
         let old = scene
-        guard next != old else { return }
+        guard next != old else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            people.values.forEach(showHelpers)
+            CATransaction.commit()
+            return
+        }
         scene = next
         let layout = next.layout
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         room.frame = CGRect(x: 0, y: 0, width: OfficeLayout.width * s, height: layout.height * s)
         room.contents = OfficeRoom.image(next, world: world)
-        sofaFront.frame = room.frame
-        sofaFront.contents = world == .studio ? OfficeRoom.sofaFront(layout) : nil
-        sofaFront.zPosition = CGFloat(layout.stationTop + 22.5)
         for ring in rings {
             // The studio's hologram; the film worlds draw their own web station.
             ring.isHidden = world != .studio
@@ -207,10 +215,36 @@ final class OfficeLayerView: NSView {
         for person in people.values {
             person.tag.isHidden = !showsName(person.agent) && hovered != person.agent.id
             showHealth(person)
+            showHelpers(person)
         }
         tickClocks()
+        showGame(next)
         CATransaction.commit()
         if let hovered, let person = people[hovered] { showTip(person) } else { hideTip() }
+    }
+
+    /// Starts the break game for whoever's at the table: darts alone, the world's
+    /// game together, with a hop for each round's winner.
+    private func showGame(_ scene: OfficeScene) {
+        let players = scene.agents.filter { $0.spot == .sofa }.prefix(OfficeLayout.sofaSeats)
+        let kind = BreakGame.pick(world: world, players: players.count)
+        let key = "\(world)-\(kind?.rawValue ?? "none")-\(players.map(\.id))-\(scene.layout.height)"
+        guard key != game?.key else { return }
+        game?.layers.forEach { $0.removeFromSuperlayer() }
+        people.values.forEach { $0.sprite.removeAnimation(forKey: "hop") }
+        game = nil
+        guard let kind else { return }
+        // A moment for them to walk over before the first round.
+        let begin = CACurrentMediaTime() + 1.5
+        let layers = BreakProps.layers(kind, players: players.count, layout: scene.layout, scale: s,
+                                       textScale: window?.backingScaleFactor ?? 2, begin: begin)
+        layers.forEach { layer?.addSublayer($0) }
+        for (i, agent) in players.enumerated() {
+            if let hop = BreakProps.hop(kind, player: i, players: players.count, scale: s, begin: begin) {
+                people[agent.id]?.sprite.add(hop, forKey: "hop")
+            }
+        }
+        game = (key, layers)
     }
 
     /// A film world's character for a new session: its own, unless someone in
@@ -295,6 +329,111 @@ final class OfficeLayerView: NSView {
         body.addSublayer(person.health)
     }
 
+    /// Helpers shown beside a parent; more running ones show as "+n".
+    static let helperSeats = 3
+    /// Where each helper stands, in room pixels right of its parent's feet, and their size.
+    private static let helperOffsets: [CGFloat] = [8, 13, 18]
+    private static let helperScale: CGFloat = 0.6
+
+    /// Small copies of the person for its running subagents, at its side and
+    /// moving with it. A helper that finishes hands over a sheet of paper and
+    /// walks off to the right as it fades.
+    private func showHelpers(_ person: Person) {
+        let helpers = sessions[person.agent.id]?.helpers ?? []
+        let running = helpers.filter { !$0.done }
+        let shown = Array(running.prefix(Self.helperSeats))
+        let shownIDs = Set(shown.map(\.id))
+        for (id, layer) in person.helpers where !shownIDs.contains(id) {
+            person.helpers[id] = nil
+            if helpers.contains(where: { $0.id == id && $0.done }) { leave(layer, from: person) } else { layer.removeFromSuperlayer() }
+        }
+        let body = person.body
+        let size = CGSize(width: PixelPerson.width * s * Self.helperScale, height: PixelPerson.height * s * Self.helperScale)
+        let frames = PixelPerson.frames(person.look, pose: .typing, front: !person.agent.facesUp)
+        for (i, helper) in shown.enumerated() {
+            let layer = person.helpers[helper.id] ?? {
+                let layer = CALayer()
+                layer.magnificationFilter = .nearest
+                layer.contents = frames.first
+                if frames.count > 1 {
+                    let loop = CAKeyframeAnimation(keyPath: "contents")
+                    loop.values = frames
+                    loop.calculationMode = .discrete
+                    loop.duration = 0.4 + Double(i) * 0.05
+                    loop.repeatCount = .infinity
+                    loop.preferredFrameRateRange = CAFrameRateRange(minimum: 2, maximum: 8, preferred: 6)
+                    layer.add(loop, forKey: "loop")
+                }
+                layer.zPosition = -1
+                body.insertSublayer(layer, at: 0)
+                person.helpers[helper.id] = layer
+                return layer
+            }()
+            layer.frame = CGRect(x: body.bounds.midX + Self.helperOffsets[i] * s - size.width / 2, y: 0, width: size.width, height: size.height)
+        }
+        let more = running.count - shown.count
+        let tag = person.moreHelpers
+        if more > 0 {
+            if tag.superlayer == nil {
+                tag.font = NSFont.systemFont(ofSize: 7.5, weight: .bold)
+                tag.fontSize = 7.5
+                tag.alignmentMode = .center
+                tag.foregroundColor = NSColor(hex: 0xF2B49C).cgColor
+                tag.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
+                tag.cornerRadius = 4
+                tag.contentsScale = window?.backingScaleFactor ?? 2
+                body.addSublayer(tag)
+            }
+            tag.string = "+\(more)"
+            tag.frame = CGRect(x: body.bounds.midX + (Self.helperOffsets.last! + 8) * s - 9, y: size.height - 2, width: 18, height: 10)
+        } else {
+            tag.removeFromSuperlayer()
+        }
+    }
+
+    /// A finished helper: a sheet of paper flies to its parent, then it walks off and fades.
+    private func leave(_ layer: CALayer, from person: Person) {
+        let body = person.body
+        let paper = CALayer()
+        paper.backgroundColor = NSColor(hex: 0xF2EBD6).cgColor
+        paper.cornerRadius = 1
+        paper.bounds = CGRect(x: 0, y: 0, width: 4 * s / 2, height: 3 * s / 2)
+        paper.position = CGPoint(x: layer.frame.midX, y: layer.frame.midY)
+        paper.zPosition = 2
+        body.addSublayer(paper)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            paper.removeFromSuperlayer()
+            layer.removeFromSuperlayer()
+        }
+        let hand = CABasicAnimation(keyPath: "position")
+        hand.toValue = NSValue(point: CGPoint(x: body.bounds.midX + 2 * s, y: body.bounds.midY))
+        hand.duration = 0.45
+        hand.fillMode = .forwards
+        hand.isRemovedOnCompletion = false
+        paper.add(hand, forKey: "hand")
+        let fadePaper = CABasicAnimation(keyPath: "opacity")
+        fadePaper.fromValue = 1
+        fadePaper.toValue = 0
+        fadePaper.beginTime = CACurrentMediaTime() + 0.45
+        fadePaper.duration = 0.2
+        fadePaper.fillMode = .both
+        fadePaper.isRemovedOnCompletion = false
+        paper.add(fadePaper, forKey: "fade")
+        let away = CABasicAnimation(keyPath: "position.x")
+        away.byValue = 20 * s
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.toValue = 0
+        let group = CAAnimationGroup()
+        group.animations = [away, fade]
+        group.beginTime = CACurrentMediaTime() + 0.35
+        group.duration = 0.9
+        group.fillMode = .both
+        group.isRemovedOnCompletion = false
+        layer.add(group, forKey: "leave")
+        CATransaction.commit()
+    }
+
     /// Puts a person where it belongs and starts what it does there.
     private func settle(_ person: Person, in layout: OfficeLayout) {
         person.body.removeAnimation(forKey: "walk")
@@ -341,7 +480,8 @@ final class OfficeLayerView: NSView {
     private func startActivity(_ person: Person, after delay: CFTimeInterval) {
         let agent = person.agent
         var (pose, period) = PixelPerson.pose(for: agent)
-        if world != .studio && agent.spot == .sofa { (pose, period) = (.playing, 4) }
+        // At the game table: cards or pieces in hand, unless it's darts alone.
+        if agent.spot == .sofa && (scene?.agents.filter { $0.spot == .sofa }.count ?? 0) > 1 { (pose, period) = (.playing, 4) }
         let frames = PixelPerson.frames(person.look, pose: pose, front: !agent.facesUp)
         let sprite = person.sprite
         sprite.contents = frames.first
@@ -1000,11 +1140,13 @@ extension PixelPerson {
 enum OfficeRoom {
     static let detail = 2
 
-    static func image(_ scene: OfficeScene, world: OfficeWorld) -> CGImage? {
+    /// `props`: the break game's pieces and cards drawn still, for a thumbnail;
+    /// the office animates its own (`BreakProps`).
+    static func image(_ scene: OfficeScene, world: OfficeWorld, props: Bool = false) -> CGImage? {
         switch world {
         case .studio: return studio(scene)
-        case .galaxy: return FilmRoom.galaxy(scene)
-        case .starfleet: return FilmRoom.starfleet(scene)
+        case .galaxy: return FilmRoom.galaxy(scene, props: props)
+        case .starfleet: return FilmRoom.starfleet(scene, props: props)
         }
     }
 
@@ -1069,9 +1211,15 @@ enum OfficeRoom {
         p.clay(OfficeLayout.webX - 8, t + 15, 16, 4, radius: 2, top: 0x3A302B, bottom: 0x241D1A)
         p.fill(OfficeLayout.webX - 5, t + 15, 10, 1, NSColor(hex: 0x5EF2FF).withAlphaComponent(0.8))
         p.ellipse(OfficeLayout.webX - 1.5, t + 7.5, 3, 3, NSColor(hex: 0xE6FDFF))
-        // Sofa back
-        p.shadow(168 + o, t + 6, 40, 9, radius: 4)
-        p.clay(168 + o, t + 6, 40, 9, radius: 4, top: 0xB06A54, bottom: 0x7A4436)
+        // Break: a ping-pong table, its net across the middle.
+        let brk = OfficeLayout.sofaX
+        p.ellipse(brk - 14, t + 11, 28, 5, NSColor.black.withAlphaComponent(0.3))
+        for lx in [brk - 10, brk + 8] { p.fill(lx, t + 12, 2, 4, 0x1E1A18) }
+        p.round(brk - 12, t + 3, 24, 10, radius: 1, NSColor(hex: 0x2E6B4F))
+        p.fill(brk - 12, t + 3, 24, 0.6, NSColor(hex: 0xE7EFE9))
+        p.fill(brk - 12, t + 12.4, 24, 0.6, NSColor(hex: 0xE7EFE9))
+        p.fill(brk - 12, t + 7.7, 24, 0.5, NSColor(hex: 0xE7EFE9).withAlphaComponent(0.5))
+        p.fill(brk - 0.5, t + 1.5, 1, 12, NSColor(hex: 0xF0F0F0).withAlphaComponent(0.8))
         return p.image
     }
 
@@ -1121,16 +1269,6 @@ enum OfficeRoom {
         p.clay(x + 1, y + 6, 7, 5, radius: 2, top: 0xB07850, bottom: 0x7A4E31)
         p.round(x, y + 1, 9, 6, radius: 3, NSColor(hex: 0x2F7A3E))
         p.round(x + 2, y - 1, 5, 4, radius: 2, NSColor(hex: 0x3E9A50))
-    }
-
-    /// The sofa's seat and arms, drawn over whoever sits on it.
-    static func sofaFront(_ layout: OfficeLayout) -> CGImage? {
-        guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: detail) else { return nil }
-        let t = layout.stationTop, o = (OfficeLayout.width - 212) / 2
-        p.clay(166 + o, t + 17, 44, 7, radius: 3, top: 0x9A5A48, bottom: 0x6A3E30)
-        p.clay(166 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
-        p.clay(206 + o, t + 13, 4, 11, radius: 2, top: 0x8A4E3E, bottom: 0x5E3628)
-        return p.image
     }
 }
 

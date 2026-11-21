@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var clipboard = ClipboardService(model: model)
     private let intro = IntroController()
     private lazy var status = StatusService(model: model)
+    private lazy var awake = AwakeService(model: model)
     /// Two sessions changing the same file within ten minutes.
     private var clashWatch = ClashWatch()
     private var clashExpiry: DispatchWorkItem?
@@ -35,10 +36,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// last-event time, and redrawing for those would be wasted work.
     private var agents = AgentBoard()
 
+    private var lastPublish = Date.distantPast
+    private var publishPending = false
+
+    /// At most a few redraws a second: many subagents calling tools at once
+    /// would otherwise redraw the notch on every event.
     private func publishAgents() {
-        guard agents.differsVisibly(from: model.board) else { return }
+        guard agents.differsVisibly(from: model.board), !publishPending else { return }
+        let wait = 0.25 - Date().timeIntervalSince(lastPublish)
+        if wait > 0 {
+            publishPending = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+                self?.publishPending = false
+                self?.publishAgents()
+            }
+            return
+        }
+        lastPublish = Date()
         model.board = agents
         saveAgentsSoon()
+        awake.update()
     }
 
     // MARK: Sessions across restarts
@@ -113,6 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        if let folder = ProcessInfo.processInfo.environment["VISOR_EXPORT_CAST"] { FilmCast.export(to: folder); exit(0) }
+        #endif
         _ = updater  // starts the daily update check
         model.pluginActions = plugins
         plugins.onPeek = { [weak self] id, news in
@@ -139,6 +159,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.viewDiff = { [weak self] turn in self?.openDiff(turn) }
         status.onNew = { [weak self] agent, incident in self?.show(.status(agent: agent, incident), for: 6) }
         status.start()
+        model.awakeChanged = { [weak self] in self?.awake.update() }
+        awake.start()
         model.dismissClash = { [weak self] clash in
             self?.clashWatch.dismiss(clash)
             self?.refreshClashes()
@@ -399,7 +421,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             clipboard.delete(first.id)
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
         // {"event":"_incident","raw":{"agent":"Claude Code","title":"…","major":true}} fakes a status-page incident; no title clears it.
         if message.event == "_incident", let agent = message.payload["agent"] as? String {
             if let title = message.payload["title"] as? String {
@@ -423,6 +445,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let tab = tab.flatMap(Tab.init(rawValue:)) { model.tab = tab; notch.expand() } else { model.expanded = false }
             if message.payload["keyboard"] as? Bool == true { model.focusClipSearch?() }
             model.showAccounts = message.payload["accounts"] as? Bool == true
+            if let helpers = message.payload["helpers"] as? String { model.helpersOpen = helpers.isEmpty ? nil : helpers }
             if let office = message.payload["office"] as? Bool { model.agentsOffice = office }
             if let world = message.payload["world"] as? String { model.officeWorld = OfficeWorld(saved: world) }
             if let picker = message.payload["worldPicker"] as? Bool { model.officePicker = picker }
@@ -627,6 +650,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         automatic.target = self
         automatic.state = updater.updater.automaticallyDownloadsUpdates ? .on : .off
         menu.addItem(.separator())
+        // Keep awake: the cup in the Agents tab sets Auto, On or Off; these two refine it.
+        menu.addItem(.sectionHeader(title: "Keep Awake"))
+        addToggle(to: menu, "Keep the Screen On Too", on: model.awakeScreen, #selector(toggleAwakeScreen))
+        addToggle(to: menu, "Only Above 20% Battery", on: model.awakeBatteryLimit, #selector(toggleAwakeBattery))
+        menu.addItem(.separator())
         let claude = HookInstaller.isInstalled
         let antigravity = HookInstaller.antigravityInstalled
         model.hooksInstalled = claude
@@ -713,6 +741,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         updater.checkForUpdates(nil)
     }
+
+    @objc private func toggleAwakeScreen() { model.awakeScreen.toggle() }
+    @objc private func toggleAwakeBattery() { model.awakeBatteryLimit.toggle() }
 
     @objc private func toggleAutomaticUpdates() {
         updater.updater.automaticallyDownloadsUpdates.toggle()

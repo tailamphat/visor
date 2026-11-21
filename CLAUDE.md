@@ -34,7 +34,7 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on their own socket, `~/Library/Application Support/Visor/hook-debug.sock`, never the real `hook.sock`, so a test build can't receive (or answer) real agent requests: while it runs, agents ask in their own terminal. Never send `_decide` to the real socket. The debug socket also accepts extra messages:
 
-- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office
+- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"helpers":"<session id>"` to open a session's subagent list, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_incident","raw":{"agent":"Claude Code","title":"Elevated errors","major":true}}` fakes a status-page incident (no `title` clears it)
 - `{"event":"_intro"}` replays the first-launch intro; `VISOR_INTRO=1` plays it at launch (`0` never), otherwise it plays once (`introShown` in defaults)

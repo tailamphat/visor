@@ -4,7 +4,8 @@ import Foundation
 /// hook file. Other apps' and the user's own hooks are always kept.
 public enum HookSettings {
     public static let claudeEvents = ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
-                                      "PostToolUseFailure", "PermissionRequest", "Notification", "Stop"]
+                                      "PostToolUseFailure", "PermissionRequest", "Notification", "Stop",
+                                      "SubagentStart", "SubagentStop"]
     public static let copilotEvents = ["sessionStart", "sessionEnd", "userPromptSubmitted", "preToolUse", "postToolUse",
                                        "postToolUseFailure", "agentStop", "notification", "permissionRequest"]
     public static let antigravityEvents = ["SessionStart", "PreInvocation", "PostInvocation",

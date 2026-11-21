@@ -6,7 +6,7 @@ import VisorCore
 /// Starfleet. The terminal is the same rack everywhere; the other stations
 /// dress for the film. Soft clay, dim colours, drawn at 2x like the studio.
 enum FilmRoom {
-    static func galaxy(_ scene: OfficeScene) -> CGImage? {
+    static func galaxy(_ scene: OfficeScene, props: Bool) -> CGImage? {
         let layout = scene.layout
         guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: OfficeRoom.detail) else { return nil }
         let w = OfficeLayout.width, h = layout.height
@@ -75,13 +75,13 @@ enum FilmRoom {
             p.ellipse(brk + cos(a) * 7 - 1.2, t + 7.2 + sin(a) * 2.4 - 0.5, 2.4, 1, NSColor(hex: k % 2 == 0 ? 0x2E2720 : 0x7A6248))
         }
         p.glow(brk, t + 3, radius: 10, NSColor(hex: 0x6EC8F5).withAlphaComponent(0.35))
-        for (mx, color) in [(brk - 4, 0x7CD0F5), (brk + 3, 0x9FE0A8), (brk, 0xF2B0D8)] {
+        for (mx, color) in [(brk - 4, 0x7CD0F5), (brk + 3, 0x9FE0A8), (brk, 0xF2B0D8)] where props {
             p.ellipse(mx - 1.2, t + 1.5, 2.4, 3.5, NSColor(hex: UInt32(color)).withAlphaComponent(0.85))
         }
         return p.image
     }
 
-    static func starfleet(_ scene: OfficeScene) -> CGImage? {
+    static func starfleet(_ scene: OfficeScene, props: Bool) -> CGImage? {
         let layout = scene.layout
         guard let p = Pixels(width: Int(OfficeLayout.width), height: Int(layout.height), scale: OfficeRoom.detail) else { return nil }
         let w = OfficeLayout.width, h = layout.height
@@ -151,10 +151,10 @@ enum FilmRoom {
         p.clay(brk - 3, t + 8, 6, 7, radius: 1.5, top: 0x3A3D52, bottom: 0x2B2D3E)
         p.ellipse(brk - 13, t + 2, 26, 10, NSColor(hex: 0x5A4030))
         p.ellipse(brk - 11.5, t + 2.6, 23, 8.4, NSColor(hex: 0x2E7A4E))
-        for (cx, cy) in [(brk - 7, t + 4.5), (brk - 4, t + 6.5), (brk + 3, t + 5), (brk + 6, t + 6.5)] {
+        for (cx, cy) in [(brk - 7, t + 4.5), (brk - 4, t + 6.5), (brk + 3, t + 5), (brk + 6, t + 6.5)] where props {
             p.fill(cx, cy, 2, 2.6, 0xF4F1EA); p.fill(cx + 0.5, cy + 0.6, 0.8, 0.8, 0xC8463C)
         }
-        for (k, color) in [0xC8463C, 0xE8C46A, 0x5A8FD0].enumerated() {
+        for (k, color) in [0xC8463C, 0xE8C46A, 0x5A8FD0].enumerated() where props {
             for n in 0..<3 { p.ellipse(brk - 1.5 + Double(k) * 1.6, t + 6 - Double(n) * 0.6, 2, 0.9, NSColor(hex: UInt32(color))) }
         }
         return p.image

@@ -68,10 +68,10 @@ enum OfficeThumbnail {
     static func image(_ world: OfficeWorld) -> CGImage? {
         if let hit = cache[world] { return hit }
         let placed = Office.place(sample)
-        let scene = world == .studio ? placed : placed.aroundTheTable()
+        let scene = placed.aroundTheTable()
         let layout = scene.layout
         let scale = 2.0
-        guard let room = OfficeRoom.image(scene, world: world),
+        guard let room = OfficeRoom.image(scene, world: world, props: true),
               let context = CGContext(data: nil, width: Int(OfficeLayout.width * scale), height: Int(layout.height * scale), bitsPerComponent: 8,
                                       bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
@@ -91,13 +91,10 @@ enum OfficeThumbnail {
                 context.draw(screen, in: CGRect(x: agent.screen.x * scale, y: (layout.height - agent.screen.y - 4) * scale, width: 6 * scale, height: 4 * scale))
             }
             var (pose, _) = PixelPerson.pose(for: agent)
-            if world != .studio && agent.spot == .sofa { pose = .playing }
+            if agent.spot == .sofa { pose = .playing }
             guard let sprite = PixelPerson.frames(look, pose: pose, front: !agent.facesUp).first else { continue }
             let w = PixelPerson.width * scale, h = PixelPerson.height * scale
             context.draw(sprite, in: CGRect(x: agent.feet.x * scale - w / 2, y: (layout.height - agent.feet.y) * scale, width: w, height: h))
-        }
-        if world == .studio, let front = OfficeRoom.sofaFront(layout) {
-            context.draw(front, in: CGRect(x: 0, y: 0, width: context.width, height: context.height))
         }
         let image = context.makeImage()
         cache[world] = image

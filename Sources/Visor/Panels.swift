@@ -24,7 +24,7 @@ struct AgentsView: View {
             EmptyState(symbol: "sparkles", title: "No agents running",
                        detail: "Start claude, copilot or agy in a terminal and it shows up here.")
         } else if AgentsDigest(sessions: model.board.sessions).capped && !model.agentsShowAll {
-            digest(AgentsDigest(sessions: model.board.sessions))
+            ScrollView(.vertical, showsIndicators: false) { digest(AgentsDigest(sessions: model.board.sessions)) }
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -37,6 +37,7 @@ struct AgentsView: View {
                                 .foregroundStyle(Theme.textMuted)
                             if group.agent == Self.groups(model.board.sessions).first?.agent {
                                 Spacer(minLength: 8)
+                                AwakeCup(model: model).padding(.trailing, 6)
                                 AgentsViewSwitch(model: model)
                             }
                         }
@@ -46,6 +47,7 @@ struct AgentsView: View {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                             ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
                         }
+                        helpers(in: group.sessions)
                     }
                     if AgentsDigest(sessions: model.board.sessions).capped {
                         foldRow(Text("Show fewer").fontWeight(.semibold).foregroundStyle(Theme.question), dashed: true) {
@@ -61,6 +63,19 @@ struct AgentsView: View {
         }
     }
 
+    /// The open helpers list, under the cards of the group its session is in.
+    @ViewBuilder private func helpers(in sessions: [AgentSession]) -> some View {
+        if let id = model.helpersOpen, let session = sessions.first(where: { $0.id == id }), !session.helpers.isEmpty {
+            HelpersList(session: session)
+        }
+    }
+
+    /// The open helpers list's session, if it's still there and has helpers.
+    static func openHelpers(_ model: AppModel) -> AgentSession? {
+        guard let id = model.helpersOpen else { return nil }
+        return model.board.sessions.first { $0.id == id && !$0.helpers.isEmpty }
+    }
+
     /// Many sessions: whoever needs you, then the busiest, then the most recent, as
     /// cards (at most 8); the rest in one row, and idle ones folded per tool.
     private func digest(_ digest: AgentsDigest) -> some View {
@@ -71,13 +86,15 @@ struct AgentsView: View {
                     .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
                     .foregroundStyle(Theme.textMuted)
                 Spacer(minLength: 8)
-                AgentsViewSwitch(model: model)
+                AwakeCup(model: model).padding(.trailing, 6)
+                                AgentsViewSwitch(model: model)
             }
             .frame(height: 15)
             .padding(.top, 2)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
             }
+            helpers(in: digest.top)
             foldRow(HStack(spacing: 8) {
                 Text("+\(digest.more) more").fontWeight(.semibold).foregroundStyle(Theme.textPrimary)
                 Text(digest.byTool.map { "\($0.count) \($0.agent)" }.joined(separator: " · "))
@@ -255,8 +272,15 @@ struct AgentCard: View {
                     Text("⇄ \(clashWith) too")
                         .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.clash).lineLimit(1)
                 } else {
-                    Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
+                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                        if let model, !session.helpers.isEmpty {
+                            Spacer(minLength: 0)
+                            HelpersButton(session: session, model: model)
+                        }
+                    }
+                    .frame(height: 13)
                 }
                 Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }

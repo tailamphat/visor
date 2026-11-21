@@ -28,7 +28,7 @@ struct OfficeWorldTests {
         #expect(OfficeCast.pick(id: "x", count: 0, taken: []) == 0)
     }
 
-    /// In a film world, whoever's on break stands around the game table instead
+    /// Whoever's on break stands around the game table instead
     /// of sitting in a row: left, right, then in front; everyone else stays put.
     @Test func breakGathersAroundTheTable() {
         func s(_ id: String, _ state: AgentState) -> AgentSession { AgentSession(id: id, agent: "Claude Code", cwd: "/Users/me/\(id)", state: state) }

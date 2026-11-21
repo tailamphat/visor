@@ -114,6 +114,7 @@ struct NotchLayout {
                 }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
+                if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers) + 6 }  // a session's subagents
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             // Nothing playing: a little shorter than the other panels, it's only a message.
@@ -125,7 +126,7 @@ struct NotchLayout {
     }
 
     func showsEars(_ model: AppModel) -> Bool {
-        model.hasActivity || model.isPlaying || model.peek != nil || !model.pluginBadges.isEmpty
+        model.hasActivity || model.isPlaying || model.peek != nil || !model.pluginBadges.isEmpty || model.keepingAwake
     }
 }
 
@@ -268,10 +269,21 @@ struct CollapsedView: View {
                 .padding(.trailing, 5)
                 .help(help)
         } else if model.hasActivity {
-            AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
+            HStack(spacing: 6) {
+                AgentBadge(board: model.board, approvals: Set(model.approvals.map { AgentBoard.agentName($0.provider) }))
+                if model.keepingAwake { awakeSign }
+            }
+        } else if model.keepingAwake && !model.isPlaying {
+            awakeSign
         } else if model.isPlaying {
             Artwork(image: model.artwork, size: 20, corner: 5)
         }
+    }
+
+    /// Visor is holding off sleep: a small filled cup, so you know why the Mac stays awake.
+    private var awakeSign: some View {
+        Image(systemName: "cup.and.saucer.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(AwakeCup.amber)
+            .help("Keeping your Mac awake")
     }
 
     @ViewBuilder private var right: some View {

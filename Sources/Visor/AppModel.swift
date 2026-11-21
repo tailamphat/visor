@@ -82,7 +82,7 @@ final class AppModel {
     // Notch state
     var expanded = false {
         // The turn summary is for the moment it finished; once the notch closes it's gone.
-        didSet { if !expanded && oldValue { summary = nil } }
+        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil } }
     }
     /// A turn that just finished, shown as its summary when the notch opens
     /// during its "done" peek.
@@ -196,6 +196,20 @@ final class AppModel {
     var agentsOffice = UserDefaults.standard.bool(forKey: "agentsOffice") {
         didSet { UserDefaults.standard.set(agentsOffice, forKey: "agentsOffice") }
     }
+    /// Keep awake: Auto (while agents work), On or Off; and its two settings. Remembered.
+    var awakeMode = KeepAwake.Mode(saved: UserDefaults.standard.string(forKey: "awakeMode")) {
+        didSet { UserDefaults.standard.set(awakeMode.rawValue, forKey: "awakeMode"); awakeChanged?() }
+    }
+    /// On by default: with only the Mac awake, the display still sleeps and the screen locks.
+    var awakeScreen = UserDefaults.standard.object(forKey: "awakeScreen") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(awakeScreen, forKey: "awakeScreen"); awakeChanged?() }
+    }
+    var awakeBatteryLimit = UserDefaults.standard.object(forKey: "awakeBatteryLimit") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(awakeBatteryLimit, forKey: "awakeBatteryLimit"); awakeChanged?() }
+    }
+    /// Visor is holding off sleep right now.
+    var keepingAwake = false
+    var awakeChanged: (() -> Void)?
     /// Open incidents on the tools you use, by agent ("Claude Code", "Copilot CLI").
     var incidents: [String: ProviderIncident] = [:]
     /// Sessions changing the same file right now (`ClashWatch`), newest first.
@@ -206,6 +220,8 @@ final class AppModel {
     var agentsNow = Date()
     /// The Agents list shows every session, past the cap of 8 cards.
     var agentsShowAll = false
+    /// The session whose subagents are listed under the cards (its ⑂ button).
+    var helpersOpen: String?
     /// The office's world picker is open over the room.
     var officePicker = false
     /// How the office looks: the night studio or a film world; remembered.
