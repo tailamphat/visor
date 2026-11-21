@@ -72,9 +72,9 @@
   /* The notch, drawn from the app: 460 pt panels, 24 pt corners open. */
   /* Like NotchShape: the frame is the panel's size, flared --f at each top corner into the menu bar,
      so the black body is 2 x --f narrower (460 pt open is a 436 pt body). */
-  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); color: #fff; --f: 6px;
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(calc(-50% + var(--dx, 0px))); color: #fff; --f: 6px;
     width: var(--w, 300px); height: var(--h, 32px);
-    transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), filter .3s;
+    transition: width .42s cubic-bezier(.3,.9,.3,1), height .42s cubic-bezier(.3,.9,.3,1), transform .42s cubic-bezier(.3,.9,.3,1), filter .3s;
     overflow: hidden; z-index: 2; font: 12px/1.35 var(--sf); max-width: calc(100% - 16px); }
   .notch::before { content: ""; position: absolute; inset: 0 var(--f); background: #000; border-radius: 0 0 var(--r, 10px) var(--r, 10px);
     transition: border-radius .3s, left .3s, right .3s; z-index: -1; }
@@ -160,6 +160,72 @@
   .fold.dashed { height: 26px; background: none; border: 1px dashed rgba(255,255,255,.14); color: #8A8980; }
   .fold.dashed em { font-weight: 400; }
   .fold svg { width: 10px; height: 10px; flex: none; }
+  /* A finished turn (TurnSummaryView): the title row, the numbers in a raised box, two pills. */
+  .sum { display: grid; gap: 8px; }
+  .sum-h { display: flex; align-items: center; gap: 7px; height: 16px; white-space: nowrap; }
+  .sum-h .ck { width: 13px; height: 13px; border-radius: 50%; background: #0CA30C; color: #fff; display: grid; place-items: center; font: 800 8px/1 var(--sf); flex: none; }
+  .sum-h b { font: 600 13px var(--sf); }
+  .sum-h span { font-size: 12px; color: #8A8980; }
+  .sum-h svg { margin-left: auto; width: 12px; height: 12px; }
+  .sum-box { padding: 9px 11px; border-radius: 10px; background: #1A1A19; display: grid; gap: 6px; }
+  .sum-figs { display: flex; gap: 16px; align-items: flex-start; white-space: nowrap; }
+  .sum-figs b { display: block; font: 600 13px/16px var(--sf); font-variant-numeric: tabular-nums; }
+  .sum-figs span { display: block; font-size: 10.5px; line-height: 13px; color: #C3C2B7; margin-top: 1px; }
+  .sum-figs .pass b { color: #0CA30C; }
+  .np .sum-figs { flex-wrap: wrap; row-gap: 6px; }
+  .np .sum-h svg { flex: none; }
+  .sum-files { font: 11px/13px ui-monospace, "SF Mono", Menlo, monospace; color: #C3C2B7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sum-btns { display: flex; gap: 6px; }
+  .pill { font: 600 11.5px var(--sf); color: #fff; height: 26px; padding: 0 12px; border-radius: 99px; background: #1A1A19; border: 0; cursor: pointer; }
+  .pill:hover { background: #262624; }
+  .pill.done { color: #7EE0A0; }
+  /* Two agents on one file (ClashBadge, ClashBanner, the cards' outline): orange, never an approval's amber. */
+  .cbadge { width: 15px; height: 15px; border-radius: 4.5px; background: #FF8A3D; color: #2A1200; display: grid; place-items: center; font: 900 9.5px/1 var(--sf); flex: none; }
+  .cban { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px 0 10px; margin-bottom: 6px; border-radius: 9px; background: rgba(255,138,61,.1); box-shadow: inset 0 0 0 1px rgba(255,138,61,.35); font: 11.5px var(--sf); color: #C3C2B7; white-space: nowrap; }
+  .cban .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .cban code { font: 11px ui-monospace, "SF Mono", Menlo, monospace; color: #fff; background: none; border: 0; padding: 0; }
+  .cban button { width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: #8A8980; cursor: pointer; font: 700 10px var(--sf); display: grid; place-items: center; padding: 0; }
+  .cban button:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .a2.hrow { display: flex; align-items: center; gap: 4px; height: 13px; } .a2.hrow > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbtn { flex: none; display: inline-flex; align-items: center; gap: 1px; height: 17px; padding: 0 5px; border: 0; border-radius: 6px; background: #3987E5; color: #fff; font: 700 8.5px/1 -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; cursor: pointer; }
+  .hbtn svg { width: 10px; height: 10px; }
+  .hclosed .hbtn { background: rgba(255,255,255,.08); color: #C3C2B7; }
+  .hl { margin-top: 6px; padding: 6px; border-radius: 10px; background: #0B0B0D; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  .hclosed .hl { display: none; }
+  .hl .hh { height: 16px; padding: 0 6px; display: flex; align-items: center; font-size: 9.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: #8A8980; white-space: nowrap; }
+  .hl .hr { height: 28px; padding: 0 6px; display: flex; align-items: center; gap: 9px; }
+  .hl .hr b { display: block; font-size: 11.5px; line-height: 14px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hl .hr span { display: block; font-size: 10.5px; line-height: 13px; color: #8A8980; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hl .hr > div { min-width: 0; }
+  .hl .hd { flex: none; width: 9px; height: 9px; margin: 0 .5px; border-radius: 50%; background: #7EE0A0; }
+  .hl .hs { flex: none; width: 10px; height: 10px; animation: hspin 1s linear infinite reverse; }
+  @keyframes hspin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .hl .hs { animation: none; } }
+  .acard.clash { box-shadow: inset 0 0 0 1px rgba(255,138,61,.45); }
+  .a2.cw { color: #FF8A3D; font-weight: 500; }
+  .a2.plain, .dismissed .cban, .dismissed .a2.cw { display: none; }
+  .dismissed .a2.plain { display: block; }
+  .dismissed .acard.clash { box-shadow: none; }
+  /* A provider incident under its heading in Usage (IncidentLine): red for major, amber for minor. */
+  .incl { --c: #F06A5A; display: grid; gap: 3px; min-height: 44px; box-sizing: border-box; padding: 6px 10px; margin: 0 0 10px; border-radius: 9px;
+    background: color-mix(in srgb, var(--c) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent); white-space: nowrap; }
+  .incl .r1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .incl .r1 i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+  .incl .r1 b { font: 600 12px var(--sf); overflow: hidden; text-overflow: ellipsis; }
+  .incl .r1 span { margin-left: auto; padding-left: 6px; font-size: 10.5px; color: #8A8980; }
+  .incl .r2 { font-size: 11px; color: #C3C2B7; overflow: hidden; text-overflow: ellipsis; }
+  .incl .r2 a { color: #5AA2F0; text-decoration: none; margin-left: 4px; }
+  .incl .r2 a:hover { text-decoration: underline; }
+  /* The closed notch's peeks: each replaces both sides for a few seconds. */
+  .eset { display: none; height: 32px; justify-content: space-between; align-items: center; }
+  .eset.on { display: flex; flex: 1; }
+  .eset.pset.on .side { animation: peekin .35s cubic-bezier(.3,.9,.3,1); }
+  @keyframes peekin { from { opacity: 0; transform: scale(.85); } }
+  .ears .pkt { font: 500 11px var(--sf); color: #C3C2B7; white-space: nowrap; }
+  .ears .idot { width: 9px; height: 9px; border-radius: 50%; background: #F06A5A; }
+  .ears .bdg svg { width: 16px; height: 16px; display: block; }
+  .ears .bdg .b { right: -5px; bottom: -4px; }
+  .ears .cbadge { margin: 0 -1px; }
   .acard.need { box-shadow: inset 0 0 0 1px rgba(250,178,25,.35); }
   .aring { position: relative; width: 34px; height: 34px; flex: none; display: grid; place-items: center; }
   .aring > svg { position: absolute; inset: 0; width: 34px; height: 34px; }
@@ -272,21 +338,22 @@
   .clip .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .clip .app { font-size: 10.5px; color: #8A8980; font-family: var(--sf); }
   .clip .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; margin-left: -18px; margin-right: -3px; }
-  .notch.lit::before { background: radial-gradient(circle at 15% 70%, rgba(110,114,200,.45), transparent 300px), linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.8)), linear-gradient(120deg, #3E5E86, #7C6A8E 45%, #2F3A55) !important; }
+  .notch.lit::before { background: radial-gradient(circle at 15% 70%, rgba(247,154,126,.5), transparent 300px), linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.78)), linear-gradient(120deg, #C9705E, #8E3E5C 50%, #3A1A2E) !important; }
+  .np.lit { background: radial-gradient(circle at 15% 70%, rgba(247,154,126,.5), transparent 300px), linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.78)), linear-gradient(120deg, #C9705E, #8E3E5C 50%, #3A1A2E); }
   .song { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
   .cover { width: 64px; height: 64px; border-radius: 10px; flex: none; position: relative; overflow: hidden;
-    background: radial-gradient(circle at 70% 38%, #FFE3A8 0 9px, rgba(255,214,150,.55) 10px, transparent 24px), linear-gradient(180deg, #F6B48F 0%, #E58FA6 45%, #6E72C8 46%, #3C3F86 100%); }
+    background: radial-gradient(circle at 70% 38%, #FFE7B0 0 9px, rgba(255,220,160,.5) 10px, transparent 24px), linear-gradient(180deg, #FFC48F 0%, #F6918A 52%, #B9527A 100%); }
   .song .meta2 { min-width: 0; flex: 1; }
   .song .title { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .song b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .eq { display: inline-flex; gap: 1.5px; align-items: flex-end; height: 10px; flex: none; }
-  .eq i { width: 2.5px; background: #6E72C8; border-radius: 1px; animation: eq 1s ease-in-out infinite alternate; transform-origin: bottom; }
+  .eq i { width: 2.5px; background: #F79A7E; border-radius: 1px; animation: eq 1s ease-in-out infinite alternate; transform-origin: bottom; }
   .eq i:nth-child(1) { height: 100%; } .eq i:nth-child(2) { height: 55%; animation-delay: -.4s; } .eq i:nth-child(3) { height: 35%; animation-delay: -.7s; }
   @keyframes eq { from { transform: scaleY(.4); } to { transform: scaleY(1); } }
   .song .src { font-size: 12px; color: #C3C2B7; margin-top: 1px; }
   .ctrls { display: flex; gap: 22px; align-items: center; justify-content: center; margin-top: 8px; }
   .ctrls svg { width: 16px; height: 16px; fill: #fff; }
-  .ctrls .pp { width: 30px; height: 30px; border-radius: 50%; background: #6E72C8; display: grid; place-items: center; }
+  .ctrls .pp { width: 30px; height: 30px; border-radius: 50%; background: #F79A7E; display: grid; place-items: center; }
   .ctrls .pp svg { width: 12px; height: 12px; fill: #000; }
 
   /* ---------- The issue ---------- */
@@ -351,8 +418,8 @@
 
   /* Closed-notch signals */
   .signals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding-top: 0; }
-  .sig { min-width: 0; }
-  .sig .strip { height: 72px; position: relative; }
+  .sig { min-width: 0; background: rgba(10,8,24,.38); border-radius: 14px; padding: 0 10px 16px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  .sig .strip { height: 40px; position: relative; margin-bottom: 4px; }
   .mini { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 34px; width: 140px; max-width: 100%; zoom: 1.15; background: #000; border-radius: 0 0 10px 10px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
   .mini .hw { flex: 1; }
   .mini svg { width: 14px; height: 14px; display: block; }
@@ -360,8 +427,8 @@
   .bdg .b { position: absolute; right: -6px; bottom: -5px; width: 11px; height: 11px; border-radius: 3.5px; display: grid; place-items: center; font: 800 7.5px/1 var(--sf); outline: 1.5px solid #000; }
   .b.a { background: var(--amber); color: #000; } .b.q { background: var(--blue); color: #fff; } .b.ok { background: var(--green); color: #fff; border-radius: 50%; }
   .appicon { width: 16px; height: 16px; border-radius: 4px; background: linear-gradient(#3a3a3a, #1d1d1d); display: grid; place-items: center; font: 700 7px var(--mono); color: #9fe39f; }
-  .sig h3 { font: 600 15px var(--sans); margin: 4px 0 2px; color: #fff; text-align: center; }
-  .sig p { margin: 0; font-size: 12.5px; line-height: 1.45; color: rgba(255,255,255,.78); text-align: center; }
+  .sig h3 { font: 600 15px var(--sans); margin: 10px 0 2px; color: #fff; text-align: center; }
+  .sig p { margin: 0; padding: 0 6px; font-size: 12.5px; line-height: 1.45; color: rgba(255,255,255,.78); text-align: center; }
 
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .split figure { display: flex; flex-direction: column; }
@@ -399,7 +466,7 @@
 
   @media (min-width: 900px) { .notch { zoom: 1.3; } .stage { height: 560px; } }
   @media (max-width: 760px) {
-    .signals { grid-template-columns: 1fr 1fr; row-gap: 18px; }
+    .signals { grid-template-columns: 1fr 1fr; gap: 12px; }
     .split, .numbers { grid-template-columns: 1fr; }
     .ucols { grid-template-columns: 1fr; }
     .solo { padding-right: 0; }
@@ -499,7 +566,7 @@
   .vis .row2 { display: flex; gap: 14px; align-items: center; }
   .vis .row2 .cover { width: 44px; height: 44px; border-radius: 8px; }
   /* Music: a little player lit by its own artwork, the clipboard beside it. */
-  .cardx.tunes { background: radial-gradient(circle at 12% 18%, rgba(246,180,143,.28), transparent 260px), radial-gradient(circle at 40% 70%, rgba(110,114,200,.35), transparent 320px), #111112; }
+  .cardx.tunes { background: radial-gradient(circle at 12% 18%, rgba(246,180,143,.28), transparent 260px), radial-gradient(circle at 40% 70%, rgba(185,82,122,.35), transparent 320px), #111112; }
   .duo { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; margin-bottom: 14px; width: 100%; }
   .player { display: flex; gap: 14px; align-items: center; min-width: 0; }
   .alb { position: relative; flex: none; }
@@ -514,7 +581,7 @@
   .times { display: flex; justify-content: space-between; font-size: 9.5px; color: #8A8980; margin-top: 3px; font-variant-numeric: tabular-nums; }
   .ctl { display: flex; gap: 18px; align-items: center; justify-content: center; margin-top: 4px; }
   .ctl svg { width: 14px; height: 14px; fill: #fff; }
-  .ctl .pp { width: 28px; height: 28px; border-radius: 50%; background: #6E72C8; display: grid; place-items: center; }
+  .ctl .pp { width: 28px; height: 28px; border-radius: 50%; background: #F79A7E; display: grid; place-items: center; }
   .ctl .pp svg { width: 11px; height: 11px; fill: #000; }
   .clips { background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 10px; min-width: 0; }
   .clips .kc { display: flex; gap: 3px; margin-bottom: 8px; }
@@ -526,6 +593,22 @@
   .vis .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); font-size: 12px; margin: 0 6px 6px 0; }
   .vis .chip i { width: 7px; height: 7px; border-radius: 50%; }
 
+
+  /* ---------- Tab-by-tab: one chapter per notch tab ---------- */
+  article section.chap { margin-top: 150px; padding-top: 28px; border-top: 1px solid var(--rule); }
+  article section.chap + section { margin-top: 56px; }
+  .cstrip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 12px; background: #0B0B0D; margin-bottom: 18px; }
+  .cstrip .cs { width: 26px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: #6d6c66; text-decoration: none; }
+  .cstrip a.cs:hover { color: #C3C2B7; }
+  .cstrip a.cs:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+  .cstrip .cs.on { background: rgba(255,255,255,.12); color: #fff; }
+  .cstrip .cs .sym { width: 13px; height: 13px; }
+  .cstrip .badge svg { width: 14px; height: 14px; }
+  .cstrip .cam { width: 64px; height: 12px; border-radius: 6px; background: #000; margin: 0 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .ceye { font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .ch { font-size: clamp(40px, 6vw, 54px) !important; margin-bottom: 10px !important; }
+  .cl { margin: 0; max-width: 560px; font-size: 18px; line-height: 1.55; color: var(--ink-2); }
+
   /* ---------- Features: text left, picture right ---------- */
   article section { margin-top: 120px; }
   .feat .f-text > :last-child { margin-bottom: 0; }
@@ -533,7 +616,7 @@
   .feat .f-media > figure:first-child, .feat .f-media > .split:first-child figure,
   .feat .f-media > .numbers:first-child, .feat .f-media > .more:first-child,
   .feat .f-media > .steps:first-child, .feat .f-media > .privacy:first-child { margin-top: 0 !important; }
-  .feat .f-media .signals:not([style]) { grid-template-columns: 1fr 1fr; row-gap: 18px; padding-top: 6px; }
+  .feat .f-media .signals:not([style]) { grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 6px; }
   .feat .f-media .numbers { gap: 12px; }
   .feat .f-media .numbers > div { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 16px; padding: 20px 18px; }
   .feat .f-media .num { font-size: 40px; }
@@ -546,24 +629,34 @@
   .feat.on .f-text { border-left-color: var(--link); }
   .peek { font: 600 13.5px var(--sans); color: var(--link); background: none; border: 1px solid color-mix(in srgb, var(--link) 40%, transparent); border-radius: 99px; padding: 6px 14px; margin-top: 4px; cursor: pointer; }
   .peek:hover { background: color-mix(in srgb, var(--link) 10%, transparent); }
+  .play { font: 600 13.5px var(--sans); color: var(--paper); background: var(--link); border: 1px solid var(--link); border-radius: 99px; padding: 6px 14px; margin: 4px 8px 0 0; cursor: pointer; }
+  .play:hover { filter: brightness(1.08); }
+  .play::before { content: "▸ "; }
   /* On a wide screen the MacBook shows these panels live, so their pictures step aside. */
   @media (min-width: 1081px) { .feat .dup { display: none; } .feat .dup + .avail, .feat .f-media:has(> .dup:only-child) { display: none; } }
 
   /* ---------- Last call ---------- */
-  /* A slice of the MacBook's screen: the same wallpaper, the notch hanging from the top edge. */
-  .cta { margin-top: 140px !important; text-align: center; background: #0A1A4A; color: #fff; border-radius: 28px; padding: 104px 24px 64px; position: relative; overflow: hidden; isolation: isolate; box-shadow: var(--frame-shadow); }
+  /* A slice of the MacBook's screen with Visor open one last time: what it asks for is the install. */
+  .cta { margin-top: 140px !important; background: #0A1A4A; color: #fff; border-radius: 28px; padding: 0 24px 56px; position: relative; overflow: hidden; isolation: isolate; box-shadow: var(--frame-shadow); }
   .cta .scene { opacity: 1; }
-  .cta-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 200px; height: 36px; padding: 0 14px; background: #000; border-radius: 0 0 14px 14px;
-    display: flex; align-items: center; }
-  .cta-notch svg { width: 16px; height: 16px; display: block; }
-  .cta-notch .hw { flex: 1; }
-  .cta h2 { font-size: clamp(34px, 5vw, 52px); margin-bottom: 12px; text-shadow: 0 2px 20px rgba(5,15,50,.5); }
-  .cta p { color: rgba(255,255,255,.88); margin: 0 auto 26px; max-width: 520px; text-shadow: 0 1px 12px rgba(5,15,50,.6); }
-  .cta .install { max-width: 520px; margin: 0 auto; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); color: #fff; text-align: left;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-  .cta .copy { background: #fff; color: #0A1A4A; }
-  .cta .small { color: rgba(255,255,255,.75); }
-  .cta .small a { color: #A9DBFF; }
+  .cp { position: relative; max-width: 600px; margin: 0 auto; background: #000; border-radius: 0 0 30px 30px; padding: 12px 26px 26px; text-align: left;
+    clip-path: inset(0 0 0 0 round 0 0 30px 30px); transition: clip-path .7s cubic-bezier(.2,.8,.2,1); box-shadow: 0 18px 40px -12px rgba(0,0,0,.55); }
+  .cp::before, .cp::after { content: ""; position: absolute; top: 0; width: 16px; height: 16px; background: radial-gradient(circle at 0 100%, transparent 15.5px, #000 16px); }
+  .cp::before { left: -16px; transform: scaleX(-1); } .cp::after { right: -16px; }
+  .cta.shut .cp { clip-path: inset(0 0 calc(100% - 34px) 0 round 0 0 14px 14px); }
+  .cp-h { display: flex; align-items: center; justify-content: space-between; height: 22px; color: #6d6c66; margin-bottom: 22px; }
+  .cp-h > span { display: inline-flex; gap: 12px; align-items: center; }
+  .cp-h .sym { width: 13px; height: 13px; }
+  .cp-h .cam { width: 110px; height: 14px; border-radius: 7px; background: #0e0e10; }
+  .cp-h svg { width: 15px; height: 15px; display: block; }
+  .cp-g { font: 600 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: #8A8980; margin-bottom: 8px; }
+  .cta h2 { color: #fff; font-size: clamp(32px, 4.6vw, 46px); margin-bottom: 10px; text-align: left; }
+  .cta p { color: #C3C2B7; margin: 0 0 20px; max-width: 480px; }
+  .cta .install { background: #1A1A19; border-color: #262624; color: #fff; }
+  .cta .copy { background: #7EE0A0; color: #0B2A17; }
+  .cta .small { color: #8A8980; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .cta .small a { color: #5AA2F0; text-decoration: none; } .cta .small a:hover { text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) { .cp { transition: none; } }
 
   @media (max-width: 1080px) {
     .layout { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; padding-left: 0; }
@@ -690,7 +783,7 @@
 <!-- The art: a dusk wallpaper with the real notch on it. Try it. -->
 <div class="layout">
 <div class="pitch" data-panel="office">
-  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 9</span><span class="dot"></span><span>November 20th 2026</span></div>
+  <div class="byline"><b>Visor Lately</b><span class="dot"></span><span>No. 10</span><span class="dot"></span><span>November 21st 2026</span></div>
   <h1>The notch, <em>put to work</em></h1>
   <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
   <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
@@ -708,10 +801,27 @@
       <div class="notch open" id="notch" data-view="usage">
         <div class="glow" id="glow" hidden></div>
         <div class="ears" aria-hidden="true">
-          <div class="side"><svg class="mark"><use href="#claude"/></svg><svg class="mark"><use href="#copilot"/></svg></div>
-          <div class="side">
-            <div class="q-col"><svg><use href="#claude"/></svg>91%</div>
-            <div class="q-col warn"><svg><use href="#copilot"/></svg>13%</div>
+          <div class="eset on" data-peek="">
+            <div class="side"><svg class="mark"><use href="#claude"/></svg><svg class="mark"><use href="#copilot"/></svg></div>
+            <div class="side">
+              <div class="q-col"><svg><use href="#claude"/></svg>91%</div>
+              <div class="q-col warn"><svg><use href="#copilot"/></svg>13%</div>
+            </div>
+          </div>
+          <div class="eset pset" data-peek="done" title="Claude Code finished: api · 6m 40s">
+            <div class="side"><span class="bdg"><svg><use href="#claude"/></svg><span class="b ok">✓</span></span></div>
+            <div class="side">
+              <div class="q-col"><svg><use href="#claude"/></svg>91%</div>
+              <div class="q-col warn"><svg><use href="#copilot"/></svg>13%</div>
+            </div>
+          </div>
+          <div class="eset pset" data-peek="clash" title="Claude Code and Copilot CLI both edited src/auth/session.ts">
+            <div class="side" style="gap:5px"><svg class="mark"><use href="#claude"/></svg><span class="cbadge">⇄</span><svg class="mark"><use href="#copilot"/></svg></div>
+            <div class="side"><span class="pkt">same file</span></div>
+          </div>
+          <div class="eset pset" data-peek="status" title="Elevated error rates on Claude Code">
+            <div class="side"><span class="idot"></span></div>
+            <div class="side"><span class="pkt">Claude is having issues</span></div>
           </div>
         </div>
         <div class="panel">
@@ -754,9 +864,52 @@
             </div>
           </div>
 
+          <div class="view" data-name="incident" hidden>
+            <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="ugear sym s-gear" aria-hidden="true"></span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
+            <div class="phdr" style="margin-bottom:8px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12s ago</span></div>
+            <div class="incl"><div class="r1"><i></i><b>Elevated error rates on Claude Code</b><span>since 09:12</span></div><div class="r2">Your agents may be slow or fail.<a href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com ↗</a></div></div>
+            <div class="ucols">
+              <div>
+                <div class="meter"><div class="top"><span>Session (5h)</span><b>91% <small>left</small></b></div><div class="bar"><i style="width:9%"></i></div><div class="cap"><span class="ok">On pace</span> · ~70% left when it resets in 3h 40m</div></div>
+                <div class="meter"><div class="top"><span>Weekly</span><b>58% <small>left</small></b></div><div class="bar"><i style="width:42%"></i></div><div class="cap"><span class="ok">On pace</span> · ~12% left when it resets Fri 09:00</div></div>
+              </div>
+              <div>
+                <div class="phdr"><b style="font-size:12px">Claude spend</b><span class="t2" style="font-size:10.5px">API value</span></div>
+                <div class="figs"><div class="f big"><b>$10.61</b><span>Today</span></div><div class="f"><b>$292</b><span>7 days</span></div><div class="f"><b>$877</b><span>30 days</span></div></div>
+                <svg class="spark" viewBox="0 0 190 40" preserveAspectRatio="none" aria-label="Spend over the last 14 days">
+                  <path d="M4 38 L18 31 L33 30 L47 12 L62 21 L76 27 L91 31 L105 27 L120 31 L134 25 L149 14 L163 23 L178 28 L186 30 L186 40 L4 40 Z" fill="rgba(57,135,229,.22)"/>
+                  <path d="M4 38 L18 31 L33 30 L47 12 L62 21 L76 27 L91 31 L105 27 L120 31 L134 25 L149 14 L163 23 L178 28 L186 30" fill="none" stroke="#3987E5" stroke-width="1.6"/>
+                  <circle cx="186" cy="30" r="2.6" fill="#3987E5"/>
+                </svg>
+                <div class="axis"><span>29 Oct</span><span>2 Nov</span><span>6 Nov</span><b>Today</b></div>
+              </div>
+            </div>
+            <div class="tooldiv" aria-hidden="true"></div>
+            <div class="solo">
+                <div class="phdr"><svg><use href="#copilot"/></svg><b>Copilot Business</b><span class="note after">acme.ghe.com</span></div>
+                <div class="meter"><div class="top"><span>Premium requests <span style="color:#FAB219">⚠︎</span></span><b>13% <small>left</small></b></div><div class="bar"><i class="warn" style="width:87%"></i></div><div class="cap"><span class="hot">Runs out ~Sat 14 Nov</span> · 17 days before reset · 261 of 300</div></div>
+            </div>
+          </div>
+
           <div class="view" data-name="agents" hidden>
             <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
             <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+            <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
+            <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+          </div>
+
+          <div class="view" data-name="helpers" hidden>
+            <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
+            <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">6:12</span></span><span class="a2 hrow"><span>Claude Code · Terminal</span><button type="button" class="hbtn" title="2 of 3 helpers working. Click to see them." aria-label="3 helpers"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V9.5L4 5.5M8 9.5l4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.6 1.6h4.6L1.6 6.2zM14.4 1.6H9.8l4.6 4.6z" fill="currentColor"/></svg>3</button></span><span class="a3">Waiting on 2 helpers</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+            <div class="hl"><div class="hh">api · 3 helpers · 2 working</div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Find where the session expires</b><span>Explore · Grep: refreshToken</span></div></div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Write tests for the login route</b><span>general-purpose · Edit: login.test.ts</span></div></div><div class="hr"><i class="hd"></i><div><b>Map the auth routes</b><span>Explore · Done</span></div></div></div>
+            <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
+            <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+          </div>
+
+          <div class="view" data-name="clash" hidden>
+            <div class="cban"><span class="cbadge">⇄</span><span class="t">Both are editing <code>src/auth/session.ts</code></span><button type="button" class="cdis" title="Dismiss" aria-label="Dismiss">✕</button></div>
+            <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
+            <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard clash" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:42</span></span><span class="a2 cw">⇄ Copilot CLI too</span><span class="a2 plain">Claude Code · Terminal</span><span class="a3">Edit: session.ts</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard clash"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">1:32</span></span><span class="a2 cw">⇄ Claude Code too</span><span class="a2 plain">Copilot CLI · VS Code</span><span class="a3">Edit: session.ts</span></span></div></div>
             <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
             <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
           </div>
@@ -771,6 +924,17 @@
 
           <div class="view" data-name="approval" hidden>
             <div class="apv"><div class="apv-who"><span class="apv-icon"><svg><use href="#claude"/></svg></span><b>Claude Code</b><span>in web-shop · Ghostty</span></div><div class="apv-ask"><b>wants to run a command</b><span>· ship the checkout fix</span></div><div class="apv-cmd"><span>$ </span>git push origin fix/checkout</div><div class="apv-btns"><span class="apv-btn deny"><i>✕</i>Deny<kbd>esc</kbd></span><span class="apv-btn allow"><i>✓</i>Allow<kbd>↩</kbd></span></div><div class="apv-always"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 7.2A5 5 0 0 1 12.1 4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.3 2.4v3.6H9.7z" fill="currentColor"/><path d="M13 8.8A5 5 0 0 1 3.9 11.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M2.7 13.6V10h3.6z" fill="currentColor"/></svg><span>Always allow</span><code>git push</code><kbd>A</kbd></div></div>
+          </div>
+
+          <div class="view" data-name="summary" hidden>
+            <div class="sum">
+              <div class="sum-h"><span class="ck">✓</span><b>api finished</b><span>· 6m 40s</span><svg><use href="#claude"/></svg></div>
+              <div class="sum-box">
+                <div class="sum-figs"><div><b>4</b><span>files changed</span></div><div><b>+128 −31</b><span>lines</span></div><div><b>7</b><span>commands</span></div><div class="pass"><b>tests passed</b><span>npm test</span></div></div>
+                <div class="sum-files">src/auth/session.ts · src/routes/login.ts · test/login.test.ts&nbsp;&nbsp;+1</div>
+              </div>
+              <div class="sum-btns"><button class="pill" type="button" data-done="Terminal comes forward">Open in Terminal</button><button class="pill" type="button" data-done="Diff opens in your editor">View diff</button></div>
+            </div>
           </div>
 
           <div class="view" data-name="clipboard" hidden>
@@ -813,8 +977,12 @@
       <button type="button" data-try="music">Music</button>
       <button type="button" data-try="clipboard">Clipboard</button>
       <button type="button" data-try="plugins">Plugins</button>
+      <button type="button" data-try="helpers">Helpers</button>
+      <button type="button" data-try="summary" data-play>Finished ▸</button>
+      <button type="button" data-try="clash" data-play>Same file ▸</button>
+      <button type="button" data-try="incident" data-play>Incident ▸</button>
     </div>
-    <span>Try it: pick a panel, or hover the notch.</span>
+    <span>Try it: pick a panel, or hover the notch. ▸ plays the peek first.</span>
     <div class="wpick" role="group" aria-label="Office world" hidden>World<button type="button" class="wbtn" data-world="studio" aria-pressed="true">Night Studio</button><button type="button" class="wbtn" data-world="galaxy" aria-pressed="false">Galaxy</button><button type="button" class="wbtn" data-world="starfleet" aria-pressed="false">Starfleet</button></div>
   </div>
 </div></aside>
@@ -887,7 +1055,7 @@
   <section class="feat" data-panel="closed">
   <div class="f-text">
     <h2>A sliver of black that knows who needs you</h2>
-    <p>Closed, Visor is barely there: a little black on each side of the notch. That's enough to tell you everything that matters without opening a thing. Busy agents pulse on the left. When one needs you, the app it's running in appears on the right with a badge: amber to approve, blue to answer. Finished turns get a green check.</p>
+    <p>Closed, Visor is barely there: a little black on each side of the notch. That's enough to tell you everything that matters without opening a thing. Busy agents pulse on the left. When one needs you, the app it's running in appears on the right with a badge: amber to approve, blue to answer. Finished turns get a green check, and new peeks say when two agents edit the same file or a tool is having an incident.</p>
     <p>Hover, and it opens. Move away, and it's gone.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Claude Code, Copilot CLI and Antigravity CLI.</div>
     <button class="peek" type="button" data-show="closed">Show the closed notch in the MacBook →</button>
@@ -900,8 +1068,37 @@
           <div class="sig"><div class="strip"><div class="mini"><svg><use href="#claude"/></svg><span class="hw"></span><span class="bdg"><span class="appicon">&gt;_</span><span class="b a">!</span></span></div></div><h3>Approve</h3><p>The app that's asking, with an amber "!".</p></div>
           <div class="sig"><div class="strip"><div class="mini"><svg><use href="#copilot"/></svg><span class="hw"></span><span class="bdg"><span class="appicon">&gt;_</span><span class="b q">?</span></span></div></div><h3>Answer</h3><p>A question for you, with a blue "?".</p></div>
           <div class="sig"><div class="strip"><div class="mini"><span class="bdg"><svg><use href="#claude"/></svg><span class="b ok">✓</span></span><span class="hw"></span><span></span></div></div><h3>Done</h3><p>The agent that finished, with a green check.</p></div>
+          <div class="sig"><div class="strip"><div class="mini" style="width:150px"><span style="display:flex;align-items:center;gap:4px"><svg><use href="#claude"/></svg><span class="cbadge" style="width:13px;height:13px;font-size:8.5px">⇄</span><svg><use href="#copilot"/></svg></span><span class="hw"></span><span class="pk" style="color:#C3C2B7">same file</span></div></div><h3>Same file</h3><p>Two agents editing one file, with an orange ⇄.</p></div>
+          <div class="sig"><div class="strip"><div class="mini" style="width:170px"><span style="display:block;width:8px;height:8px;border-radius:50%;background:#F06A5A"></span><span class="hw"></span><span class="pk" style="color:#C3C2B7">Claude is having issues</span></div></div><h3>Incident</h3><p>A red or amber dot when a tool's status page says so.</p></div>
         </div>
       </div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="chap" id="tab-agents" data-panel="agents">
+    <div class="cstrip" role="navigation" aria-label="Tabs"><a href="#tab-agents" class="cs on" aria-label="Agents" aria-current="true"><span class="sym s-sparkles" aria-hidden="true"></span></a><a href="#tab-usage" class="cs" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></a><a href="#tab-music" class="cs" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></a><span class="cam" aria-hidden="true"></span><a href="#tab-clipboard" class="cs" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></a><a href="#tab-plugins" class="cs" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></a><span class="cs badge" aria-hidden="true"><svg><use href="#claude"/></svg></span></div>
+    <div class="ceye">Tab 1 of 5</div>
+    <h2 class="ch">Agents</h2>
+    <p class="cl">Who is working, who needs you, and what they did. Approvals, finished turns, helpers and clashes all land here, as a list or an office.</p>
+  </section>
+
+  <section class="feat" data-panel="agents">
+  <div class="f-text">
+    <h2>Every agent, in one list <span class="tag">Many sessions new in 0.7</span></h2>
+    <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
+    <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
+    <p>Running a dozen? Past eight, the list shows whoever needs you first, then the busiest, then the most recent, and counts the rest by tool with Show all; idle sessions fold into one line. In the office each tool keeps up to eight seats, with the rest counted on its label.</p>
+    <button class="peek" type="button" data-show="agents">Show Agents in the MacBook →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
+        <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
+        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+        <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
+        <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+</div></div>
     </figure>
   </div>
   </section>
@@ -922,6 +1119,87 @@
   </div>
   </section>
 
+  <section class="feat" data-panel="summary" data-play>
+  <div class="f-text">
+    <h2>See what it did while you were away <span class="tag">New</span></h2>
+    <p>An agent finishes and the notch shows its mark with a green check. Open the notch while the check is there and you get the turn in one card: how long it took, how many files it changed, lines added and removed, how many commands it ran, and whether its tests passed or failed, read from the test run's own output. The first few files are listed by name.</p>
+    <p><b>Open in Terminal</b> takes you back to the agent; <b>View diff</b> opens a <code>git diff</code> of those files, new ones included, in your text editor. Visor counts it all from the events it already gets, so there's nothing to set up, and the card never replaces a panel you already had open.</p>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Any agent Visor hears from.</div>
+    <button class="play" type="button" data-play="summary">Play: an agent finishes</button><button class="peek" type="button" data-show="summary">Show the summary →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-dusk"/></svg><div class="np" style="max-width:460px">
+        <div class="sum">
+          <div class="sum-h"><span class="ck">✓</span><b>api finished</b><span>· 6m 40s</span><svg><use href="#claude"/></svg></div>
+          <div class="sum-box"><div class="sum-figs"><div><b>4</b><span>files changed</span></div><div><b>+128 −31</b><span>lines</span></div><div><b>7</b><span>commands</span></div><div class="pass"><b>tests passed</b><span>npm test</span></div></div><div class="sum-files">src/auth/session.ts · src/routes/login.ts · test/login.test.ts&nbsp;&nbsp;+1</div></div>
+          <div class="sum-btns"><span class="pill" style="line-height:26px">Open in Terminal</span><span class="pill" style="line-height:26px">View diff</span></div>
+        </div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="feat" data-panel="helpers">
+  <div class="f-text">
+    <h2>See its helpers <span class="tag">New</span></h2>
+    <p>Big jobs make Claude Code split the work: it starts subagents to search the code, write tests or review, and waits on them. Before, its card just said "Thinking" while they did all the work out of sight.</p>
+    <p>Now the card says "Waiting on 2 helpers" and gets a small ⑂ button with how many it started. Click it and the list opens under the cards: each helper's task, its type and what it's doing right now, with a turning arc while it works and a green dot when it's done. Working ones come first; past six, the rest fold into "+n more", so a busy agent never stretches the panel. Finished helpers clear when you send the next prompt.</p>
+    <div class="avail"><svg><use href="#claude"/></svg>Claude Code's subagents (the Task tool), foreground or background.</div>
+    <button class="peek" type="button" data-show="helpers">Show it in Agents →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
+        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">6:12</span></span><span class="a2 hrow"><span>Claude Code · Terminal</span><button type="button" class="hbtn" title="2 of 3 helpers working. Click to see them." aria-label="3 helpers"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15V9.5L4 5.5M8 9.5l4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.6 1.6h4.6L1.6 6.2zM14.4 1.6H9.8l4.6 4.6z" fill="currentColor"/></svg>3</button></span><span class="a3">Waiting on 2 helpers</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
+        <div class="hl"><div class="hh">api · 3 helpers · 2 working</div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Find where the session expires</b><span>Explore · Grep: refreshToken</span></div></div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Write tests for the login route</b><span>general-purpose · Edit: login.test.ts</span></div></div><div class="hr"><i class="hd"></i><div><b>Map the auth routes</b><span>Explore · Done</span></div></div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="feat" data-panel="clash" data-play>
+  <div class="f-text">
+    <h2>Two agents, one file <span class="tag">New</span></h2>
+    <p>Run a few agents in the same project and sooner or later two of them rewrite the same file, each undoing the other. Visor notices when two sessions change the same file (edits and writes, not reads) within ten minutes.</p>
+    <p>The closed notch peeks with both agents' marks around an orange ⇄ and "same file". Open it and the Agents tab names the file in a banner, and both cards get an orange outline with "⇄ Copilot CLI too", so you know whom to stop. It clears itself after ten quiet minutes, or dismiss it with ✕.</p>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Across agents and tools: Claude Code against Copilot CLI too.</div>
+    <button class="play" type="button" data-play="clash">Play: two agents collide</button><button class="peek" type="button" data-show="clash">Show it in Agents →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
+        <div class="cban"><span class="cbadge">⇄</span><span class="t">Both are editing <code>src/auth/session.ts</code></span><button type="button" class="cdis" title="Dismiss" aria-label="Dismiss">✕</button></div>
+        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard clash" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:42</span></span><span class="a2 cw">⇄ Copilot CLI too</span><span class="a2 plain">Claude Code · Terminal</span><span class="a3">Edit: session.ts</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard clash"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">1:32</span></span><span class="a2 cw">⇄ Claude Code too</span><span class="a2 plain">Copilot CLI · VS Code</span><span class="a3">Edit: session.ts</span></span></div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="feat" data-panel="office">
+  <div class="f-text">
+    <h2>Or watch them work <span class="tag">Worlds new in 0.7</span></h2>
+    <p>Prefer to see your agents at work? Switch the Agents tab to the <b>office</b>. Each tool gets a table and each session a little person sitting at it. They get up and walk to the terminal to run a command, the bookshelf to read, the hologram to search the web, and the break corner when a turn is done, to play darts, ping-pong, holochess or poker. When one needs you, it comes to your desk and waves, with an amber "!" or a blue "?".</p>
+    <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants in the corners. The palette button opens a picker that switches it to Galaxy (a hangar with Star Wars characters) or Starfleet (a starship deck with Star Trek characters). A little bar over each head shows how full its context is, amber when it's about to compact, and whoever waits at your desk shows how long. Hover anyone for what they're doing, how long, and what you last asked; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
+    <div class="wpick" role="group" aria-label="Office world"><span class="wl-wide">Show it in the MacBook:</span><span class="wl-narrow">World:</span><button type="button" class="wbtn" data-world="studio" aria-pressed="true">Night Studio</button><button type="button" class="wbtn" data-world="galaxy" aria-pressed="false">Galaxy</button><button type="button" class="wbtn" data-world="starfleet" aria-pressed="false">Starfleet</button></div>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg>
+        <img class="real" data-world="studio" src="assets/office-studio.png" width="436" height="298" alt="The Night Studio office: little people at wooden tables, at the terminal, the bookshelf and the web hologram, resting on the sofa."><img class="real" data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden><img class="real" data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
+      </div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="chap" id="tab-usage" data-panel="usage">
+    <div class="cstrip" role="navigation" aria-label="Tabs"><a href="#tab-agents" class="cs" aria-label="Agents"><span class="sym s-sparkles" aria-hidden="true"></span></a><a href="#tab-usage" class="cs on" aria-label="Usage" aria-current="true"><span class="sym s-gauge" aria-hidden="true"></span></a><a href="#tab-music" class="cs" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></a><span class="cam" aria-hidden="true"></span><a href="#tab-clipboard" class="cs" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></a><a href="#tab-plugins" class="cs" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></a><span class="cs badge" aria-hidden="true"><svg><use href="#claude"/></svg></span></div>
+    <div class="ceye">Tab 2 of 5</div>
+    <h2 class="ch">Usage</h2>
+    <p class="cl">How much of each plan is left, when it runs out, and whether the provider is having a bad day.</p>
+  </section>
+
   <section class="feat" data-panel="usage">
   <div class="f-text">
     <h2>Know you'll run out before you do</h2>
@@ -937,6 +1215,25 @@
         <div class="phdr"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
         <div class="meter"><div class="top"><span>Session (5h)</span><b>36% <small>left</small></b></div><div class="bar"><i style="width:64%"></i></div><div class="cap"><span class="hot">Runs out in ~1h 15m</span> · resets in 2h 10m</div></div>
         <div class="meter"><div class="top"><span>Weekly</span><b>59% <small>left</small></b></div><div class="bar"><i style="width:41%"></i></div><div class="cap"><span class="ok">On pace</span> · ~5% left when it resets Fri 09:00</div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="feat" data-panel="incident" data-play>
+  <div class="f-text">
+    <h2>Know when it's them, not you <span class="tag">New</span></h2>
+    <p>Agents slow, commands failing, and you start doubting your own setup. Visor reads the public status pages for the tools you've connected (status.claude.com for Claude Code and the Claude API, githubstatus.com for Copilot) every five minutes, off the main thread.</p>
+    <p>A new incident peeks once: a red dot for a major one, amber for minor, and "Claude is having issues". While it lasts, the tool's mark in the closed notch carries a small dot, and Usage puts a line under its heading with what's wrong, since when, and a link to the status page. Planned maintenance stays quiet.</p>
+    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code, the Claude API and Copilot. Only the tools you use.</div>
+    <button class="play" type="button" data-play="incident">Play: Claude has an incident</button><button class="peek" type="button" data-show="incident">Show it in Usage →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:420px">
+        <div class="phdr" style="margin-bottom:8px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12 secs ago</span></div>
+        <div class="incl"><div class="r1"><i></i><b>Elevated error rates on Claude Code</b><span>since 09:12</span></div><div class="r2">Your agents may be slow or fail.<a href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com ↗</a></div></div>
+        <div class="meter" style="margin-top:0"><div class="top"><span>Session (5h)</span><b>91% <small>left</small></b></div><div class="bar"><i style="width:9%"></i></div><div class="cap"><span class="ok">On pace</span> · ~70% left when it resets in 3h 40m</div></div>
       </div></div>
     </figure>
   </div>
@@ -960,41 +1257,63 @@
   </div>
   </section>
 
-  <section class="feat" data-panel="agents">
+  <section class="chap" id="tab-music" data-panel="music">
+    <div class="cstrip" role="navigation" aria-label="Tabs"><a href="#tab-agents" class="cs" aria-label="Agents"><span class="sym s-sparkles" aria-hidden="true"></span></a><a href="#tab-usage" class="cs" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></a><a href="#tab-music" class="cs on" aria-label="Music" aria-current="true"><span class="sym s-music" aria-hidden="true"></span></a><span class="cam" aria-hidden="true"></span><a href="#tab-clipboard" class="cs" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></a><a href="#tab-plugins" class="cs" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></a><span class="cs badge" aria-hidden="true"><svg><use href="#claude"/></svg></span></div>
+    <div class="ceye">Tab 3 of 5</div>
+    <h2 class="ch">Music</h2>
+    <p class="cl">What is playing, in any app or browser tab.</p>
+  </section>
+
+  <section class="feat" data-panel="music">
   <div class="f-text">
-    <h2>Every agent, in one list <span class="tag">Many sessions new in 0.7</span></h2>
-    <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
-    <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
-    <p>Running a dozen? Past eight, the list shows whoever needs you first, then the busiest, then the most recent, and counts the rest by tool with Show all; idle sessions fold into one line. In the office each tool keeps up to eight seats, with the rest counted on its label.</p>
-    <button class="peek" type="button" data-show="agents">Show Agents in the MacBook →</button>
+    <h2>Your music, a hover away <span class="tag">Any browser new in 0.6</span></h2>
+    <p>Whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect. Add the <b>Visor Media</b> browser extension and that works in any browser, Firefox and Zen included: it sees every music and video tab and plays, pauses and skips exactly the one you mean.</p>
+    <button class="peek" type="button" data-show="music">Show Music in the MacBook →</button>
   </div>
   <div class="f-media">
-    <figure class="dup">
-      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
-        <div class="group">12 AGENTS · 1 NEEDS YOU<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div>
-        <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
-        <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
-        <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
-</div></div>
-    </figure>
+      <figure class="dup" ><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
+        <div class="song" style="margin-top:0"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
+          <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+          <div class="src">Zen · YouTube Music</div>
+          <div class="ctrls" aria-hidden="true">
+            <svg viewBox="0 0 16 16"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg>
+            <span class="pp"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg></span>
+            <svg viewBox="0 0 16 16"><path d="M1 3v10l7-5zM8 3v10l7-5z"/></svg>
+          </div>
+        </div></div>
+      </div></div></figure>
   </div>
   </section>
 
-  <section class="feat" data-panel="office">
+  <section class="chap" id="tab-clipboard" data-panel="clipboard">
+    <div class="cstrip" role="navigation" aria-label="Tabs"><a href="#tab-agents" class="cs" aria-label="Agents"><span class="sym s-sparkles" aria-hidden="true"></span></a><a href="#tab-usage" class="cs" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></a><a href="#tab-music" class="cs" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></a><span class="cam" aria-hidden="true"></span><a href="#tab-clipboard" class="cs on" aria-label="Clipboard" aria-current="true"><span class="sym s-clip" aria-hidden="true"></span></a><a href="#tab-plugins" class="cs" aria-label="Plugins"><span class="sym s-puzzle" aria-hidden="true"></span></a><span class="cs badge" aria-hidden="true"><svg><use href="#claude"/></svg></span></div>
+    <div class="ceye">Tab 4 of 5</div>
+    <h2 class="ch">Clipboard</h2>
+    <p class="cl">Everything you copied, searchable.</p>
+  </section>
+
+  <section class="feat" data-panel="clipboard">
   <div class="f-text">
-    <h2>Or watch them work <span class="tag">Worlds new in 0.7</span></h2>
-    <p>Prefer to see your agents at work? Switch the Agents tab to the <b>office</b>. Each tool gets a table and each session a little person sitting at it. They get up and walk to the terminal to run a command, the bookshelf to read, the hologram to search the web, and the sofa when a turn is done. When one needs you, it comes to your desk and waves, with an amber "!" or a blue "?".</p>
-    <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants in the corners. The palette button opens a picker that switches it to Galaxy (a hangar with Star Wars characters) or Starfleet (a starship deck with Star Trek characters). A little bar over each head shows how full its context is, amber when it's about to compact, and whoever waits at your desk shows how long. Hover anyone for what they're doing, how long, and what you last asked; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
-    <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
-    <div class="wpick" role="group" aria-label="Office world"><span class="wl-wide">Show it in the MacBook:</span><span class="wl-narrow">World:</span><button type="button" class="wbtn" data-world="studio" aria-pressed="true">Night Studio</button><button type="button" class="wbtn" data-world="galaxy" aria-pressed="false">Galaxy</button><button type="button" class="wbtn" data-world="starfleet" aria-pressed="false">Starfleet</button></div>
+    <h2>Everything you copied, one shortcut away</h2>
+    <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. Hover an item to pin it: pinned items survive Clear and the 200-item / 30-day cleanup.</p>
+    <button class="peek" type="button" data-show="clipboard">Show Clipboard in the MacBook →</button>
   </div>
   <div class="f-media">
-    <figure class="dup">
-      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg>
-        <img class="real" data-world="studio" src="assets/office-studio.png" width="436" height="298" alt="The Night Studio office: little people at wooden tables, at the terminal, the bookshelf and the web hologram, resting on the sofa."><img class="real" data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden><img class="real" data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
-      </div>
-    </figure>
+      <figure class="dup" ><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
+        <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search</div>
+        <div class="day">TODAY</div>
+        <div class="clip mono sel"><span class="txt">brew upgrade --cask visor</span></div>
+        <div class="clip"><span class="sw" style="background:#3987E5"></span><span class="txt">#3987E5</span></div>
+        <div class="clip"><span class="txt">github.com/tailamphat/visor</span></div>
+      </div></div></figure>
   </div>
+  </section>
+
+  <section class="chap" id="tab-plugins" data-panel="plugins">
+    <div class="cstrip" role="navigation" aria-label="Tabs"><a href="#tab-agents" class="cs" aria-label="Agents"><span class="sym s-sparkles" aria-hidden="true"></span></a><a href="#tab-usage" class="cs" aria-label="Usage"><span class="sym s-gauge" aria-hidden="true"></span></a><a href="#tab-music" class="cs" aria-label="Music"><span class="sym s-music" aria-hidden="true"></span></a><span class="cam" aria-hidden="true"></span><a href="#tab-clipboard" class="cs" aria-label="Clipboard"><span class="sym s-clip" aria-hidden="true"></span></a><a href="#tab-plugins" class="cs on" aria-label="Plugins" aria-current="true"><span class="sym s-puzzle" aria-hidden="true"></span></a><span class="cs badge" aria-hidden="true"><svg><use href="#claude"/></svg></span></div>
+    <div class="ceye">Tab 5 of 5</div>
+    <h2 class="ch">Plugins</h2>
+    <p class="cl">Your own panels, in a few lines of Lua.</p>
   </section>
 
   <section class="feat" data-panel="plugins">
@@ -1027,36 +1346,6 @@ end)</pre>
   </div>
   </section>
 
-  <section class="feat" data-panel="music">
-  <div class="f-text">
-    <h2>Your clipboard and your music, a hover away <span class="tag">Any browser new in 0.6</span></h2>
-    <p>Press <code>⌘⇧V</code> anywhere for everything you've copied, searchable, and paste it back into the app you were in. Passwords from your password manager are never kept. And whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect. Add the <b>Visor Media</b> browser extension and that works in any browser, Firefox and Zen included: it sees every music and video tab and plays, pauses and skips exactly the one you mean.</p>
-    <button class="peek" type="button" data-show="music">Show Music in the MacBook →</button>
-  </div>
-  <div class="f-media">
-    <div class="split dup">
-      <figure class="dup" style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-lake"/></svg><div class="np">
-        <div class="search"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Search</div>
-        <div class="day">TODAY</div>
-        <div class="clip mono sel"><span class="txt">brew upgrade --cask visor</span></div>
-        <div class="clip"><span class="sw" style="background:#3987E5"></span><span class="txt">#3987E5</span></div>
-        <div class="clip"><span class="txt">github.com/tailamphat/visor</span></div>
-      </div></div></figure>
-      <figure class="dup" style="margin-top:22px"><div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-sea"/></svg><div class="np lit">
-        <div class="song" style="margin-top:0"><div class="cover" role="img" aria-label="Album artwork"></div><div class="meta2">
-          <div class="title"><b>Lo-fi for Focus</b><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
-          <div class="src">Zen · YouTube Music</div>
-          <div class="ctrls" aria-hidden="true">
-            <svg viewBox="0 0 16 16"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg>
-            <span class="pp"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg></span>
-            <svg viewBox="0 0 16 16"><path d="M1 3v10l7-5zM8 3v10l7-5z"/></svg>
-          </div>
-        </div></div>
-      </div></div></figure>
-    </div>
-  </div>
-  </section>
-
   <section class="feat">
   <div class="f-text">
     <h2>Built to sit there quietly</h2>
@@ -1074,10 +1363,14 @@ end)</pre>
   <section id="new" class="feat">
   <div class="f-text">
     <h2>What else is new</h2>
-    <p>Small things that add up, in Visor 0.4 to 0.7.</p>
+    <p>Small things that add up, since Visor 0.4.</p>
   </div>
   <div class="f-media">
     <ul class="more">
+      <li><h3>What your agent just did</h3><p>Open the notch during a finished turn's green check: how long it took, files changed, lines added and removed, commands run and whether its tests passed, with Open in Terminal and View diff.</p></li>
+      <li><h3>Helpers in view</h3><p>When Claude Code starts subagents, its card says how many it waits on, and a ⑂ button lists what each one is doing.</p></li>
+      <li><h3>Two agents, one file</h3><p>When two agents edit the same file within ten minutes, the notch peeks with both marks and "same file", and the Agents tab names the file and outlines both sessions.</p></li>
+      <li><h3>Is it them or you?</h3><p>Incidents on the Claude and GitHub status pages peek once, put a dot on the tool's mark, and show a line in Usage with a link.</p></li>
       <li><h3>Always, on purpose</h3><p>The approval card is the same width as every panel: Deny and Allow in the centre, and "Always allow" a quiet link under them with its rule in view.</p></li>
       <li><h3>A dozen agents, still calm</h3><p>Past eight sessions the Agents list shows who needs you and the busiest and counts the rest, the office counts extra people on each table's label, and the header badge reads 9+.</p></li>
       <li><h3>One header, balanced around the camera</h3><p>Every panel now has the same header: Agents, Usage and Music left of the camera; Clipboard, Plugins and your agents right of it. The panel stays put as you switch tabs, and the Usage gear moved into its own bar.</p></li>
@@ -1150,14 +1443,16 @@ end)</pre>
 
   <section class="cta">
     <svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1200 760"><use href="#sc-mac"/></svg>
-    <div class="cta-notch" aria-hidden="true"><svg><use href="#claude"/></svg><span class="hw"></span><span class="bdg"><svg><use href="#copilot"/></svg><span class="b ok">✓</span></span></div>
-    <h2>Give your notch a job</h2>
-    <p>Free and open source. One command, and your agents can find you.</p>
-    <div class="install"><code>brew install --cask tailamphat/tap/visor</code><button class="copy" type="button">Copy</button></div>
-    <p class="small" style="margin:14px 0 0">macOS 14 or later · <a href="#install">Setup, step by step</a> · <a href="https://github.com/tailamphat/visor">Star it on GitHub</a></p>
+    <div class="cp">
+      <div class="cp-h" aria-hidden="true"><span><span class="sym s-sparkles"></span><span class="sym s-gauge"></span><span class="sym s-music"></span></span><i class="cam"></i><span><span class="sym s-clip"></span><span class="sym s-puzzle"></span><svg><use href="#claude"/></svg></span></div>
+      <div class="cp-g">1 agent · needs you</div>
+      <h2>Give your notch a job</h2>
+      <p>Free and open source. One command, and your agents can find you.</p>
+      <div class="install"><code>brew install --cask tailamphat/tap/visor</code><button class="copy" type="button">Copy</button></div>
+      <p class="small"><a href="#install">Setup, step by step</a><a href="https://github.com/tailamphat/visor">Star it on GitHub</a><span>macOS 14 or later</span></p>
+    </div>
   </section>
 
-  <footer><span class="fbrand"><img src="assets/visor-icon.png" alt="">Visor · free and open source</span><span><a href="https://github.com/tailamphat/visor">Source</a> · <a href="https://github.com/tailamphat/visor/releases">Releases</a></span></footer>
 </article>
 </div>
 </div>
@@ -1165,32 +1460,77 @@ end)</pre>
 
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
-  const sizes = { closed: [300, 32], usage: [460, 350], agents: [460, 268], office: [460, 338], tokens: [460, 454], approval: [460, 218], clipboard: [460, 232], music: [385, 136], plugins: [460, 402] };
-  // The office lives in the Agents tab and Tokens in Usage.
-  const tabOf = { office: 'agents', tokens: 'usage' };
+  // A finished turn is 122 pt of content (TurnSummaryView), the clash banner adds 32 + 6, an incident line 44 + 8.
+  const sizes = { closed: [300, 32], usage: [460, 350], incident: [460, 402], agents: [460, 268], clash: [460, 306], helpers: [460, 386], office: [460, 338], tokens: [460, 454], approval: [460, 218], summary: [460, 180], clipboard: [460, 232], music: [385, 136], plugins: [460, 402] };
+  // The office and a clash live in the Agents tab, Tokens and an incident in Usage.
+  const tabOf = { office: 'agents', clash: 'agents', helpers: 'agents', summary: 'agents', tokens: 'usage', incident: 'usage' };
+  // The closed notch's peeks: [width, shift]. Each side is its content plus the same inset, so a
+  // lopsided peek moves the shape to keep the camera covered (NotchEars.shift).
+  const peeks = { done: [290, 14], clash: [319, -2], status: [354, 58] };
+  // Which panel each peek opens, and which peek each panel plays first.
+  const peekOpens = { done: 'summary', clash: 'clash', status: 'incident' };
+  const peekOf = { summary: 'done', clash: 'clash', incident: 'status' };
+  const esets = [...document.querySelectorAll('.eset')];
+  let timer = 0;
   const notch = document.getElementById('notch');
   const tabs = [...document.querySelectorAll('.tab')];
   const views = [...document.querySelectorAll('.view')];
   const tries = [...document.querySelectorAll('[data-try]')];
   const glow = document.getElementById('glow');
 
-  function show(name) {
+  function show(name, peek = '') {
+    clearTimeout(timer);
     const open = name !== 'closed';
     notch.classList.toggle('open', open);
     notch.classList.toggle('lit', name === 'music');
     notch.dataset.view = name;
-    const [w, h] = sizes[name];
+    notch.dataset.peek = open ? '' : peek;
+    esets.forEach(e => e.classList.toggle('on', e.dataset.peek === notch.dataset.peek));
+    const [w, h] = open || !peeks[peek] ? sizes[name] : [peeks[peek][0], 32];
     notch.style.setProperty('--w', w + 'px');
     notch.style.setProperty('--h', h + 'px');
+    notch.style.setProperty('--dx', (!open && peeks[peek] ? peeks[peek][1] : 0) + 'px');
+    document.querySelectorAll('.dismissed').forEach(v => v.classList.remove('dismissed'));
+    document.querySelectorAll('.hclosed').forEach(v => v.classList.remove('hclosed'));
     if (open) views.forEach(v => { v.hidden = v.dataset.name !== name; });
     tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === (tabOf[name] || name))));
     tries.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.try === name)));
     glow.hidden = name !== 'approval';
     document.querySelector('.dock .wpick').hidden = name !== 'office';
   }
+  // Like the app: the peek shows on the closed notch first, then (here) the notch opens on its own.
+  function play(name) {
+    show('closed', peekOf[name]);
+    timer = setTimeout(() => show(name), 1900);
+  }
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
-  tries.forEach(b => b.addEventListener('click', () => show(b.dataset.try)));
-  notch.addEventListener('mouseenter', () => { if (!notch.classList.contains('open')) show('office'); });
+  tries.forEach(b => b.addEventListener('click', () => b.hasAttribute('data-play') ? play(b.dataset.try) : show(b.dataset.try)));
+  // Hover (or tap) the closed notch: a peek opens what it's about, otherwise the Agents tab.
+  function openClosed() {
+    if (!notch.classList.contains('open')) show(peekOpens[notch.dataset.peek] || 'office');
+  }
+  notch.addEventListener('mouseenter', openClosed);
+  notch.addEventListener('click', openClosed);
+  // Dismiss the clash banner: the cards lose their outline and the list gets its room back.
+  document.querySelectorAll('.cdis').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    const box = b.closest('.view, .np');
+    box.classList.add('dismissed');
+    if (box.classList.contains('view')) notch.style.setProperty('--h', sizes.agents[1] + 'px');
+  }));
+  // The ⑂ button opens and closes the helpers list; the panel grows by the list's height.
+  document.querySelectorAll('.hbtn').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    const box = b.closest('.view, .np');
+    const closed = box.classList.toggle('hclosed');
+    if (box.classList.contains('view')) notch.style.setProperty('--h', sizes[closed ? 'agents' : 'helpers'][1] + 'px');
+  }));
+  // The summary's buttons say what they'd do in the app.
+  document.querySelectorAll('.pill[data-done]').forEach(b => b.addEventListener('click', () => {
+    const label = b.textContent;
+    b.textContent = b.dataset.done; b.classList.add('done');
+    setTimeout(() => { b.textContent = label; b.classList.remove('done'); }, 1600);
+  }));
   show('office');
 
   // The MacBook stays beside the story on a wide screen: cards and buttons open a panel in place,
@@ -1202,15 +1542,29 @@ end)</pre>
     mark = s && s.classList.contains('feat') ? s : null;
     if (mark) mark.classList.add('on');
   }
-  document.querySelectorAll('[data-show]').forEach(c => c.addEventListener('click', () => {
-    show(c.dataset.show);
+  document.querySelectorAll('[data-show], button[data-play]:not([data-try])').forEach(c => c.addEventListener('click', () => {
+    if (c.dataset.play) play(c.dataset.play); else show(c.dataset.show);
     focusSection(c.closest('.feat'));
     if (!docked.matches) document.querySelector('.dock').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
-  const spy = new IntersectionObserver(entries => entries.forEach(e => {
-    if (e.isIntersecting && docked.matches) { show(e.target.dataset.panel); focusSection(e.target); }
-  }), { rootMargin: '-45% 0px -50% 0px' });
-  document.querySelectorAll('.pitch[data-panel], .feat[data-panel]').forEach(s => spy.observe(s));
+  // The section across the middle of the window drives the MacBook, scrolling down or up.
+  // Between sections it keeps what it shows; sections without a panel (changelog, install) rest it closed.
+  const story = [...document.querySelectorAll('.pitch, article > section')];
+  let current = null, ticking = false;
+  function follow() {
+    ticking = false;
+    if (!docked.matches) return;
+    const mid = innerHeight / 2;
+    const s = story.find(el => { const r = el.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
+    if (!s || s === current) return;
+    current = s;
+    const panel = s.dataset.panel || 'closed';
+    if (s.hasAttribute('data-play')) play(panel); else show(panel);
+    focusSection(s);
+  }
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(follow); } }, { passive: true });
+  docked.addEventListener('change', () => { current = null; follow(); });
+  follow();
 
   // Scale the notch with the screen, so the tallest panel always fits.
   const screen = document.querySelector('.device .art');
@@ -1242,6 +1596,13 @@ end)</pre>
     setInterval(() => { if (!card.matches(':hover')) turnCard((cardWorld + 1) % cardWorlds.length); }, 3200);
   }
 
+  // The last panel drops open as it comes into view, like the notch opening.
+  const cta = document.querySelector('.cta');
+  if (cta && 'IntersectionObserver' in window && cta.getBoundingClientRect().top > innerHeight) {
+    cta.classList.add('shut');
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { cta.classList.remove('shut'); io.disconnect(); } }, { threshold: .45 });
+    io.observe(cta);
+  }
   document.querySelectorAll('.install').forEach(box => {
     const code = box.querySelector('code'), button = box.querySelector('.copy');
     const select = () => {
