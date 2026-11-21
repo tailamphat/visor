@@ -3,6 +3,15 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.8.1</title>
+            <pubDate>Sat, 21 Nov 2026 22:51:10 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>188</sparkle:version>
+            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.1/Visor-0.8.1.zip" length="7017496" type="application/octet-stream" sparkle:edSignature="wNusi1p6mVmnp//tpVTWzvZ1W1uE9zoriQPrEPI1Kfyl53e+Lf9+F7b61ug5ns9qbKMuVXEVFtfJ3K0NjsMgAA=="/>
+        </item>
+        <item>
             <title>0.8.0</title>
             <pubDate>Sat, 21 Nov 2026 22:40:18 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
@@ -19,15 +28,6 @@
             <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.7.0/Visor-0.7.0.zip" length="6346648" type="application/octet-stream" sparkle:edSignature="VljFWkFhN+Pjv4gkhKN29JdHxiHp6mDxv41Ytdl9hIpGimrbx6pObOyxFFdgICOa/PeB9XPgY4zKp8xGsjIiDw=="/>
-        </item>
-        <item>
-            <title>0.6.5</title>
-            <pubDate>Thu, 19 Nov 2026 16:31:55 +0700</pubDate>
-            <link>https://tailamphat.github.io/visor/</link>
-            <sparkle:version>115</sparkle:version>
-            <sparkle:shortVersionString>0.6.5</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.6.5/Visor-0.6.5.zip" length="4922675" type="application/octet-stream" sparkle:edSignature="julf3V/TjYE8dlzobKTAAg3VNyL+5NjqXXyljZZ5dVnbp1ZK6kh8/+SLuJYrM6DpeqV5enKyyQ86lUSE3z4rBg=="/>
         </item>
     </channel>
 </rss>
