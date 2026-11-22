@@ -42,6 +42,11 @@ VERSION="${VERSION#v}"
 BUILD="${VISOR_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
+# Local builds show their commit in the menu; release.sh sets VISOR_RELEASE=1 to stamp a release.
+/usr/libexec/PlistBuddy -c "Add :VisorCommit string $(git rev-parse --short HEAD 2>/dev/null || echo unknown)" "$APP/Contents/Info.plist"
+if [[ "${VISOR_RELEASE:-}" == 1 ]]; then
+  /usr/libexec/PlistBuddy -c "Add :VisorRelease string YES" "$APP/Contents/Info.plist"
+fi
 # Icons come from scripts/make-icon.swift.
 cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
 # Sign with a stable local identity when there is one, so macOS keeps the

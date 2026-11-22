@@ -27,7 +27,7 @@ if [[ "${VISOR_RELEASE_FORCE:-}" != 1 ]]; then
   fi
 fi
 
-VISOR_VERSION="$VERSION" ./scripts/bundle.sh --universal
+VISOR_RELEASE=1 VISOR_VERSION="$VERSION" ./scripts/bundle.sh --universal
 
 APP=build/Visor.app
 OUT="build/Visor-$VERSION.zip"

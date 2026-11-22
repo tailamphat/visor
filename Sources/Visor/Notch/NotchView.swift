@@ -174,6 +174,10 @@ struct NotchView: View {
         }
         .background(Theme.surface)
         .animation(.easeOut(duration: 0.4), value: model.artworkBackdrop)
+        .overlay(alignment: .bottom) {
+            // Local builds only: a static orange line along the whole bottom edge.
+            if LocalBuild.isLocal { Color(red: 1, green: 0.55, blue: 0.1).frame(height: 1.5) }
+        }
         .clipShape(shape)
         .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
         .offset(x: layout.shift(model))

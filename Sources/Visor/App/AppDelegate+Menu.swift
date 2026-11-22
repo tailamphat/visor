@@ -12,7 +12,7 @@ extension AppDelegate {
             ?? NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Visor")
         icon?.isTemplate = true
         icon?.accessibilityDescription = "Visor"
-        item.button?.image = icon
+        item.button?.image = LocalBuild.isLocal ? LocalBuild.tinted(icon) : icon
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
@@ -24,6 +24,10 @@ extension AppDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        if LocalBuild.isLocal {
+            menu.addItem(withTitle: LocalBuild.menuTitle, action: nil, keyEquivalent: "").isEnabled = false
+            menu.addItem(.separator())
+        }
         menu.addItem(withTitle: "About Visor", action: #selector(showAbout), keyEquivalent: "").target = self
         if let version = UpdateFeed.shared.readyVersion {
             menu.addItem(withTitle: "Restart to Update to \(version)", action: #selector(installUpdate), keyEquivalent: "").target = self
