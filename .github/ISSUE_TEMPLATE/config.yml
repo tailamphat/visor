@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Features and how they work
+    url: https://github.com/tailamphat/visor/blob/main/docs/features.md
+    about: Check here first to see what Visor does today.
+  - name: Report a security vulnerability
+    url: https://github.com/tailamphat/visor/security/policy
+    about: Please report security problems privately, not as an issue.

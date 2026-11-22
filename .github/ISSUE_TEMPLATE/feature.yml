@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest something new for Visor.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you doing when you miss this?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Visor to do?
+      description: A sketch or screenshot is welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agents and approvals
+        - Usage
+        - Clipboard
+        - Music
+        - Plugins
+        - Menu bar and settings
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've tried
+  - type: checkboxes
+    id: plugin
+    attributes:
+      label: Could it be a plugin?
+      options:
+        - label: I checked docs/plugins.md and this needs a change to Visor itself.

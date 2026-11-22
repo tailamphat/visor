@@ -1,0 +1,26 @@
+name: Plugin idea
+description: Share an idea for a plugin, or a plugin API Visor is missing.
+labels: ["plugin"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Plugins are small Lua files. See [docs/plugins.md](https://github.com/tailamphat/visor/blob/main/docs/plugins.md) for what they can do today.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should the plugin show?
+      description: A section, a badge, a peek? What data, and from where?
+    validations:
+      required: true
+  - type: input
+    id: hosts
+    attributes:
+      label: Hosts it would call
+      description: Plugins can only reach the hosts they list.
+      placeholder: "api.github.com"
+  - type: textarea
+    id: missing-api
+    attributes:
+      label: Missing API
+      description: If the plugin API can't do this yet, what would it need?

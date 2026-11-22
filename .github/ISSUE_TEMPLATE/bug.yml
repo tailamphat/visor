@@ -1,0 +1,78 @@
+name: Bug report
+description: Something in Visor doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. For a security problem, use the Security tab instead (see SECURITY.md).
+  - type: input
+    id: visor-version
+    attributes:
+      label: Visor version
+      description: Menu bar icon > About, or the version in the menu.
+      placeholder: "0.8.2"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.5"
+    validations:
+      required: true
+  - type: input
+    id: mac-model
+    attributes:
+      label: Mac model
+      placeholder: "MacBook Pro 14-inch, M3, 2023"
+    validations:
+      required: true
+  - type: checkboxes
+    id: agents
+    attributes:
+      label: Agents and tools involved
+      options:
+        - label: Claude Code
+        - label: Copilot CLI
+        - label: Antigravity CLI
+        - label: OpenCode
+        - label: Codex CLI or Gemini CLI
+        - label: Music (Spotify, Apple Music or a browser)
+        - label: Clipboard
+        - label: A plugin
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Screenshots of the notch help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start Claude Code in a project
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Optional. Plugin logs are in ~/Library/Logs/Visor/.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed tokens, account names and private paths from anything I pasted.
+          required: true
