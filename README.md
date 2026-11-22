@@ -1,6 +1,13 @@
 # Visor
 
+[![Release](https://img.shields.io/github/v/release/tailamphat/visor)](https://github.com/tailamphat/visor/releases/latest)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-0969DA)
+[![Homebrew](https://img.shields.io/badge/brew-tailamphat%2Ftap%2Fvisor-B5532F)](#install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0969DA)](LICENSE)
+
 A small, fast macOS notch app for people who work with AI agents. Hover the notch to open it.
+
+<img src="docs/assets/demo-approval.gif" width="720" alt="An agent asks to run git push; the notch opens with Allow and Deny, and Return allows it">
 
 **Website:** https://tailamphat.github.io/visor/ (try the notch in your browser).
 

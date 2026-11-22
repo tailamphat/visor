@@ -26,6 +26,8 @@ Every feature below uses the same labels, in the same order. A label is left out
 
 See every running agent session and what it is doing right now.
 
+<img src="assets/agents.png" width="496" alt="The Agents tab with three sessions">
+
 - **Works with:** Claude Code, Copilot CLI, Antigravity CLI.
 - **What you see:** the Agents tab lists sessions grouped by agent, two to a row, with the current activity ("Bash: npm test", "Edit: Main.swift"), and which ones are waiting for you or have finished. Each Claude Code session has a ring around its icon showing how full its context window is; it turns amber with the percent from 80%, when the session is about to compact.
 - **How to use:** click a session to bring its app forward. Connect agents with **Connect your agents** in the notch, or under Agents in the menu bar menu.
@@ -45,6 +47,8 @@ See the helpers a Claude Code session starts, instead of a stream of their tools
 ### Approvals
 
 Answer an agent's permission request from the notch instead of its terminal.
+
+<img src="assets/approval.png" width="496" alt="An approval card for git push">
 
 - **Works with:** Claude Code; Copilot CLI for commands, file changes and web fetches. Antigravity CLI always asks in its own terminal.
 - **What you see:** the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow, naming the rule (for example `git push`). The closed notch shows an amber "!".
@@ -70,6 +74,8 @@ Know when an agent asks you a multiple-choice question, and jump to it.
 
 Watch your sessions as little people at work.
 
+<img src="assets/office-studio.png" width="290" alt="Night Studio office"> <img src="assets/office-galaxy.png" width="290" alt="Galaxy office"> <img src="assets/office-starfleet.png" width="290" alt="Starfleet office">
+
 - **Works with:** all connected agents.
 - **What you see:** each tool is a table and each session a person at it, facing each other across it. They walk to the terminal to run commands, the bookshelf to read, the web kiosk to browse, your desk with a "!" or "?" when they need you, and the break corner when done, where they play: darts alone, or a game together that plays in rounds, the winner hopping with a "+1". Tables flow left to right in up to two rows, so any number of tools fits. A bar above the room sums up who is working and waiting.
 - **How to use:** switch the Agents tab to the office with the list/office switch on its first line, or click the Agents tab again. Hover someone for what they're doing; click to bring their app forward. The palette button over the office picks a world.
@@ -82,6 +88,8 @@ Watch your sessions as little people at work.
 ### Turn summary
 
 See what an agent did when it finishes.
+
+<img src="assets/turn-summary.png" width="496" alt="A turn summary: files changed, lines, commands and tests">
 
 - **Works with:** all connected agents.
 - **What you see:** how long the turn took, files changed, lines added and removed, commands run and whether its tests passed.
@@ -106,6 +114,8 @@ Know when the service behind an agent is having an incident.
 ### Limits
 
 See how much of each plan you have used and when it resets.
+
+<img src="assets/usage.png" width="496" alt="Claude plan limits and spend in the Usage tab">
 
 - **Works with:**
   - **Claude**: plan limits (5-hour session and weekly), % used and % left, when each resets, and the plan's name (Pro, Max 5x, ...).
@@ -135,6 +145,8 @@ See what your usage would cost at API prices.
 ### Tokens
 
 See every token you've used, across all your agent CLIs, by model.
+
+<img src="assets/tokens.png" width="496" alt="The Tokens overview: totals and a chart per day by model">
 
 - **Works with:** Claude Code, Copilot CLI, OpenCode, Antigravity CLI, Codex CLI, Gemini CLI.
 - **What you see:** a headline (all tokens, and without cache reads, the cheap re-reading of the conversation), a stacked chart per day by model, and Overview, Models, Daily and Tools pages, like tokscale.
@@ -169,6 +181,8 @@ Find and paste anything you copied.
 
 See and control what's playing.
 
+<img src="assets/music.png" width="496" alt="The Music tab playing a song">
+
 - **Works with:** Spotify, Apple Music, and browser tabs (YouTube, YouTube Music, SoundCloud, ...). Any browser, Firefox and Zen included, with the Visor Media extension; without it, Chrome, Arc, Brave, Edge, Vivaldi and Safari through AppleScript.
 - **What you see:** artwork, title, progress and play/pause/skip.
 - **How to use:** open the Music tab. Install the extension from the menu bar menu: **Browser Extension for Music…**
@@ -201,6 +215,8 @@ Put your own things in the notch with small Lua files.
 - **How it works:** [Writing Visor plugins](plugins.md).
 
 ## Closed notch signs
+
+<img src="assets/closed-notch.png" width="436" alt="The closed notch with agents, the keep-awake cup and an amber approval sign">
 
 | Sign | Means |
 |---|---|
