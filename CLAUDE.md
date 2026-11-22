@@ -18,10 +18,11 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
   - Adding a tab or header item: keep both sides the same number of slots (add one each side, or swap one); if that can't work, show a mockup first. Never pin something to one side only, never spread icons out, never offset the panel. Panel-specific controls go inside the panel (like the Usage gear in its bar).
 - **Keep the repo personal:** no employer names, work accounts, internal hosts or project names in code, tests or docs. Use `acme.ghe.com`, `octocat` and `/Users/me` in fixtures.
 
-## Toolchain (Command Line Tools only, no Xcode)
+## Toolchain (must build with the Command Line Tools alone)
 
+- This Mac has full Xcode selected, and CI uses Xcode (Swift 6.1, older than local), but the project must still build with only the Command Line Tools, as the README promises. So no XCTest, no `@State`, nothing Xcode-only. CI catches what older Swift rejects (e.g. long literal sums, Double/CGFloat mixes).
 - Build and launch: `./scripts/bundle.sh --open`. Tests: `scripts/test.sh` (Swift Testing); `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. `swift scripts/make-icon.swift` redraws the app and menu bar icons. The script passes the Swift Testing macro plugin path; without it, incremental test builds lose `TestingMacros`.
-- Package uses tools-version 6.0 with `swiftLanguageModes [.v5]`. XCTest isn't available.
+- Package uses tools-version 6.0 with `swiftLanguageModes [.v5]`. XCTest isn't available with the Command Line Tools: use Swift Testing.
 - SwiftUI `@State` doesn't compile with the Command Line Tools (no SwiftUIMacros plugin). Keep view state on the `@Observable` `AppModel` instead (e.g. `spendHover`, `clipHover`).
 - Signing: `scripts/bundle.sh` signs with a local self-signed certificate if present, so macOS keeps Accessibility and Automation permissions across rebuilds. On a new Mac run `scripts/make-signing-identity.sh` once first.
 
