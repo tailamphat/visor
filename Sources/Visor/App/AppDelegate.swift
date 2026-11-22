@@ -168,6 +168,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
         model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
+        model.updateRelease = { update in
+            // Re-derived from the catalog here: nothing from a feed or file reaches the shell.
+            guard let method = update.method,
+                  let command = ReleaseTool.all.first(where: { $0.id == update.toolID })?.updateCommand(method),
+                  let source = TerminalCommand.appleScript(typing: command) else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                var error: NSDictionary?
+                NSAppleScript(source: source)?.executeAndReturnError(&error)
+            }
+        }
         radar.start()
         model.awakeChanged = { [weak self] in self?.awake.update() }
         awake.start()
@@ -448,7 +458,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         // {"event":"_radar","raw":{"tool":"claude","installed":"2.1.311","latest":"2.1.312","notes":"- A\n- B"}} fakes a release offer;
-        // "clear":true resets the radar, "dismiss":"<tool>" presses a card's x, "expand":true opens the notch like a click,
+        // "clear":true resets the radar, "dismiss":"<tool>" presses a card's x, "update":"<tool>" presses its Update, "expand":true opens the notch like a click,
         // "probeRedirect":true GETs a GitHub URL that redirects to another host (logged as refused), "check":true checks now.
         if message.event == "_radar" {
             let p = message.payload
@@ -457,6 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 radar.debugFake(toolID: tool, installed: installed, latest: latest, notes: p["notes"] as? String)
             }
             if let tool = p["dismiss"] as? String { radar.dismiss(tool) }
+            if let tool = p["update"] as? String, let offer = model.releaseOffers.first(where: { $0.toolID == tool }) { model.updateRelease?(offer) }
             if p["expand"] as? Bool == true { notch.expandFromPointer() }
             if p["probeRedirect"] as? Bool == true { radar.debugProbeRedirect() }
             if p["check"] as? Bool == true { radar.debugCheckNow() }

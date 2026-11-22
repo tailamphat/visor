@@ -121,6 +121,7 @@ final class AppModel {
     /// Newer releases of installed tools, shown in Usage until dismissed.
     var releaseOffers: [ReleaseUpdate] = []
     var dismissRelease: ((ReleaseUpdate) -> Void)?
+    var updateRelease: ((ReleaseUpdate) -> Void)?
     /// Opened from a release peek: Usage shows plans (the card) this time, without
     /// changing the saved Tokens choice.
     var radarPlans = false

@@ -26,23 +26,24 @@ struct RadarSection: View {
             .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
             .frame(height: Self.titleHeight)
             ForEach(model.releaseOffers, id: \.toolID) { update in
-                RadarCard(update: update) { model.dismissRelease?(update) }
+                RadarCard(update: update, dismiss: { model.dismissRelease?(update) }, install: { model.updateRelease?(update) })
             }
         }
     }
 }
 
-/// A tool, installed -> latest, its top changes, and the x. The space left of
-/// the x is kept for the Update button (2c).
+/// A tool, installed -> latest, its top changes, and the x. Update types the tool's
+/// own command into Terminal.
 struct RadarCard: View {
     let update: ReleaseUpdate
     let dismiss: () -> Void
+    let install: () -> Void
 
     static let padding: CGFloat = 10
     static let titleRow: CGFloat = 20
     static let changeRow: CGFloat = 15
     static let gap: CGFloat = 5
-    /// Kept free for the Update button.
+    /// The Update button's width.
     static let actionSlot: CGFloat = 58
 
     static func height(_ update: ReleaseUpdate) -> CGFloat {
@@ -60,7 +61,16 @@ struct RadarCard: View {
                  + Text(update.latest.description).foregroundStyle(Theme.textPrimary))
                     .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
                 Spacer(minLength: 8)
-                Color.clear.frame(width: Self.actionSlot, height: Self.titleRow)
+                if update.command != nil {
+                    Button(action: install) {
+                        Text("Update").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                            .frame(width: Self.actionSlot, height: Self.titleRow)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Terminal with the update command typed in; press Return to run it")
+                }
                 Button(action: dismiss) {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textMuted)
                         .frame(width: 18, height: 18).contentShape(Rectangle())
