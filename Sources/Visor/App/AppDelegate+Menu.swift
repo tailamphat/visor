@@ -6,6 +6,7 @@ import VisorCore
 /// The menu bar item and its menu.
 extension AppDelegate {
     func setUpStatusItem() {
+        LocalBuild.start()
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         // The visor from the app icon, tinted by macOS for light and dark menu bars.
         let icon = Bundle.main.image(forResource: "MenuIcon")

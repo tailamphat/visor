@@ -6,21 +6,30 @@ enum LocalBuild {
     static let isLocal = !BuildKind.isRelease(info: Bundle.main.infoDictionary)
     static let orange = NSColor(red: 1, green: 0.55, blue: 0.1, alpha: 1)
 
-    /// Read once, on first menu open: version, commit and worktree folder.
-    static let menuTitle: String = {
-        let info = Bundle.main.infoDictionary
-        let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() ?? URL(fileURLWithPath: CommandLine.arguments[0])
-        let root = repoRoot(from: exe)
-        var commit = info?["VisorCommit"] as? String
-        if commit == nil, let root {
-            commit = Shell.run("/usr/bin/git", ["-C", root.path, "rev-parse", "--short", "HEAD"], timeout: 2)?
-                .text.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The first menu line. Main thread only; `start()` fills in the commit and worktree.
+    private(set) static var menuTitle = BuildKind.menuTitle(version: version, commit: info?["VisorCommit"] as? String, worktree: nil)
+
+    private static var info: [String: Any]? { Bundle.main.infoDictionary }
+    private static var version: String? {
+        (info?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// At launch, local builds only: finds the commit and worktree off the main thread.
+    static func start() {
+        guard isLocal else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() ?? URL(fileURLWithPath: CommandLine.arguments[0])
+            let root = repoRoot(from: exe)
+            var commit = info?["VisorCommit"] as? String
+            if commit == nil, let root {
+                commit = Shell.run("/usr/bin/git", ["-C", root.path, "rev-parse", "--short", "HEAD"], timeout: 2)?
+                    .text.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            let worktree = root.flatMap { isWorktree($0) ? $0.lastPathComponent : nil }
+            let title = BuildKind.menuTitle(version: version, commit: commit, worktree: worktree)
+            DispatchQueue.main.async { menuTitle = title }
         }
-        var worktree: String?
-        if let root, isWorktree(root) { worktree = root.lastPathComponent }
-        let version = (info?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty || exe.path.contains("/.build/debug/") ? nil : $0 }
-        return BuildKind.menuTitle(version: version, commit: commit, worktree: worktree)
-    }()
+    }
 
     private static func repoRoot(from url: URL) -> URL? {
         var dir = url.deletingLastPathComponent()
