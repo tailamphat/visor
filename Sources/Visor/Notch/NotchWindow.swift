@@ -30,6 +30,8 @@ final class NotchController {
     private var layout = NotchLayout(notch: CGSize(width: 185, height: 32))
     private var hosting: NSHostingView<NotchView>?
     private var monitors: [Any] = []
+    /// The global pointer monitor, kept apart so it can pause while the menu bar menu is open.
+    private var moveMonitor: Any?
     private var collapseWork: DispatchWorkItem?
     /// While the mouse button is down: is something (a file, a link) being dragged?
     private var dragWatch: Timer?
@@ -59,14 +61,9 @@ final class NotchController {
                                                object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.place() }
         }
-        let handler: (NSEvent) -> Void = { [weak self] _ in
+        watchPointer(true)
+        if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: { [weak self] event in
             MainActor.assumeIsolated { self?.pointerMoved() }
-        }
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: handler) {
-            monitors.append(global)
-        }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: { event in
-            handler(event)
             return event
         }) {
             monitors.append(local)
@@ -78,6 +75,21 @@ final class NotchController {
             monitors.append(down)
         }
         observe()
+    }
+
+    /// Follows the pointer everywhere, for hovering the notch open. Paused while
+    /// Visor's menu bar menu is open: while an app watches every mouse move,
+    /// macOS skips most of the highlight updates in that app's own menus, so the
+    /// highlight trails the pointer.
+    func watchPointer(_ on: Bool) {
+        if on, moveMonitor == nil {
+            moveMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pointerMoved() }
+            }
+        } else if !on, let monitor = moveMonitor {
+            NSEvent.removeMonitor(monitor)
+            moveMonitor = nil
+        }
     }
 
     /// Runs only while the mouse button is held over an open panel, 20 times a second.

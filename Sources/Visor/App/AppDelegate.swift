@@ -7,7 +7,7 @@ import Sparkle
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let model = AppModel()
-    private lazy var notch = NotchController(model: model)
+    lazy var notch = NotchController(model: model)
     lazy var usage = UsageService(model: model)
     private lazy var music = MusicService(model: model)
     lazy var plugins = PluginService(model: model)

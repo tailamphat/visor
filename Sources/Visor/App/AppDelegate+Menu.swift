@@ -19,6 +19,9 @@ extension AppDelegate {
         statusItem = item
     }
 
+    func menuWillOpen(_ menu: NSMenu) { notch.watchPointer(false) }
+    func menuDidClose(_ menu: NSMenu) { notch.watchPointer(true) }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menu.addItem(withTitle: "About Visor", action: #selector(showAbout), keyEquivalent: "").target = self
