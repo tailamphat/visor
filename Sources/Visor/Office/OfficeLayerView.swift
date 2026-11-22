@@ -607,7 +607,7 @@ final class OfficeLayerView: NSView {
         for (name, x, top) in stations {
             let label = text(name, size: 6.5, color: NSColor(hex: 0x8C86B0))
             label.alignmentMode = .center
-            label.frame = CGRect(x: x * s - 30, y: (layout.height - top) * s - 8, width: 60, height: 8)
+            label.frame = CGRect(x: CGFloat(x) * s - 30, y: CGFloat(layout.height - top) * s - 8, width: 60, height: 8)
             labels.append(label)
         }
         labels.forEach { layer?.addSublayer($0) }
