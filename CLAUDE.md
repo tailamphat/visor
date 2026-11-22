@@ -4,9 +4,11 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 ## Working rules
 
+- **Read `docs/architecture.md` before adding a feature**: module map, data flows, and step-by-step recipes (usage provider, agent CLI, tab, debug message, menu setting). Keep it in step when a flow changes.
 - **Test first.** Behaviour changes start with a failing test in `Tests/VisorCoreTests`; logic lives in `VisorCore` so it can be tested. Run `scripts/test.sh`, never plain `swift test` (see below).
 - **Commits:** Conventional Commits, `type(scope): plain description`. Commit or push only when asked.
-- **Visualize first, every time.** Whenever the user asks for something (a change, a brainstorm, options, an explanation of a layout), answer with a visual first: an HTML page they can look at, at real size where it's about the notch, with the options side by side and a recommendation. Build only after they pick. Text-only answers don't count, even for small or "obvious" changes. Use one mockup page for everything: republish the same page with the new mockup instead of making a new one each time. After building, check the real thing with a screenshot.
+- **Visualize first, every time.** Whenever the user asks for something (a change, a brainstorm, options, an explanation of a layout), answer with a visual first: an HTML page they can look at, at real size where it's about the notch, with the options side by side and a recommendation. Build only after they pick. Text-only answers don't count, even for small or "obvious" changes. Use one mockup page for everything: republish the same page with the new mockup instead of making a new one each time. After building, check the real thing with a screenshot. In a /visor-dev run the approver agent picks the recommended option and the run continues; the mockup and final screenshot are in the Done report so the user can switch.
+- Build features with `/visor-dev` (.claude/skills/visor-dev): plan approved by an approver agent, test first, gated review, proven Done report; push only on the user's OK.
 - **Writing:** no em dashes anywhere (code comments, docs, commits, chat). Use a hyphen or a colon.
 - **Fast and idle:** the user cares most that Visor is fast with no lag. Keep everything event-driven and off the main thread; idle CPU should stay ~0%.
 - **Balanced around the camera, always.** Anything beside the hardware notch sits the same distance from it on the left as on the right, in every state and every new feature:
@@ -17,7 +19,7 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 ## Toolchain (Command Line Tools only, no Xcode)
 
-- Build and launch: `./scripts/bundle.sh --open`. Tests: `scripts/test.sh` (Swift Testing). The script passes the Swift Testing macro plugin path; without it, incremental test builds lose `TestingMacros`.
+- Build and launch: `./scripts/bundle.sh --open`. Tests: `scripts/test.sh` (Swift Testing); `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. `swift scripts/make-icon.swift` redraws the app and menu bar icons. The script passes the Swift Testing macro plugin path; without it, incremental test builds lose `TestingMacros`.
 - Package uses tools-version 6.0 with `swiftLanguageModes [.v5]`. XCTest isn't available.
 - SwiftUI `@State` doesn't compile with the Command Line Tools (no SwiftUIMacros plugin). Keep view state on the `@Observable` `AppModel` instead (e.g. `spendHover`, `clipHover`).
 - Signing: `scripts/bundle.sh` signs with a local self-signed certificate if present, so macOS keeps Accessibility and Automation permissions across rebuilds. On a new Mac run `scripts/make-signing-identity.sh` once first.
@@ -36,7 +38,9 @@ A macOS notch app (Swift, AppKit + SwiftUI) for people who work with AI agents. 
 
 Debug builds (`swift build --product Visor`, run `.build/debug/Visor`) listen on their own socket, `~/Library/Application Support/Visor/hook-debug.sock`, never the real `hook.sock`, so a test build can't receive (or answer) real agent requests: while it runs, agents ask in their own terminal. Never send `_decide` to the real socket. The debug socket also accepts extra messages:
 
-- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"helpers":"<session id>"` to open a session's subagent list, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office
+- `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it); add `"accounts":true` for Connected accounts, `"helpers":"<session id>"` to open a session's subagent list, `"office":true` with `"world":"galaxy"` (or `studio`, `starfleet`) for the office, `"worldPicker":true` for its world picker, `"tokens":true` with `"page":"models"` for a Tokens page, `"keyboard":true` to focus the clipboard search, `"clipHover":n` to hover the nth clipboard row
+- `{"event":"_limitback","raw":{}}` shows the "limit is back" card with a sample Claude limit
+- `{"event":"_clipdelete","raw":{}}` deletes the newest clipboard item
 - `{"event":"_decide","raw":{"decision":"allow|always|deny"}}` answers the first approval
 - `{"event":"_incident","raw":{"agent":"Claude Code","title":"Elevated errors","major":true}}` fakes a status-page incident (no `title` clears it)
 - `{"event":"_intro"}` replays the first-launch intro; `VISOR_INTRO=1` plays it at launch (`0` never), otherwise it plays once (`introShown` in defaults)
