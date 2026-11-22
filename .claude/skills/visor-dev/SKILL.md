@@ -94,6 +94,21 @@ Commit on `main`:
 
 Then present the Done report. Push only when the user says so.
 
+## Managed mode (under /visor-pm)
+
+When `/visor-pm` runs an item, the pipeline is split between the PM (main session) and a `visor-builder` agent in its own worktree. Everything else in this file still holds.
+
+| Step | Builder | PM |
+|---|---|---|
+| 1 Plan, 1b mockup | writes the plan to `.pm/<epic>/plans/<id>.md`, records the baseline, publishes the mockup, then stops | records it in the backlog |
+| 2 Approval | revises once if sent a rejection | spawns `visor-approver`, forwards the verdict |
+| 3 Build, 4 Self review | on "approved, build" | waits |
+| 5 Gate | starts the debug build when it holds the screen lock, replies with the pid | spawns reviewer, perf, security in one message |
+| 6 Fix, 7 Prove | fixes, proves, relaunches release | holds the screen lock for one builder at a time |
+| 8 Verify, commit | commits on its worktree branch, not `main`; Done report max 150 words | merges into `main`, runs `scripts/check.sh` |
+
+The builder never spawns agents, never merges and never pushes. Stop-list hits go to the PM, which asks the user.
+
 ## Done report
 
 ```
