@@ -28,6 +28,52 @@ public enum MCPConfig {
     public static let maxServersPerFile = 64
     public static let maxProjects = 64
 
+    /// Config file names, relative to the home folder or to a project folder.
+    /// `read` and `paths` both use these, so change detection covers every file read.
+    enum Files {
+        static let claude = ".claude.json"
+        static let claudeProject = ".mcp.json"
+        static let copilot = ".copilot/mcp-config.json"
+        static let codex = ".codex/config.toml"
+        static let gemini = ".gemini/settings.json"
+        static let antigravity = ".gemini/config/mcp_config.json"
+        static let openCodeGlobal = ".config/opencode"
+        static let openCode = ["opencode.json", "opencode.jsonc"]
+    }
+
+    /// Folders under the home that macOS guards with a privacy prompt (or that iCloud may
+    /// have to download): never opened, so a session there can't make Visor ask for access.
+    static let protectedFolders = ["Desktop", "Documents", "Downloads", "Library/Mobile Documents"]
+
+    /// The project folders worth opening, from session cwds most recent first: only the home
+    /// folder and folders inside it (no other users, /Volumes, network mounts), none in
+    /// `protectedFolders`, deduplicated, the `maxProjects` most recent, sorted.
+    public static func projectFolders(_ cwds: [String], home: String) -> [String] {
+        let home = home.hasSuffix("/") && home.count > 1 ? String(home.dropLast()) : home
+        let guarded = protectedFolders.map { home + "/" + $0 }
+        var seen = Set<String>(), kept: [String] = []
+        for cwd in cwds where kept.count < maxProjects {
+            let path = cwd.count > 1 && cwd.hasSuffix("/") ? String(cwd.dropLast()) : cwd
+            guard path == home || path.hasPrefix(home + "/"),
+                  !guarded.contains(where: { path == $0 || path.hasPrefix($0 + "/") }),
+                  seen.insert(path).inserted else { continue }
+            kept.append(path)
+        }
+        return kept.sorted()
+    }
+
+    /// Every file `read(home:projects:)` may open, for change detection (`MCPConfigStamp`).
+    public static func paths(home: URL, projects: [String]) -> [String] {
+        func join(_ folder: String, _ name: String) -> String { (folder as NSString).appendingPathComponent(name) }
+        let openCodeHome = join(home.path, Files.openCodeGlobal)
+        var out = [Files.claude, Files.copilot, Files.codex, Files.gemini, Files.antigravity].map { join(home.path, $0) }
+            + Files.openCode.map { join(openCodeHome, $0) }
+        for folder in projectFolders(projects, home: home.path) {
+            out += [Files.claudeProject, Files.gemini].map { join(folder, $0) } + Files.openCode.map { join(folder, $0) }
+        }
+        return out
+    }
+
     /// Every configured server, from the global config files under `home` and the
     /// project files in `projects` (absolute folder paths, such as agent cwds).
     public static func read(home: URL, projects: [String]) -> [MCPServerRef] {
@@ -35,31 +81,31 @@ public enum MCPConfig {
         func add(_ agent: String, _ scope: MCPServerRef.Scope, _ names: [String]) {
             refs += names.map { MCPServerRef(agent: agent, scope: scope, name: $0) }
         }
-        let folders = Array(Array(Set(projects.filter { $0.hasPrefix("/") })).sorted().prefix(maxProjects))
+        let folders = projectFolders(projects, home: home.path)
 
         // Claude Code: ~/.claude.json (global and per project) plus each project's .mcp.json.
-        let claude = file(home, ".claude.json").flatMap(claudeConfig) ?? ClaudeConfig()
+        let claude = file(home, Files.claude).flatMap(claudeConfig) ?? ClaudeConfig()
         add("Claude Code", .global, claude.global)
         for (path, servers) in claude.projects.sorted(by: { $0.key < $1.key }) where path.hasPrefix("/") {
             add("Claude Code", .project(path), servers)
         }
         for folder in folders {
             let disabled = claude.disabled[folder] ?? []
-            let names = file(folder, ".mcp.json").map { serverNames($0, key: "mcpServers") } ?? []
+            let names = file(folder, Files.claudeProject).map { serverNames($0, key: "mcpServers") } ?? []
             add("Claude Code", .project(folder), names.filter { !disabled.contains($0) })
         }
 
-        add("Copilot CLI", .global, file(home, ".copilot/mcp-config.json").map { serverNames($0, key: "mcpServers") } ?? [])
-        add("Codex CLI", .global, file(home, ".codex/config.toml").map(codexTOML) ?? [])
+        add("Copilot CLI", .global, file(home, Files.copilot).map { serverNames($0, key: "mcpServers") } ?? [])
+        add("Codex CLI", .global, file(home, Files.codex).map(codexTOML) ?? [])
 
-        add("Gemini CLI", .global, file(home, ".gemini/settings.json").map { serverNames($0, key: "mcpServers") } ?? [])
+        add("Gemini CLI", .global, file(home, Files.gemini).map { serverNames($0, key: "mcpServers") } ?? [])
         for folder in folders {
-            add("Gemini CLI", .project(folder), file(folder, ".gemini/settings.json").map { serverNames($0, key: "mcpServers") } ?? [])
+            add("Gemini CLI", .project(folder), file(folder, Files.gemini).map { serverNames($0, key: "mcpServers") } ?? [])
         }
 
-        add("Antigravity", .global, file(home, ".gemini/config/mcp_config.json").map { serverNames($0, key: "mcpServers") } ?? [])
+        add("Antigravity", .global, file(home, Files.antigravity).map { serverNames($0, key: "mcpServers") } ?? [])
 
-        add("OpenCode", .global, openCode(in: home.appendingPathComponent(".config/opencode").path))
+        add("OpenCode", .global, openCode(in: home.appendingPathComponent(Files.openCodeGlobal).path))
         for folder in folders {
             add("OpenCode", .project(folder), openCode(in: folder))
         }
@@ -76,10 +122,10 @@ public enum MCPConfig {
         }
     }
 
-    /// A name Visor will keep: non-empty, at most 64 characters, no control characters.
+    /// A name Visor will keep: non-empty, at most 64 characters, no control or format (bidi, zero-width) characters.
     static func isValidName(_ name: String) -> Bool {
         !name.isEmpty && name.count <= maxNameLength
-            && name.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+            && name.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) && $0.properties.generalCategory != .format }
     }
 
     struct ClaudeConfig {
@@ -166,9 +212,8 @@ public enum MCPConfig {
 
     /// OpenCode's `mcp` object from opencode.json or opencode.jsonc in `folder`.
     static func openCode(in folder: String) -> [String] {
-        let json = file(folder, "opencode.json").map { serverNames($0, key: "mcp", json5: true) } ?? []
-        let jsonc = file(folder, "opencode.jsonc").map { serverNames($0, key: "mcp", json5: true) } ?? []
-        return Array(Set(json + jsonc)).sorted()
+        let names = Files.openCode.flatMap { file(folder, $0).map { serverNames($0, key: "mcp", json5: true) } ?? [] }
+        return Array(Set(names)).sorted()
     }
 
     private static func names(in value: Any?) -> [String] {

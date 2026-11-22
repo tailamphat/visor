@@ -114,6 +114,7 @@ struct NotchLayout {
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
                 if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers) + 6 }  // a session's subagents
+                content += MCPSection.height(model)  // the MCP line, and its server list when open
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             // Nothing playing: a little shorter than the other panels, it's only a message.

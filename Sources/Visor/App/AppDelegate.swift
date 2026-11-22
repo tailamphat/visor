@@ -31,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hooks = HookServer()
     /// Codex CLI and OpenCode sessions, read from their own files (no hooks).
     private let fileAgents = FileAgentsService()
+    /// MCP servers from the agents' configs and the MCP calls seen in hooks.
+    private lazy var mcp = MCPService(model: model)
     var statusItem: NSStatusItem?
     weak var aboutPanel: NSWindow?
     private var pruneTimer: Timer?
@@ -59,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastPublish = Date()
         model.board = agents
+        mcp.sessionsChanged(agents.sessions)
         saveAgentsSoon()
         awake.update()
     }
@@ -220,6 +223,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if ProcessInfo.processInfo.environment["VISOR_NO_MUSIC"] == nil { music.start() }
         setUpStatusItem()
 
+        model.mcpShown = { [weak self] in self?.mcp.listShown() }
+        mcp.start()
         fileAgents.onScan = { [weak self] agent, sessions in self?.fileAgentsRead(agent, sessions) }
         fileAgents.scan()
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -469,7 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             playIntro()
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
@@ -481,6 +486,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let world = message.payload["world"] as? String { model.officeWorld = OfficeWorld(saved: world) }
             if let picker = message.payload["worldPicker"] as? Bool { model.officePicker = picker }
             if let tokens = message.payload["tokens"] as? Bool { model.usageTokens = tokens }
+            if let open = message.payload["mcp"] as? Bool { model.mcpOpen = open && model.mcp != nil }
             if let page = (message.payload["page"] as? String).flatMap(TokensPage.init(rawValue:)) { model.tokensPage = page }
             // "clipHover": n hovers the clipboard's nth row (0-based).
             if let row = (message.payload["clipHover"] as? NSNumber)?.intValue, model.clips.items.indices.contains(row) {
@@ -492,6 +498,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var message = message
         message.pid = ProcessTree.agentAncestor(of: message.pid)
         agents.apply(message)
+        mcp.record(message)
         noteEdit(message)
         readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {

@@ -11,6 +11,7 @@ struct AgentsView: View {
             content
         }
         .onReceive(Timer.publish(every: 1, tolerance: 0.2, on: .main, in: .common).autoconnect()) { model.agentsNow = $0 }
+        .onAppear { model.mcpShown?() }
     }
 
     @ViewBuilder private var content: some View {
@@ -55,6 +56,7 @@ struct AgentsView: View {
                             model.agentsShowAll = false
                         }
                     }
+                    MCPSection(model: model)
                     if !model.hooksInstalled {
                         Button("Connect Claude Code for approvals") { model.installHooks?() }
                             .buttonStyle(PillButton(fill: Theme.accent)).padding(.top, 4)
@@ -111,6 +113,7 @@ struct AgentsView: View {
                     Text("show").foregroundStyle(Theme.question)
                 }, dashed: true) { model.agentsShowAll = true }
             }
+            MCPSection(model: model)
         }
     }
 

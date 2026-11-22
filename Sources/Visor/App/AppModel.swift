@@ -82,7 +82,7 @@ final class AppModel {
     // Notch state
     var expanded = false {
         // The turn summary is for the moment it finished; once the notch closes it's gone.
-        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil; radarPlans = false } }
+        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil; mcpOpen = false; radarPlans = false } }
     }
     /// A turn that just finished, shown as its summary when the notch opens
     /// during its "done" peek.
@@ -233,6 +233,12 @@ final class AppModel {
     var agentsShowAll = false
     /// The session whose subagents are listed under the cards (its ⑂ button).
     var helpersOpen: String?
+    /// MCP health, the line under the sessions; nil when no server is configured or seen.
+    var mcp: MCPSummary?
+    /// The per-server MCP list is open under that line.
+    var mcpOpen = false
+    /// The Agents list came on screen (re-reads changed MCP configs).
+    var mcpShown: (() -> Void)?
     /// The office's world picker is open over the room.
     var officePicker = false
     /// How the office looks: the night studio or a film world; remembered.
