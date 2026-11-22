@@ -9,7 +9,7 @@ Every feature below uses the same labels, in the same order. A label is left out
 - **How to use**: clicks and keys.
 - **Settings**: switches that change it.
 - **Good to know**: limits and edge cases.
-- **How it works**: where the data comes from (often a row in the README's [How it works](../README.md#how-it-works) table).
+- **How it works**: where the data comes from (each links to its section in [how-it-works.md](how-it-works.md)).
 
 ## Contents
 
@@ -30,7 +30,7 @@ See every running agent session and what it is doing right now.
 - **What you see:** the Agents tab lists sessions grouped by agent, two to a row, with the current activity ("Bash: npm test", "Edit: Main.swift"), and which ones are waiting for you or have finished. Each Claude Code session has a ring around its icon showing how full its context window is; it turns amber with the percent from 80%, when the session is about to compact.
 - **How to use:** click a session to bring its app forward. Connect agents with **Connect your agents** in the notch, or under Agents in the menu bar menu.
 - **Good to know:** transcripts don't say whether a session has the 200k or the 1M context window. Visor counts it as 1M once it goes past 200k, or when the `model` setting asks for `[1m]`. Sessions are saved and restored after a restart, minus agents whose process has exited.
-- **How it works:** agent hooks send events to a Unix socket owned by Visor. See *Agents & approvals*, *Copilot CLI agents* and *Antigravity CLI agents* in the README table. The context ring reads the last reply in the session's transcript.
+- **How it works:** agent hooks send events to a Unix socket owned by Visor. See [Claude Code](how-it-works.md#claude-code-hooks), [Copilot CLI](how-it-works.md#copilot-cli-hooks) and [Antigravity CLI](how-it-works.md#antigravity-cli-hooks) hooks. The context ring reads the last reply in the session's transcript.
 
 ### Subagents
 
@@ -55,7 +55,7 @@ Answer an agent's permission request from the notch instead of its terminal.
   - Copilot's hooks can't save rules, so **Always** is kept by Visor per project (`copilot-rules.json`), and later matching requests are allowed without a card.
   - Copilot asks the hook even for things it would allow itself (`--allow-all-tools`). Turn Approvals in the Notch off if that gets in the way.
   - If another app (for example Notchy) also registers a `PermissionRequest` hook, both will ask you. Use one at a time.
-- **How it works:** *Agents & approvals* and the *Approvals* notes in the README.
+- **How it works:** [Approvals](how-it-works.md#approvals).
 
 ### Questions
 
@@ -115,7 +115,7 @@ See how much of each plan you have used and when it resets.
 - **What you see:** a meter per limit in the Usage tab, and the most urgent percent in the closed notch.
 - **How to use:** open the Usage tab. **Refresh Usage** (⌘R in the menu bar menu) fetches now.
 - **Good to know:** switch Copilot accounts with `gh auth switch` or in Copilot CLI and Visor follows within two minutes, or as soon as you open the Usage tab. Antigravity is checked only when the Usage tab opens (it takes a few seconds).
-- **How it works:** *Plan limits*, *Copilot*, *OpenCode* and *Antigravity* in the README table.
+- **How it works:** [Claude limits](how-it-works.md#claude-limits), [Copilot](how-it-works.md#copilot), [OpenCode](how-it-works.md#opencode) and [Antigravity](how-it-works.md#antigravity).
 
 ### Pace
 
@@ -130,7 +130,7 @@ See what your usage would cost at API prices.
 
 - **Works with:** Claude Code (today, 7 days, 30 days, and a chart of the last 14 days), OpenCode (today, 7 days, 30 days).
 - **Good to know:** this is the API-equivalent value, not what a subscription bills. OpenCode's cost comes from its own records, so free models show $0.
-- **How it works:** *Claude spend* and *OpenCode* in the README table.
+- **How it works:** [Claude spend](how-it-works.md#claude-spend) and [OpenCode](how-it-works.md#opencode).
 
 ### Tokens
 
@@ -163,7 +163,7 @@ Find and paste anything you copied.
   - Deleting the item that's on the clipboard clears it from the macOS clipboard too, with Undo.
   - History stays on this Mac: 200 items or 30 days, pins always.
   - Pasting needs the Accessibility permission; ⌘⇧V itself needs none.
-- **How it works:** *Clipboard* in the README table.
+- **How it works:** [Clipboard](how-it-works.md#clipboard).
 
 ### Music
 
@@ -176,7 +176,7 @@ See and control what's playing.
   - The extension reports every media tab and controls the exact tab, with no AppleScript or browser settings.
   - Without it, turn on **Allow JavaScript from Apple Events** in the browser (Chrome: View > Developer; Safari: Develop menu). Otherwise the notch shows the tab title only, with no controls.
   - macOS asks for Automation permission the first time Visor controls a music app.
-- **How it works:** *Music* and *Browser music* in the README table.
+- **How it works:** [Music](how-it-works.md#music) and [Browser music](how-it-works.md#browser-music).
 
 ### Keep awake
 
