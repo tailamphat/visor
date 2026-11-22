@@ -168,7 +168,7 @@ Check and fix each tool's sign-in in one place.
 Find and paste anything you copied.
 
 - **What you see:** everything you copy, newest first, one line each, with a swatch for colours. Pinned items show a pin.
-- **How to use:** ⌘⇧V opens it from anywhere. Type to search, ↑/↓ and Return to paste into the app you were in, ⌥Return to paste as plain text, ⌘P (or the pin button on hover) to pin, ⌫ to delete.
+- **How to use:** ⌘⇧V opens it from anywhere. Type to search, ↑/↓ and Return to paste into the app you were in, ⌥Return to paste as plain text, ⌘P (or the pin button on hover) to pin, ⌫ to delete, ⌘Z to undo a delete, ⌘C to copy without pasting, Esc to clear the search or close.
 - **Settings:** apps listed in the `clipboardExcludedApps` default are never recorded.
 - **Good to know:**
   - Copies that password managers mark as secret are never kept.

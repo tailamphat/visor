@@ -79,7 +79,10 @@ Visor is signed ad hoc, not notarized; the cask clears the quarantine flag for y
 | ↑ / ↓, Return | Clipboard | Pick and paste into the app you were in |
 | ⌥Return | Clipboard | Paste as plain text |
 | ⌘P | Clipboard | Pin or unpin |
-| ⌫ | Clipboard | Delete (with Undo) |
+| ⌫ | Clipboard | Delete |
+| ⌘Z | Clipboard | Undo a delete |
+| ⌘C | Clipboard | Copy without pasting |
+| Esc | Clipboard | Clear the search, or close |
 | Return / A / Esc | Approval card | Allow / Always allow / Deny |
 
 ### Updates and uninstall
