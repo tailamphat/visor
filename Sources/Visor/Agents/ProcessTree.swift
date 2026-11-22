@@ -61,6 +61,53 @@ enum ProcessTree {
         return fields.map { String(decoding: $0, as: UTF8.self) }.joined(separator: " ")
     }
 
+    /// Running processes with one of these names, as [name: [working folder: pid]],
+    /// for agents Visor reads from files (Codex CLI, OpenCode): a session whose
+    /// folder has one gets its pid. Your own processes only (others' cwd is unreadable).
+    static func processes(named names: Set<String>) -> [String: [String: Int32]] {
+        let capacity = Int(proc_listallpids(nil, 0)) + 64
+        guard capacity > 64 else { return [:] }
+        var pids = [Int32](repeating: 0, count: capacity)
+        let count = Int(proc_listallpids(&pids, Int32(capacity * MemoryLayout<Int32>.size)))
+        var out: [String: [String: Int32]] = [:]
+        for pid in pids.prefix(max(0, count)) where pid > 1 {
+            var buffer = [CChar](repeating: 0, count: 64)
+            guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { continue }
+            let name = String(cString: buffer)
+            guard names.contains(name) else { continue }
+            var info = proc_vnodepathinfo()
+            let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+            guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { continue }
+            let cwd = withUnsafeBytes(of: info.pvi_cdir.vip_path) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+            guard !cwd.isEmpty else { continue }
+            // Several processes in one folder (a TUI and its server): keep the lower pid, usually the first started.
+            if let known = out[name]?[cwd], known < pid { continue }
+            out[name, default: [:]][cwd] = pid
+        }
+        return out
+    }
+
+    /// Files a process has open under `folder` with extension `ext`: the
+    /// rollout a running Codex CLI writes to, wherever (and however old) it is.
+    static func openFiles(of pid: Int32, under folder: String, ext: String) -> [String] {
+        let bytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
+        guard bytes > 0 else { return [] }
+        let stride = MemoryLayout<proc_fdinfo>.stride
+        var fds = [proc_fdinfo](repeating: proc_fdinfo(), count: Int(bytes) / stride + 16)
+        let used = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, &fds, Int32(fds.count * stride))
+        guard used > 0 else { return [] }
+        let prefix = folder.hasSuffix("/") ? folder : folder + "/"
+        var out: [String] = []
+        for fd in fds.prefix(Int(used) / stride) where fd.proc_fdtype == UInt32(PROX_FDTYPE_VNODE) {
+            var info = vnode_fdinfowithpath()
+            let size = Int32(MemoryLayout<vnode_fdinfowithpath>.size)
+            guard proc_pidfdinfo(pid, fd.proc_fd, PROC_PIDFDVNODEPATHINFO, &info, size) == size else { continue }
+            let path = withUnsafeBytes(of: info.pvip.vip_path) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+            if path.hasPrefix(prefix), path.hasSuffix("." + ext) { out.append(path) }
+        }
+        return out
+    }
+
     /// Hooks may run under an intermediate shell; walk up to the agent's process
     /// (claude, copilot or agy) so its exit can be noticed. Falls back to the pid given.
     static func agentAncestor(of pid: Int32) -> Int32 {

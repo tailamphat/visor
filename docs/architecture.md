@@ -6,7 +6,7 @@ Visor is a menu bar app with no Dock icon that draws a black panel over the MacB
 
 | Target | Owns |
 |---|---|
-| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalRelease`, `TerminalAnswer`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), the Lua runtime (`Plugins/LuaPlugin.swift`). |
+| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalRelease`, `TerminalAnswer`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), the Lua runtime (`Plugins/LuaPlugin.swift`). |
 | `Sources/Visor` | The app. One folder per feature, below. |
 | `Sources/VisorBridge` | `visor-bridge`, the native messaging host browsers start for the extension. |
 | `Sources/CLua` | Vendored Lua 5.4.7 plus `clua.c`. |
@@ -16,7 +16,7 @@ App folders:
 
 - `App`: `AppDelegate` (creates every service, wires `AppModel` closures, routes hook events), `AppDelegate+Menu` (menu bar menu), `AppModel` (all view state, plus `Tab`, `NowPlaying`, `Peek`), `Intro`, `UpdateFeed` (Sparkle).
 - `Notch`: `NotchWindow.swift` (`NotchPanel`, `NotchController`: placement, hover, click-through, keyboard), `NotchView.swift` (`NotchLayout`, `CollapsedView`, `ExpandedView`, header), `Theme`, `LayerAnimations`.
-- `Agents`: `HookServer`, `HookInstaller` (writes `agent-hook.sh` and each CLI's hook config), `ProcessTree`, `AgentsView`, `ApprovalView`, `HelpersView`, `StatusService` (status pages), `AwakeService`.
+- `Agents`: `HookServer`, `HookInstaller` (writes `agent-hook.sh` and each CLI's hook config), `FileAgentsService` (Codex CLI and OpenCode, read-only), `ProcessTree`, `AgentsView`, `ApprovalView`, `HelpersView`, `StatusService` (status pages), `AwakeService`.
 - `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`).
 - `Music`: `MusicService`, `BrowserBridgeServer`, `MusicView`.
 - `Clipboard`, `Bar` (tab hidden for now), `Office` (pixel office for the Agents tab), `Plugins` (`PluginService`, `PluginRunner`, `PluginsView`).
@@ -43,6 +43,7 @@ flowchart LR
 4. `received` sets `message.pid` to `ProcessTree.agentAncestor`, calls `agents.apply(message)` on its private `AgentBoard`, looks up the host app, releases moot approvals (`ApprovalRelease.after`), then `publishAgents()`.
 5. `publishAgents` copies `agents` into `model.board` only if `differsVisibly(from:)`, at most every 0.25 s, then saves sessions and updates keep awake.
 6. A `Stop` produces `agents.finished(message)`, shown as a `Peek.done` via `show(_:for:)`.
+7. Codex CLI and OpenCode send no hooks: `FileAgentsService` (queue `visor.file-agents`) reads their rollouts and database when a watched file changes or on the 5 s prune tick, parses with `CodexRollout` and `OpenCodeSessions` (`FileAgents.swift`), and `AppDelegate.fileAgentsRead` calls `agents.sync(agent:scanned:live:)`, which replaces that agent's sessions and returns finished turns for the peek.
 
 ### Approvals
 

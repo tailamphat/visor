@@ -20,7 +20,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 
 ### Agents
 
-- **Sessions**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, with what it's doing now ("Bash: npm test") and which are waiting for you or done.
+- **Sessions**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, with what it's doing now ("Bash: npm test") and which are waiting for you or done. Codex CLI and OpenCode sessions show too, read from their own files (no hooks, no approvals).
   - Context ring around each Claude Code session's icon, amber with the percent from 80%.
   - Subagents: "Waiting on 3 helpers" and a list of each helper's task, type and current tool.
 - **Approvals**: Allow / Deny / Always allow from the notch (Return / A / Esc). Claude Code and Copilot CLI.

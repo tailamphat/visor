@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var clashExpiry: DispatchWorkItem?
     private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
+    /// Codex CLI and OpenCode sessions, read from their own files (no hooks).
+    private let fileAgents = FileAgentsService()
     var statusItem: NSStatusItem?
     weak var aboutPanel: NSWindow?
     private var pruneTimer: Timer?
@@ -209,9 +211,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if ProcessInfo.processInfo.environment["VISOR_NO_MUSIC"] == nil { music.start() }
         setUpStatusItem()
 
+        fileAgents.onScan = { [weak self] agent, sessions in self?.fileAgentsRead(agent, sessions) }
+        fileAgents.scan()
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
+                self.fileAgents.scan()
                 let alive = { (pid: Int32) in kill(pid, 0) == 0 || errno == EPERM }
                 let gone = self.agents.sessions.filter { $0.pid > 0 && !alive($0.pid) }.map(\.id)
                 self.agents.prune(isAlive: alive)
@@ -499,6 +504,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !model.expanded && !done.stats.isEmpty { model.summary = done }
             show(.done(done), for: 5)
         }
+    }
+
+    /// Sessions read from an agent's files: onto the board, with the host app
+    /// of its process when one runs there, and the "Finished" peek for turns that ended.
+    private func fileAgentsRead(_ agent: String, _ sessions: [ScannedSession]) {
+        let finished = agents.sync(agent: agent, scanned: sessions)
+        for session in agents.sessions where session.agent == agent && session.pid > 0 && session.host == nil {
+            guard let app = ProcessTree.hostAppPath(of: session.pid) else { continue }
+            let host = ProcessTree.appName(at: app)
+            if model.hostIcons[host] == nil { model.hostIcons[host] = NSWorkspace.shared.icon(forFile: app) }
+            agents.setHost(host, session: session.id)
+        }
+        publishAgents()
+        if let done = finished.last { show(.done(done), for: 5) }
     }
 
     /// A question answered in the terminal shows "Answered" in the closed notch.

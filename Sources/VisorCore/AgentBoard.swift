@@ -290,12 +290,15 @@ public struct AgentBoard: Equatable, Sendable {
         case "claude": return "Claude Code"
         case "copilot": return "Copilot CLI"
         case "antigravity": return "Antigravity"
+        case "codex": return "Codex CLI"
+        case "opencode": return "OpenCode"
         default: return provider.prefix(1).uppercased() + provider.dropFirst()
         }
     }
 
     /// Agents with something going on, in the order the closed notch shows them:
-    /// anyone waiting for you first, then Claude Code, Copilot CLI, Antigravity.
+    /// anyone waiting for you first, then Claude Code, Copilot CLI, Antigravity,
+    /// Codex CLI, OpenCode.
     /// Approvals before questions: an approval blocks the agent.
     public var activeAgents: [(agent: String, count: Int, attention: Attention?)] {
         var groups: [String: (count: Int, attention: Attention?)] = [:]
@@ -305,13 +308,58 @@ public struct AgentBoard: Equatable, Sendable {
             if let attention = session.state.attention { group.attention = min(group.attention ?? attention, attention) }
             groups[session.agent] = group
         }
-        let order = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2]
+        let order = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2, "Codex CLI": 3, "OpenCode": 4]
         let rank = { (a: Attention?) in a?.rawValue ?? 9 }
         return groups.map { ($0.key, $0.value.count, $0.value.attention) }
             .sorted { a, b in
                 rank(a.attention) != rank(b.attention) ? rank(a.attention) < rank(b.attention)
                     : (order[a.agent] ?? 9, a.agent) < (order[b.agent] ?? 9, b.agent)
             }
+    }
+
+    /// One agent's sessions as read from its own files (Codex CLI, OpenCode)
+    /// and chosen by `FileAgentTracker`, in place of whatever the board had for
+    /// that agent; hook agents are left alone. A state that didn't change keeps
+    /// its `since`. Returns the turns that finished since the last sync, for the "Finished" peek.
+    public mutating func sync(agent: String, scanned: [ScannedSession]) -> [FinishedTurn] {
+        let shown = scanned.filter { $0.agent == agent }
+        var finished: [FinishedTurn] = []
+        var updated: [String: AgentSession] = [:]
+        for read in shown {
+            let before = sessions.first { $0.id == read.id && $0.agent == agent }
+            var session = before ?? AgentSession(id: read.id, pid: read.pid, cwd: read.cwd, state: read.state,
+                                                 since: read.lastActivity, lastEvent: read.lastActivity)
+            session.agent = agent
+            session.cwd = read.cwd
+            // Another process (or none): the host app is looked up again.
+            if session.pid != read.pid { session.host = nil }
+            session.pid = read.pid
+            session.task = read.task
+            session.turnStart = read.turnStart
+            session.askedForReply = read.askedForReply
+            session.lastEvent = read.lastActivity
+            if let before, before.state != read.state {
+                if before.state.isWorking, read.state == .done {
+                    finished.append(FinishedTurn(agent: agent, project: session.project,
+                                                 duration: read.turnStart.map { read.lastActivity.timeIntervalSince($0) },
+                                                 sessionID: read.id, cwd: read.cwd))
+                }
+                session.state = read.state
+                session.since = max(read.lastActivity, before.since)
+            }
+            updated[read.id] = session
+        }
+        var kept: [AgentSession] = []
+        for session in sessions {
+            if session.agent != agent {
+                kept.append(session)
+            } else if let next = updated.removeValue(forKey: session.id) {
+                kept.append(next)
+            }
+        }
+        kept += shown.compactMap { updated[$0.id] }
+        sessions = kept
+        return finished
     }
 
     /// The turn a Stop event ends: which agent, which project, and how long it took.

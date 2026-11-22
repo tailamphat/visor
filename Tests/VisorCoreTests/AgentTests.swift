@@ -150,7 +150,7 @@ struct NotchMarksTests {
     }
 
     @Test func agentNames() {
-        #expect(AgentBoard.agentName("codex") == "Codex" && AgentBoard.agentName("claude") == "Claude Code")
+        #expect(AgentBoard.agentName("aider") == "Aider" && AgentBoard.agentName("claude") == "Claude Code")
     }
 
     @Test func atMostTwoMarksThenMore() {
@@ -159,13 +159,13 @@ struct NotchMarksTests {
         var marks = NotchMarks.make(board, approvalsFrom: [])
         #expect(marks.shown == [.init(agent: "Claude Code", count: 2, attention: nil)] && marks.more.isEmpty)
 
-        (start("copilot", "c") + start("codex", "d")).forEach { board.apply($0) }
+        (start("copilot", "c") + start("aider", "d")).forEach { board.apply($0) }
         marks = NotchMarks.make(board, approvalsFrom: [])
-        #expect(marks.shown.map(\.agent) == ["Claude Code", "Copilot CLI"] && marks.more == ["Codex"])
+        #expect(marks.shown.map(\.agent) == ["Claude Code", "Copilot CLI"] && marks.more == ["Aider"])
 
-        start("codex", "d", waiting: true).forEach { board.apply($0) }
+        start("aider", "d", waiting: true).forEach { board.apply($0) }
         marks = NotchMarks.make(board, approvalsFrom: [])
-        #expect(marks.shown.first == .init(agent: "Codex", count: 1, attention: .question) && marks.more == ["Copilot CLI"])
+        #expect(marks.shown.first == .init(agent: "Aider", count: 1, attention: .question) && marks.more == ["Copilot CLI"])
     }
 
     @Test func openApprovalCountsAsWaiting() {
