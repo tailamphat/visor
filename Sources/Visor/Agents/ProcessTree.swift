@@ -1,5 +1,6 @@
 import AppKit
 import Darwin
+import VisorCore
 
 enum ProcessTree {
     /// The app a process runs under (the terminal or editor hosting Claude
@@ -49,6 +50,11 @@ enum ProcessTree {
 
     /// A process's command line, its arguments joined by spaces, as `ps` shows it.
     static func arguments(of pid: Int32) -> String? {
+        argumentList(of: pid)?.joined(separator: " ")
+    }
+
+    /// A process's arguments, argv[0] first.
+    static func argumentList(of pid: Int32) -> [String]? {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
         guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return nil }
@@ -58,13 +64,15 @@ enum ProcessTree {
         let argc = buffer.withUnsafeBytes { $0.load(as: Int32.self) }
         var fields = buffer[MemoryLayout<Int32>.size..<size].split(separator: 0, omittingEmptySubsequences: true).dropFirst()
         fields = fields.prefix(Int(argc))
-        return fields.map { String(decoding: $0, as: UTF8.self) }.joined(separator: " ")
+        return fields.map { String(decoding: $0, as: UTF8.self) }
     }
 
     /// Running processes with one of these names, as [name: [working folder: pid]],
-    /// for agents Visor reads from files (Codex CLI, OpenCode): a session whose
+    /// for agents Visor reads from files (Codex CLI, OpenCode, Gemini CLI): a session whose
     /// folder has one gets its pid. Your own processes only (others' cwd is unreadable).
-    static func processes(named names: Set<String>) -> [String: [String: Int32]] {
+    /// `nodeScript`: for a `node` process, the name to report it under given
+    /// its script (the first argument after node's own options), or nil to skip it: Gemini CLI runs as `node .../gemini`.
+    static func processes(named names: Set<String>, nodeScript: ((String) -> String?)? = nil) -> [String: [String: Int32]] {
         let capacity = Int(proc_listallpids(nil, 0)) + 64
         guard capacity > 64 else { return [:] }
         var pids = [Int32](repeating: 0, count: capacity)
@@ -73,8 +81,14 @@ enum ProcessTree {
         for pid in pids.prefix(max(0, count)) where pid > 1 {
             var buffer = [CChar](repeating: 0, count: 64)
             guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { continue }
-            let name = String(cString: buffer)
-            guard names.contains(name) else { continue }
+            var name = String(cString: buffer)
+            if name == "node", let nodeScript {
+                // Only node processes pay for reading their arguments.
+                guard let script = argumentList(of: pid).flatMap(GeminiChat.script(nodeArguments:)), let reported = nodeScript(script) else { continue }
+                name = reported
+            } else if !names.contains(name) {
+                continue
+            }
             var info = proc_vnodepathinfo()
             let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
             guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { continue }

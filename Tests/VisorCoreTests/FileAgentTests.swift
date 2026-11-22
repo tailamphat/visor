@@ -275,12 +275,14 @@ struct FileAgentTests {
     @Test func orderAfterHookAgents() {
         #expect(AgentBoard.agentName("codex") == "Codex CLI")
         #expect(AgentBoard.agentName("opencode") == "OpenCode")
+        #expect(AgentBoard.agentName("gemini") == "Gemini CLI")
         var board = AgentBoard()
         _ = board.sync(agent: "OpenCode", scanned: [scanned("o", state: .working("Thinking"))])
         _ = board.sync(agent: "Codex CLI", scanned: [scanned("c", agent: "Codex CLI", state: .working("Thinking"))])
+        _ = board.sync(agent: "Gemini CLI", scanned: [scanned("g", agent: "Gemini CLI", state: .working("Thinking"))])
         var start = HookMessage(event: "UserPromptSubmit", pid: 7, payload: ["session_id": "a", "cwd": "/Users/me/x"])
         start.provider = "antigravity"
         board.apply(start, now: now)
-        #expect(board.activeAgents.map(\.agent) == ["Antigravity", "Codex CLI", "OpenCode"])
+        #expect(board.activeAgents.map(\.agent) == ["Antigravity", "Codex CLI", "OpenCode", "Gemini CLI"])
     }
 }

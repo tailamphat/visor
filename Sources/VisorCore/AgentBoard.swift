@@ -292,13 +292,14 @@ public struct AgentBoard: Equatable, Sendable {
         case "antigravity": return "Antigravity"
         case "codex": return "Codex CLI"
         case "opencode": return "OpenCode"
+        case "gemini": return "Gemini CLI"
         default: return provider.prefix(1).uppercased() + provider.dropFirst()
         }
     }
 
     /// Agents with something going on, in the order the closed notch shows them:
     /// anyone waiting for you first, then Claude Code, Copilot CLI, Antigravity,
-    /// Codex CLI, OpenCode.
+    /// Codex CLI, OpenCode, Gemini CLI.
     /// Approvals before questions: an approval blocks the agent.
     public var activeAgents: [(agent: String, count: Int, attention: Attention?)] {
         var groups: [String: (count: Int, attention: Attention?)] = [:]
@@ -308,7 +309,7 @@ public struct AgentBoard: Equatable, Sendable {
             if let attention = session.state.attention { group.attention = min(group.attention ?? attention, attention) }
             groups[session.agent] = group
         }
-        let order = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2, "Codex CLI": 3, "OpenCode": 4]
+        let order = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2, "Codex CLI": 3, "OpenCode": 4, "Gemini CLI": 5]
         let rank = { (a: Attention?) in a?.rawValue ?? 9 }
         return groups.map { ($0.key, $0.value.count, $0.value.attention) }
             .sorted { a, b in
@@ -317,7 +318,7 @@ public struct AgentBoard: Equatable, Sendable {
             }
     }
 
-    /// One agent's sessions as read from its own files (Codex CLI, OpenCode)
+    /// One agent's sessions as read from its own files (Codex CLI, OpenCode, Gemini CLI)
     /// and chosen by `FileAgentTracker`, in place of whatever the board had for
     /// that agent; hook agents are left alone. A state that didn't change keeps
     /// its `since`. Returns the turns that finished since the last sync, for the "Finished" peek.

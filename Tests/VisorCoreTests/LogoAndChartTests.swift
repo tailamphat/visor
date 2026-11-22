@@ -52,6 +52,13 @@ struct SVGPathTests {
         #expect(codex != AgentLogo.path(for: "Claude Code"))
         #expect(codex != AgentLogo.path(for: "OpenCode"))
     }
+
+    @Test func geminiHasItsOwnMark() {
+        let gemini = AgentLogo.path(for: "Gemini CLI")
+        #expect(gemini != AgentLogo.path(for: "Claude Code"))
+        #expect(gemini != AgentLogo.path(for: "Antigravity"))
+        #expect(gemini != AgentLogo.path(for: "Codex CLI"))
+    }
 }
 
 @Suite("Spend chart days")
