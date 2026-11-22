@@ -17,7 +17,7 @@ App folders:
 - `App`: `AppDelegate` (creates every service, wires `AppModel` closures, routes hook events), `AppDelegate+Menu` (menu bar menu), `AppModel` (all view state, plus `Tab`, `NowPlaying`, `Peek`), `Intro`, `UpdateFeed` (Sparkle).
 - `Notch`: `NotchWindow.swift` (`NotchPanel`, `NotchController`: placement, hover, click-through, keyboard), `NotchView.swift` (`NotchLayout`, `CollapsedView`, `ExpandedView`, header), `Theme`, `LayerAnimations`.
 - `Agents`: `HookServer`, `HookInstaller` (writes `agent-hook.sh` and each CLI's hook config), `FileAgentsService` (Codex CLI, OpenCode and Gemini CLI, read-only), `ProcessTree`, `AgentsView`, `ApprovalView`, `HelpersView`, `StatusService` (status pages), `AwakeService`.
-- `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`).
+- `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`), and the release radar: `RadarService` (every 6 h on queue `visor.radar`, first check 2 min after launch or 6 h after the saved last one; `--version` only when the binary's stamp changed; GETs only `registry.npmjs.org`, `formulae.brew.sh`, `api.github.com` through `ReleaseFetcher`, which refuses any other redirect target and cuts answers at 2 MB; log in `~/Library/Logs/Visor/radar.log`) with `RadarCard` (the "What's new" section). Its logic is `RadarState` and `ReleaseRadar` in VisorCore.
 - `Music`: `MusicService`, `BrowserBridgeServer`, `MusicView`.
 - `Clipboard`, `Bar` (tab hidden for now), `Office` (pixel office for the Agents tab), `Plugins` (`PluginService`, `PluginRunner`, `PluginsView`).
 - `Shared`: small views. `Support`: `Shell`, `UnixSocketListener`, `AudioOutputWatcher`, `HotKey`, `MediaKeys`.
@@ -81,7 +81,7 @@ flowchart LR
 - Actions flow up through closures on `AppModel` (`decide`, `musicCommand`, `refreshPlan`, `installHooks`), set in `applicationDidFinishLaunching`.
 - Off main: `visor.hooks`, `visor.usage`, `visor.music`, `visor.browser-bridge`, `visor.status`, `visor.plugin.<id>`, plus `DispatchQueue.global` for file writes.
 - Throttling: `publishAgents` (0.25 s), `saveAgentsSoon` (1 s), `showBusyIfSlow` in `PluginRunner` (spinner only after 0.3 s), equality checks before every model write.
-- Files in `~/Library/Application Support/Visor/`: `sessions.json` (`sessions-debug.json`), `copilot-rules.json`, `clipboard.json` and `Clips/`, `Plugins/`, `PluginData/<id>.json`, `tokens.json` (`tokens-debug.json`, the token ledger), the sockets. Settings are in `UserDefaults`.
+- Files in `~/Library/Application Support/Visor/`: `sessions.json` (`sessions-debug.json`), `copilot-rules.json`, `clipboard.json` and `Clips/`, `Plugins/`, `PluginData/<id>.json`, `tokens.json` (`tokens-debug.json`, the token ledger), `release-radar.json` (`release-radar-debug.json`: offers, dismissed and announced versions, last check, version cache), the sockets. Settings are in `UserDefaults`.
 
 ## Notch window and layout
 

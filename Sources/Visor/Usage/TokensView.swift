@@ -15,8 +15,8 @@ struct UsageViewSwitch: View {
     }
 
     private func option(_ symbol: String, tokens: Bool, help: String) -> some View {
-        let on = model.usageTokens == tokens
-        return Button { model.usageTokens = tokens } label: {
+        let on = model.showsTokens == tokens
+        return Button { model.radarPlans = false; model.usageTokens = tokens } label: {
             Image(systemName: symbol)
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(on ? Theme.textPrimary : Theme.textMuted)

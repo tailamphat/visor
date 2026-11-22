@@ -29,6 +29,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 - **Turn summary**: when an agent finishes, open the notch for time taken, files changed, lines, commands, tests, and View diff.
 - **Clash warning**: the notch peeks when two agents edit the same file within ten minutes.
 - **Provider status**: Claude and GitHub incidents show as a peek and a red or amber dot.
+- **Release radar**: when an AI tool on your Mac (Claude Code, Copilot CLI, Codex CLI, Gemini CLI, OpenCode) has a newer release, a peek shows once and a "What's new" card with the top changes stays in Usage until you dismiss it. Checked every 6 hours.
 
 ### Usage
 
@@ -96,7 +97,7 @@ brew uninstall --cask visor
 ## Privacy
 
 - **Stays on your Mac**: agent events (sent over a local socket), transcripts, clipboard history and music.
-- **Network**: only the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`) and the Claude and GitHub status pages.
+- **Network**: only the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`) the Claude and GitHub status pages, and the release radar's public feeds (`registry.npmjs.org`, `formulae.brew.sh`, `api.github.com`, no sign-in).
 - **Sign-ins**: read from the keychain or `gh` when needed, never stored, written or refreshed.
 - **Writes**: a hook entry in each connected agent's settings (with a backup) and `~/Library/Application Support/Visor/`. The hook always exits 0, so agents never wait on Visor.
 

@@ -69,7 +69,7 @@ struct NotchLayout {
                 return CGSize(width: width, height: model.compactMusic ? fitting(Self.compactMusicContent) : Self.musicSize.height)
             }
             if model.tab == .usage && model.showAccounts { return Self.accountsSize }
-            if model.tab == .usage && model.usageTokens { return CGSize(width: Self.expandedSize.width, height: fitting(TokensView.height)) }
+            if model.tab == .usage && model.showsTokens { return CGSize(width: Self.expandedSize.width, height: fitting(TokensView.height)) }
             if model.tab == .usage {
                 // Plan limits sit under a bar with the switch to Tokens.
                 let bar = UsageBar.height + UsageBar.gap
@@ -77,6 +77,7 @@ struct NotchLayout {
                 // Plus a line under each tool whose provider has an incident.
                 let dividers = CGFloat(max(0, model.usageSections.count - 1)) * UsageView.toolGapExtra
                     + CGFloat(model.incidents.count) * (IncidentLine.height + 8)
+                    + RadarSection.height(model.releaseOffers)
                 // No taller than the tallest panel the window has room for; past that, the list scrolls.
                 func taller(_ size: CGSize) -> CGSize {
                     CGSize(width: size.width, height: min(size.height + bar + dividers, Self.usageWithAntigravitySize.height + bar))
@@ -231,6 +232,9 @@ struct CollapsedView: View {
             return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
         case .status(let agent, let incident):
             return (agent, incident.title)
+        case .release(let update):
+            let changes = update.changes.isEmpty ? "" : ": " + update.changes.joined(separator: " · ")
+            return (update.name, "\(update.name) \(update.latest) (you have \(update.installed))" + changes)
         }
     }
 
@@ -242,6 +246,19 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .status(_, let incident) = peek {
             Circle().fill(IncidentLine.color(incident)).frame(width: 9, height: 9)
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .release(let update) = peek {
+            // The tool's mark with a blue up arrow on its corner.
+            AgentMark(agent: update.name, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white, Theme.accent)
+                        .background(Circle().fill(.black).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash(let clash) = peek {
             // Both agents' marks with an orange ⇄ between them.
@@ -288,6 +305,10 @@ struct CollapsedView: View {
         if let peek = model.peek, case .status(let agent, _) = peek {
             Text("\(IncidentLine.name(agent)) is having issues")
                 .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .release(let update) = peek {
+            Text("\(update.latest.description) out")
+                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {
             Text("same file")
@@ -473,7 +494,7 @@ struct ExpandedView: View {
                         }
                     case .usage:
                         if model.showAccounts { AccountsView(model: model) }
-                        else if model.usageTokens { TokensView(model: model) }
+                        else if model.showsTokens { TokensView(model: model) }
                         else {
                             VStack(spacing: UsageBar.gap) {
                                 UsageBar(model: model)

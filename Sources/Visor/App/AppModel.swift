@@ -82,7 +82,7 @@ final class AppModel {
     // Notch state
     var expanded = false {
         // The turn summary is for the moment it finished; once the notch closes it's gone.
-        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil } }
+        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil; radarPlans = false } }
     }
     /// A turn that just finished, shown as its summary when the notch opens
     /// during its "done" peek.
@@ -118,6 +118,14 @@ final class AppModel {
     var peek: Peek?
     /// A used-up limit that just reset: the open notch shows it for a few seconds.
     var limitBack: LimitReturn?
+    /// Newer releases of installed tools, shown in Usage until dismissed.
+    var releaseOffers: [ReleaseUpdate] = []
+    var dismissRelease: ((ReleaseUpdate) -> Void)?
+    /// Opened from a release peek: Usage shows plans (the card) this time, without
+    /// changing the saved Tokens choice.
+    var radarPlans = false
+    /// Usage shows Tokens: the saved choice, unless a release peek opened it.
+    var showsTokens: Bool { usageTokens && !radarPlans }
 
     // Usage
     var plan: PlanUsage? {
@@ -435,6 +443,10 @@ enum Peek: Equatable {
     case clash(Clash)
     /// A provider's status page reports an incident on a tool you use.
     case status(agent: String, ProviderIncident)
+    /// A tool installed on this Mac has a newer release.
+    case release(ReleaseUpdate)
+
+    var isRelease: Bool { if case .release = self { return true } else { return false } }
 }
 
 enum MusicCommand { case playPause, next, previous }

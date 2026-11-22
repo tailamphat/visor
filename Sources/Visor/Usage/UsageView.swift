@@ -9,6 +9,8 @@ struct UsageView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: UsageView.toolGap) {
+                // Newer releases of tools on this Mac, until dismissed.
+                if !model.releaseOffers.isEmpty { RadarSection(model: model) }
                 // In the order chosen under Connected accounts. Space alone separates tools:
                 // each starts with its coloured mark and name, which reads as a heading.
                 ForEach(model.usageSections, id: \.self) { provider in

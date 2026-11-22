@@ -3,7 +3,7 @@ import Foundation
 /// A tool version, semver style: `major.minor.patch` with an optional
 /// `-prerelease`. Only made from text that passes the version pattern, so its
 /// `description` is safe to put in a URL path or on screen.
-public struct ToolVersion: Comparable, Hashable, Sendable, CustomStringConvertible {
+public struct ToolVersion: Comparable, Hashable, Sendable, CustomStringConvertible, Codable {
     public let major: Int
     public let minor: Int
     public let patch: Int
@@ -46,6 +46,20 @@ public struct ToolVersion: Comparable, Hashable, Sendable, CustomStringConvertib
 
     public var isPrerelease: Bool { !prerelease.isEmpty }
 
+    /// Saved as its text, and read back only if it still passes the pattern.
+    public init(from decoder: Decoder) throws {
+        let text = try decoder.singleValueContainer().decode(String.self)
+        guard let version = ToolVersion(text) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "not a version"))
+        }
+        self = version
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
+    }
+
     public var description: String {
         "\(major).\(minor).\(patch)" + (prerelease.isEmpty ? "" : "-" + prerelease.joined(separator: "."))
     }
@@ -69,7 +83,7 @@ public struct ToolVersion: Comparable, Hashable, Sendable, CustomStringConvertib
 
 /// How a tool was installed, which decides where its latest version is read and
 /// which update command fits.
-public enum InstallMethod: String, CaseIterable, Sendable {
+public enum InstallMethod: String, CaseIterable, Sendable, Codable {
     case npm, brew, native
 }
 
@@ -302,6 +316,16 @@ public enum ReleaseNotes {
         return String(scalars)
     }
 
+    /// One saved change cleaned like a fresh one; nil when nothing is left.
+    static func sanitized(_ text: String) -> String? {
+        var line = clean(plain(text))
+        guard !line.isEmpty else { return nil }
+        if line.unicodeScalars.count > maxLength {
+            line = String(String.UnicodeScalarView(line.unicodeScalars.prefix(maxLength - 1))).trimmingCharacters(in: .whitespaces) + "…"
+        }
+        return line
+    }
+
     static func clean(_ text: String) -> String {
         var line = replace(image, in: text, with: "")
         line = replace(link, in: line, with: "$1")
@@ -322,7 +346,7 @@ public enum ReleaseNotes {
 }
 
 /// An update worth a peek.
-public struct ReleaseUpdate: Equatable, Sendable {
+public struct ReleaseUpdate: Equatable, Sendable, Codable {
     public var toolID: String
     public var name: String
     public var installed: ToolVersion
@@ -330,6 +354,37 @@ public struct ReleaseUpdate: Equatable, Sendable {
     public var changes: [String]
     /// nil when the install has no update command (the peek shows no Update action).
     public var command: String?
+    /// The channel it was read from; decides the command.
+    public var method: InstallMethod?
+}
+
+extension ReleaseUpdate {
+    enum CodingKeys: String, CodingKey { case toolID, method, installed, latest, changes }
+
+    /// Saved without its name or command: on load both come from the catalog
+    /// and the changes are cleaned again, so an edited file can't choose what
+    /// the card says or what the Update action types.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try container.decode(String.self, forKey: .toolID)
+        let method = try container.decode(InstallMethod.self, forKey: .method)
+        guard let tool = ReleaseTool.all.first(where: { $0.id == id && !$0.isSkipped }) else {
+            throw DecodingError.dataCorruptedError(forKey: .toolID, in: container, debugDescription: "unknown tool")
+        }
+        let changes = try container.decode([String].self, forKey: .changes).prefix(3).compactMap(ReleaseNotes.sanitized)
+        self.init(toolID: tool.id, name: tool.name, installed: try container.decode(ToolVersion.self, forKey: .installed),
+                  latest: try container.decode(ToolVersion.self, forKey: .latest), changes: changes,
+                  command: tool.updateCommand(method), method: method)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(toolID, forKey: .toolID)
+        try container.encodeIfPresent(method, forKey: .method)
+        try container.encode(installed, forKey: .installed)
+        try container.encode(latest, forKey: .latest)
+        try container.encode(changes, forKey: .changes)
+    }
 }
 
 public enum ReleaseRadar {
@@ -339,6 +394,6 @@ public enum ReleaseRadar {
                               latest: ToolVersion, notes: String?) -> ReleaseUpdate? {
         guard !tool.isSkipped, tool.versionURL(for: method) != nil, !latest.isPrerelease, installed < latest else { return nil }
         return ReleaseUpdate(toolID: tool.id, name: tool.name, installed: installed, latest: latest,
-                             changes: notes.map { ReleaseNotes.topChanges($0) } ?? [], command: tool.updateCommand(method))
+                             changes: notes.map { ReleaseNotes.topChanges($0) } ?? [], command: tool.updateCommand(method), method: method)
     }
 }

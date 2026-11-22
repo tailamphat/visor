@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var clipboard = ClipboardService(model: model)
     private let intro = IntroController()
     private lazy var status = StatusService(model: model)
+    private let radar = RadarService()
     private lazy var awake = AwakeService(model: model)
     /// Two sessions changing the same file within ten minutes.
     private var clashWatch = ClashWatch()
@@ -162,6 +163,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.viewDiff = { [weak self] turn in self?.openDiff(turn) }
         status.onNew = { [weak self] agent, incident in self?.show(.status(agent: agent, incident), for: 6) }
         status.start()
+        radar.onOffers = { [weak self] offers in
+            MainActor.assumeIsolated { if self?.model.releaseOffers != offers { self?.model.releaseOffers = offers } }
+        }
+        radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
+        model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
+        radar.start()
         model.awakeChanged = { [weak self] in self?.awake.update() }
         awake.start()
         model.dismissClash = { [weak self] clash in
@@ -438,6 +445,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 model.incidents[agent] = nil
             }
+            return
+        }
+        // {"event":"_radar","raw":{"tool":"claude","installed":"2.1.311","latest":"2.1.312","notes":"- A\n- B"}} fakes a release offer;
+        // "clear":true resets the radar, "dismiss":"<tool>" presses a card's x, "expand":true opens the notch like a click,
+        // "probeRedirect":true GETs a GitHub URL that redirects to another host (logged as refused), "check":true checks now.
+        if message.event == "_radar" {
+            let p = message.payload
+            if p["clear"] as? Bool == true { radar.debugClear() }
+            if let tool = p["tool"] as? String, let installed = p["installed"] as? String, let latest = p["latest"] as? String {
+                radar.debugFake(toolID: tool, installed: installed, latest: latest, notes: p["notes"] as? String)
+            }
+            if let tool = p["dismiss"] as? String { radar.dismiss(tool) }
+            if p["expand"] as? Bool == true { notch.expandFromPointer() }
+            if p["probeRedirect"] as? Bool == true { radar.debugProbeRedirect() }
+            if p["check"] as? Bool == true { radar.debugCheckNow() }
             return
         }
         if message.event == "_intro" {

@@ -15,6 +15,9 @@ public enum ISODate {
         fast(string) ?? fractional.date(from: string) ?? plain.date(from: string)
     }
 
+    /// "2026-11-21T07:02:00Z", for log lines.
+    public static func string(_ date: Date) -> String { plain.string(from: date) }
+
     /// Reads the digits directly: transcripts hold tens of thousands of timestamps, and
     /// the formatter took a quarter of a first scan. Nil for anything unusual, which the
     /// formatters then read.

@@ -193,7 +193,7 @@ struct ReleaseRadarTests {
         #expect(ReleaseRadar.update(tool: claude, installed: try v("2.1.331"), method: .npm, latest: try v("2.1.330"), notes: notes) == nil)
         let update = try #require(ReleaseRadar.update(tool: claude, installed: try v("2.1.311"), method: .brew, latest: try v("2.1.323"), notes: notes))
         #expect(update == ReleaseUpdate(toolID: "claude", name: "Claude Code", installed: try v("2.1.311"), latest: try v("2.1.323"),
-                                        changes: ["One", "Two", "Three"], command: "brew upgrade --cask claude-code"))
+                                        changes: ["One", "Two", "Three"], command: "brew upgrade --cask claude-code", method: .brew))
         // No notes: still offered, without changes. A prerelease latest is never offered.
         #expect(ReleaseRadar.update(tool: claude, installed: try v("2.1.311"), method: .npm, latest: try v("2.1.323"), notes: nil)?.changes == [])
         #expect(ReleaseRadar.update(tool: claude, installed: try v("2.1.311"), method: .npm, latest: try v("2.2.0-beta.1"), notes: nil) == nil)

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VisorCore
 
 /// A borderless panel over the notch that never takes focus from your work.
 final class NotchPanel: NSPanel {
@@ -222,7 +223,7 @@ final class NotchController {
                         var zone = self.notchRect().insetBy(dx: -4, dy: 0)
                         zone.size.height += 4
                         guard zone.contains(NSEvent.mouseLocation) else { return }
-                        self.expand()
+                        self.expandFromPointer()
                     }
                 }
                 expandWork = work
@@ -257,6 +258,17 @@ final class NotchController {
     func clickedAt(_ point: NSPoint) {
         guard keyboardOpen, !notchRect().insetBy(dx: -6, dy: -6).contains(point) else { return }
         close()
+    }
+
+    /// The pointer opened it: during a release peek that means its card in
+    /// Usage, for this open only. Other callers (hotkey, cards) use `expand()`.
+    func expandFromPointer() {
+        guard !model.expanded else { return }
+        let choice = NotchOpen.choice(reason: .pointer, peekIsRelease: model.peek?.isRelease == true, current: model.tab, usage: .usage)
+        model.tab = choice.tab
+        if choice.closesAccounts { model.showAccounts = false }
+        model.radarPlans = choice.showsPlans
+        expand()
     }
 
     func expand() {

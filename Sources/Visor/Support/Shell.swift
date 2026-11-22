@@ -36,6 +36,29 @@ enum Shell {
         return Output(data: data, status: process.terminationStatus)
     }
 
+    /// Runs `path` with a hard deadline and capped output (stdout and stderr):
+    /// nil when it couldn't start, didn't exit in `timeout`, or its pipe was
+    /// still held open then (a grandchild). For tools that may hang, like a
+    /// CLI's `--version` behind an npm wrapper.
+    static func probe(_ path: String, _ arguments: [String], environment: [String: String], timeout: TimeInterval) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        process.environment = environment
+        process.standardInput = FileHandle.nullDevice
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
+        guard (try? process.run()) != nil else { return nil }
+        guard let data = BoundedOutput.collect(pipe.fileHandleForReading, exited: exited, timeout: timeout) else {
+            if process.isRunning { process.terminate() }
+            return nil
+        }
+        return String(decoding: data, as: UTF8.self)
+    }
+
     /// Starts `path` without waiting for it.
     static func launch(_ path: String, _ arguments: [String]) {
         let process = Process()
