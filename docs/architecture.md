@@ -6,7 +6,7 @@ Visor is a menu bar app with no Dock icon that draws a black panel over the MacB
 
 | Target | Owns |
 |---|---|
-| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalRelease`, `TerminalAnswer`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), the Lua runtime (`Plugins/LuaPlugin.swift`). |
+| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalRelease`, `TerminalAnswer`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), MCP health (`MCPConfig`: configured server names only, never values, from each agent's config files; `MCPStats`: calls, recent failures and top tools per server from `PostToolUse`/`PostToolUseFailure` tool names, capped), the Lua runtime (`Plugins/LuaPlugin.swift`). |
 | `Sources/Visor` | The app. One folder per feature, below. |
 | `Sources/VisorBridge` | `visor-bridge`, the native messaging host browsers start for the extension. |
 | `Sources/CLua` | Vendored Lua 5.4.7 plus `clua.c`. |
