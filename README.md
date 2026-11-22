@@ -4,58 +4,92 @@ A small, fast macOS notch app for people who work with AI agents. Hover the notc
 
 **Website:** https://tailamphat.github.io/visor/ (try the notch in your browser).
 
-- **Usage**: your Copilot premium requests (used, left, reset date) for every GitHub account `gh`, Copilot CLI or a Copilot editor plugin is signed in to, including company `*.ghe.com` accounts (switch accounts with `gh auth switch` or in Copilot CLI and Visor follows within two minutes, or as soon as you open the Usage tab); your OpenCode Go limits (5-hour session, weekly, monthly) when you signed in with a Go key, plus OpenCode's token usage and cost from its local database (today, 7 days, 30 days); your Antigravity weekly limits (Gemini models, Claude and GPT models, % left and reset date); and your Claude plan limits (5-hour session and weekly, % used and % left, when each resets) and what your Claude Code usage would cost at API prices (today, 7 days, 30 days, last 14 days). Each limit also says how it's going at your current pace: "Runs out in ~1h 15m" when it will run out before it resets, or "On pace" with what will be left at the reset. The pace comes from the last half hour of readings, or the average since the window began. When a limit will run out within the hour, the closed notch shows the time left ("42m") instead of its percent. When a Claude or OpenCode Go limit that had run out, or was at least 90% used, resets, the notch opens for a few seconds on the refilled meter ("Claude limit is back").
-  The switch at the top of the Usage tab opens **Tokens**: every token you've used across Claude Code, Copilot CLI, OpenCode, Antigravity CLI, Codex CLI and Gemini CLI, by model, like tokscale. A headline (all tokens, and without cache reads, the cheap re-reading of the conversation), a stacked chart per day by model, and Overview, Models, Daily and Tools pages for 7 days, 30 days or all time. Visor keeps its own daily totals (`tokens.json`), so history outlives Claude Code deleting old transcripts. Under Connected accounts (the gear), drag a tool by its handle to change its place in Usage and in the closed notch.
-  The gear on the Usage tab opens **Connected accounts**: each tool's status (connected as whom, not signed in, not installed, keychain access denied, API key), a button to fix it (Allow access, Sign in… in Terminal, Refresh), and a switch to hide the tool from the Usage tab and the notch.
-- **Agents**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, and what it is doing right now ("Bash: npm test", "Edit: Main.swift"), which ones are waiting for you, and which have finished. Sessions sit two to a row; each Claude Code session has a ring around its icon showing how full its context window is (from the last reply in its transcript), amber with the percent from 80% when it's about to compact. Transcripts don't say whether a session has the 200k or the 1M window: it counts as 1M once it goes past 200k, or when the `model` setting asks for `[1m]`. Switch the Agents tab to the **office** with the list/office switch on its first line (or click the Agents tab again): each tool is a table and each session a little person at it, facing each other across it, who walks to the terminal to run commands, the bookshelf to read, the web kiosk to browse, your desk with a "!" or "?" when it needs you, and the break corner when it's done, where they play: darts alone, a game together that plays in rounds, the winner hopping with a "+1". Tables flow left to right in up to two rows, so any number of tools fits; a bar above the room sums up who is working and waiting. Hover someone for what they're doing; click to bring their app forward. It's drawn with Core Animation layers, so it costs nothing while closed. The palette button over the office opens its world setting, a tile for each world with a preview: the Night Studio (ping-pong on break), **Galaxy** (Star Wars characters in a hangar, holochess on break) or **Starfleet** (Star Trek characters on a starship deck, poker night on break); a ring at each character's feet shows its agent.
-- **Subagents**: when a Claude Code session starts helpers (subagents), its card says "Waiting on 3 helpers" instead of echoing their tools, and a ⑂ button with the count (9+ past nine) opens a list under the cards: each helper's task, its type and what it's doing now, running ones first, at most six rows and "+n more". In the office, up to three small copies of the agent sit at its side while helpers run ("+n" past that); a helper that finishes hands over a sheet of paper and walks off. Visor keeps at most 20 helpers per session (finished ones clear on your next prompt) and redraws the notch at most four times a second, so many helpers can't flood it. From the `SubagentStart`/`SubagentStop` hooks and the `agent_id` on a subagent's own tool events; Copilot CLI shows the count from its task calls.
-- **Turn summary**: when an agent finishes, open the notch during its green check to see what it did: how long it took, files changed, lines added and removed, commands run and whether its tests passed, with Open in its app and View diff.
-- **Clash warning**: when two agents edit the same file within ten minutes, the notch peeks with both marks and "same file", and the Agents tab names the file until it goes quiet.
-- **Provider status**: when status.claude.com or githubstatus.com reports an incident on Claude Code, the Claude API or Copilot, the notch peeks once, the tool's mark gets a red or amber dot, and Usage says what's wrong with a link. Checked every five minutes, only for tools you've connected.
-- **Keep awake**: the cup in the Agents tab's bar keeps your Mac from sleeping. On (the default) holds until you click again, Auto holds only while an agent works and for two minutes after, Off lets it sleep. While Visor holds sleep off, a small cup shows in the closed notch. It keeps the screen on too, so it doesn't lock (turn off Keep the Screen On Too in the menu to let the display sleep), and on battery it lets go below 20% (Only Above 20% Battery). It uses a macOS power assertion ("Visor: agents are working" in `pmset -g assertions`); closing the lid still sleeps the Mac.
-- **Approvals**: when Claude Code asks for permission, the notch opens with who is asking (agent, project, app, task) and Allow / Deny / Always allow (naming the rule, e.g. `git push`). With the pointer over the card, Return allows, A always allows and Esc denies; the notch takes the keyboard only then.
-- **Questions**: when Claude Code asks you a multiple-choice question, the closed notch shows a blue "?" and the app it runs in, and the Agents tab says which project is asking and what about. Click its row to jump to that terminal, where the question waits. The closed notch tells an approval (amber "!") from a question (blue "?"), and shows which project finished and how long it took.
-- **Plugins**: small Lua files that put your own things in the notch: a section in the Plugins tab, a badge on the closed notch, a peek when something happens. Two examples ship in [`Plugins/`](Plugins): **github** (failed Actions runs on the branches your agents are on, and PRs waiting for your review) and **hello**. See [Writing Visor plugins](docs/plugins.md).
-- **Clipboard**: everything you copy, newest first, one line each (a swatch for colours). ⌘⇧V opens it from anywhere: type to search, ↑/↓ and Return to paste into the app you were in (⌥Return as plain text), ⌘P or the pin button on hover to pin, ⌫ to delete. Pinned items show a pin. Deleting the item that's on the clipboard clears it from the macOS clipboard too, with Undo. Copies password managers mark as secret are never kept; history stays on this Mac (200 items or 30 days, pins always).
-- **Music**: what Spotify, Apple Music, or a browser (YouTube, YouTube Music, SoundCloud, ...) is playing, with artwork, progress and play/pause/skip. Any browser, Firefox and Zen included, works with the **Visor Media** extension (menu bar → Browser Extension for Music…): it reports every media tab and plays, pauses and skips the exact tab, with no AppleScript or browser settings. Without it, Chromium browsers and Safari are read through AppleScript.
+Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers, so Visor uses ~0% CPU and ~50 MB at rest.
 
-Native Swift (AppKit + SwiftUI), no web view. Everything is event-driven, and looping animations run as Core Animation layers in the window server, so the app uses ~0% CPU and ~50 MB at rest.
+## Features
 
-## Install
+Short list below; [docs/features.md](docs/features.md) has the full details of each feature.
+
+### Agents
+
+- **Sessions**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, with what it's doing now ("Bash: npm test") and which are waiting for you or done.
+  - Context ring around each Claude Code session's icon, amber with the percent from 80%.
+  - Subagents: "Waiting on 3 helpers" and a list of each helper's task, type and current tool.
+- **Approvals**: Allow / Deny / Always allow (naming the rule, e.g. `git push`) from the notch, with who is asking.
+  - Keys while the pointer is over the card: Return allows, A always allows, Esc denies.
+  - Claude Code and Copilot CLI. Turn off with **Approvals in the Notch** to keep them in the terminal.
+- **Questions**: when Claude Code asks a multiple-choice question, a blue "?" shows; click the row to jump to its terminal.
+- **Office**: the Agents tab as a room where each session is a little person who walks to the terminal, bookshelf or your desk.
+  - Worlds: Night Studio, Galaxy (Star Wars) and Starfleet (Star Trek).
+- **Turn summary**: when an agent finishes, open the notch during the green check for time taken, files changed, lines, commands, tests, and View diff.
+- **Clash warning**: the notch peeks when two agents edit the same file within ten minutes.
+- **Provider status**: incidents on status.claude.com and githubstatus.com show as a peek and a red or amber dot. Checked every five minutes.
+
+### Usage
+
+- **Limits**: Claude plan (5-hour and weekly), Copilot premium requests (every `gh` account, `*.ghe.com` included), OpenCode Go and Antigravity, with reset times.
+  - Pace: "Runs out in ~1h 15m" or "On pace" with what will be left at the reset.
+  - The closed notch shows time left ("42m") when a limit runs out within the hour, and opens on "Claude limit is back" when it resets.
+- **Spend**: what your Claude Code and OpenCode usage would cost at API prices (today, 7 days, 30 days).
+- **Tokens**: every token across Claude Code, Copilot CLI, OpenCode, Antigravity CLI, Codex CLI and Gemini CLI, by model and day, for 7 days, 30 days or all time.
+  - Visor keeps its own daily totals (`tokens.json`), so history outlives deleted transcripts.
+- **Connected accounts** (the gear): each tool's sign-in status, a button to fix it, and switches to hide or reorder tools.
+
+### Everyday
+
+- **Clipboard**: everything you copy, newest first. ⌘⇧V opens it from anywhere; type to search, Return to paste.
+  - Pin, delete, paste as plain text. Copies marked secret by password managers are never kept.
+  - Stays on this Mac: 200 items or 30 days, pins always.
+- **Music**: what Spotify, Apple Music or a browser tab is playing, with artwork, progress and controls.
+  - Any browser with the **Visor Media** extension (menu bar → Browser Extension for Music…); Chromium browsers and Safari also through AppleScript.
+- **Keep awake**: the cup in the Agents tab keeps your Mac from sleeping. On, Auto (only while an agent works) or Off.
+
+### Plugins
+
+- **Plugins**: small Lua files that add a section, a badge or a peek to the notch. Three examples ship in [`Plugins/`](Plugins): **github** (failed Actions runs and PRs waiting for your review), **focus** (a focus timer with a week of focus time) and **hello**. See [Writing Visor plugins](docs/plugins.md).
+
+## Requirements
+
+- macOS 14 or later, on a Mac with a notch.
+- At least one agent: Claude Code, Copilot CLI or Antigravity CLI (`agy`). Usage also reads OpenCode, Codex CLI and Gemini CLI.
+- To build from source: the Command Line Tools (Xcode not required).
+
+## Installation
 
 ```sh
 brew install --cask tailamphat/tap/visor
 ```
 
-Visor keeps itself up to date: it checks for a new version every 6 hours, downloads it in the background and installs it when Visor quits or restarts. The menu has **Restart to Update** once one is ready, and **Install Updates Automatically** to turn this off (then Visor asks first).
-
-Visor is signed ad hoc, not notarized. The cask clears the quarantine flag on install and upgrade for you. If you install it another way and macOS says "Visor is damaged", run:
+Visor is signed ad hoc, not notarized. The cask clears the quarantine flag for you. If you install it another way and macOS says "Visor is damaged", run:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Visor.app
 ```
 
-Then launch Visor and choose **Connect your agents**. macOS asks for Accessibility (pasting and some shortcuts) and Automation (music controls) the first time you use those features.
+Updates: Visor checks every 6 hours, downloads in the background and installs when it quits or restarts. The menu has **Restart to Update** once one is ready, and **Install Updates Automatically** to turn this off.
+
+Visor was called Notchboard; on first launch it moves Notchboard's files and re-points its hooks.
+
+Uninstall:
 
 ```sh
 brew uninstall --cask visor
 ```
 
-## Build
+## Usage
 
-Visor was called Notchboard; on first launch it moves Notchboard's files and re-points its Claude Code and Copilot CLI hooks.
+1. Launch Visor and choose **Connect your agents** in the notch (or the menu bar icon).
+2. Hover the notch to open it. Click the icons in its header to switch tabs.
+3. macOS asks for Accessibility (pasting, some shortcuts) and Automation (music controls) the first time you use those features.
 
-
-Needs macOS 14+ and the Command Line Tools (Xcode not required).
-
-```sh
-./scripts/bundle.sh --open     # builds build/Visor.app and launches it
-scripts/test.sh                # unit tests (Swift Testing)
-swift scripts/make-icon.swift  # redraws the app and menu bar icons
-scripts/release.sh 0.1.0       # universal zip, sha256, and the signed Sparkle appcast.xml
-```
-
-Then choose **Connect your agents** in the notch (or the menu bar icon).
+| Shortcut | Where | Does |
+|---|---|---|
+| ⌘⇧V | Anywhere | Open the clipboard |
+| ↑ / ↓, Return | Clipboard | Pick and paste into the app you were in |
+| ⌥Return | Clipboard | Paste as plain text |
+| ⌘P | Clipboard | Pin or unpin |
+| ⌫ | Clipboard | Delete (with Undo) |
+| Return / A / Esc | Approval card | Allow / Always allow / Deny |
 
 ## How it works
 
@@ -85,17 +119,25 @@ If another app (for example Notchy) also registers a `PermissionRequest` hook, b
 
 ## Development
 
+```sh
+./scripts/bundle.sh --open     # builds build/Visor.app and launches it
+scripts/test.sh                # unit tests (Swift Testing)
+swift scripts/make-icon.swift  # redraws the app and menu bar icons
+scripts/release.sh 0.1.0       # universal zip, sha256, and the signed Sparkle appcast.xml
+```
+
 - **Test first.** For any behaviour change, add a failing test to `Tests/VisorCoreTests` (run `scripts/test.sh` and see it fail), then make it pass. Logic lives in `VisorCore` so it can be tested.
 - **Commits** follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): short plain description`, for example `feat(usage): show Copilot premium requests` or `fix(bar): accept addresses dragged as text`.
-- **UI changes** start from a mockup; after building, check the real thing with a screenshot (debug builds accept `_show`, `_music` and `_decide` socket messages, see below).
+- **UI changes** start from a mockup; after building, check the real thing with a screenshot.
+- Use `scripts/test.sh` rather than plain `swift test`: with the Command Line Tools, incremental test builds can lose Swift Testing's macro plugin, and the script passes its location. `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts.
+- Debug builds accept extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it) and `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval. See CLAUDE.md for more.
 
-## Layout
+## Project structure
 
 - `Sources/VisorCore`: pure logic: pricing, transcript parsing, plan limits, agent state, approval replies.
 - `Sources/Visor`: the app, a folder per feature: `App` (delegate, model, menu, updates), `Notch` (window, layout, theme, layer animations), `Agents` (list, approvals, hook server and installer), `Office`, `Usage` (service per provider, views), `Music`, `Clipboard`, `Bar`, `Plugins`, `Shared` (small components) and `Support` (shell, sockets, hot keys, media keys).
-- `Tests/VisorCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools). `VISOR_REAL=1 scripts/test.sh --filter realTranscripts` times a scan of your real transcripts. Use `scripts/test.sh` rather than plain `swift test`: with the Command Line Tools, incremental test builds can lose Swift Testing's macro plugin, and the script passes its location.
-
-Debug builds accept extra socket messages for testing without a mouse: `{"event":"_show","raw":{"tab":"usage"}}` pins a tab open (`"none"` closes it) and `{"event":"_decide","raw":{"decision":"allow"}}` answers the first approval. See CLAUDE.md for more.
+- `Tests/VisorCoreTests`: unit tests for the core (Swift Testing; XCTest isn't available with the Command Line Tools).
+- `Plugins/`: example plugins. `Extension/`: the Visor Media browser extension. `docs/`: the website, [features](docs/features.md), [architecture](docs/architecture.md) (module map, data flows, recipes for adding features) and the [plugin guide](docs/plugins.md).
 
 ## License
 
