@@ -1,6 +1,7 @@
 # Visor
 
 [![Release](https://img.shields.io/github/v/release/tailamphat/visor)](https://github.com/tailamphat/visor/releases/latest)
+[![CI](https://github.com/tailamphat/visor/actions/workflows/ci.yml/badge.svg)](https://github.com/tailamphat/visor/actions/workflows/ci.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-0969DA)
 [![Homebrew](https://img.shields.io/badge/brew-tailamphat%2Ftap%2Fvisor-B5532F)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0969DA)](LICENSE)
