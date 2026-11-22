@@ -26,7 +26,7 @@ struct RadarSection: View {
             .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
             .frame(height: Self.titleHeight)
             ForEach(model.releaseOffers, id: \.toolID) { update in
-                RadarCard(update: update, dismiss: { model.dismissRelease?(update) }, install: { model.updateRelease?(update) })
+                RadarCard(update: update, copied: model.copiedUpdate == update.toolID, dismiss: { model.dismissRelease?(update) }, install: { model.updateRelease?(update) })
             }
         }
     }
@@ -36,6 +36,7 @@ struct RadarSection: View {
 /// own command into Terminal.
 struct RadarCard: View {
     let update: ReleaseUpdate
+    let copied: Bool
     let dismiss: () -> Void
     let install: () -> Void
 
@@ -61,7 +62,9 @@ struct RadarCard: View {
                  + Text(update.latest.description).foregroundStyle(Theme.textPrimary))
                     .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
                 Spacer(minLength: 8)
-                if update.command != nil {
+                if copied {
+                    Text("Copied: paste, press Return").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                } else if update.command != nil {
                     Button(action: install) {
                         Text("Update").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .frame(width: Self.actionSlot, height: Self.titleRow)

@@ -6,6 +6,7 @@ import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    var lastUpdateClick: Date?
     let model = AppModel()
     lazy var notch = NotchController(model: model)
     lazy var usage = UsageService(model: model)
@@ -168,16 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
         model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
-        model.updateRelease = { update in
-            // Re-derived from the catalog here: nothing from a feed or file reaches the shell.
-            guard let method = update.method,
-                  let command = ReleaseTool.all.first(where: { $0.id == update.toolID })?.updateCommand(method),
-                  let source = TerminalCommand.appleScript(typing: command) else { return }
-            DispatchQueue.global(qos: .userInitiated).async {
-                var error: NSDictionary?
-                NSAppleScript(source: source)?.executeAndReturnError(&error)
-            }
-        }
+        model.updateRelease = { [weak self] update in self?.typeUpdate(update) }
         radar.start()
         model.awakeChanged = { [weak self] in self?.awake.update() }
         awake.start()
@@ -662,6 +654,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert.messageText = "Couldn't connect Claude Code"
             alert.informativeText = error.localizedDescription
             alert.runModal()
+        }
+    }
+}
+
+extension AppDelegate {
+    private static let terminalQueue = DispatchQueue(label: "visor.radar.terminal", qos: .userInitiated)
+
+    /// Update on a release card: Terminal gets the catalog command typed in, not run.
+    /// Re-derived from the catalog here, so nothing from a feed or file reaches a shell.
+    @MainActor func typeUpdate(_ update: ReleaseUpdate) {
+        guard let method = update.method,
+              let command = ReleaseTool.all.first(where: { $0.id == update.toolID })?.updateCommand(method),
+              TerminalCommand.isSafe(command) else { return }
+        // Fast repeat clicks would open several windows.
+        let now = Date()
+        if let last = lastUpdateClick, now.timeIntervalSince(last) < 2 { return }
+        lastUpdateClick = now
+        let shell = getpwuid(getuid()).map { String(cString: $0.pointee.pw_shell) } ?? ProcessInfo.processInfo.environment["SHELL"]
+        if TerminalCommand.isZsh(shell), let source = TerminalCommand.appleScript(typing: command) {
+            Self.terminalQueue.async {
+                var error: NSDictionary?
+                NSAppleScript(source: source)?.executeAndReturnError(&error)
+            }
+        } else {
+            // No `print -z` outside zsh: copy it, open Terminal, the card says to paste.
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+            Self.terminalQueue.async { _ = Shell.run("/usr/bin/open", ["-a", "Terminal"]) }
+            model.copiedUpdate = update.toolID
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                MainActor.assumeIsolated { if self?.model.copiedUpdate == update.toolID { self?.model.copiedUpdate = nil } }
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ import VisorCore
                 count += 1
                 let script = TerminalCommand.appleScript(typing: command)
                 #expect(script != nil, "\(command)")
-                #expect(script?.contains("print -z '\(command)'") == true)
+                #expect(script?.contains("print -z -- '\(command)'") == true)
                 // The command only ever appears inside single quotes.
                 #expect(script?.contains("do script \"\(command)") == false)
             }
@@ -23,6 +23,15 @@ import VisorCore
                     "é", String(repeating: "a", count: 121)] {
             #expect(TerminalCommand.appleScript(typing: bad) == nil, "\(bad)")
         }
+    }
+
+    @Test func lineStartsWithASpace() {
+        #expect(TerminalCommand.appleScript(typing: "brew upgrade x")?.contains("do script \" print -z -- 'brew upgrade x'\"") == true)
+    }
+
+    @Test func detectsZsh() {
+        #expect(TerminalCommand.isZsh("/bin/zsh") && TerminalCommand.isZsh("/opt/homebrew/bin/zsh"))
+        #expect(!TerminalCommand.isZsh("/bin/bash") && !TerminalCommand.isZsh("/usr/bin/fish") && !TerminalCommand.isZsh(nil) && !TerminalCommand.isZsh("/bin/zshx"))
     }
 
     @Test func escapesForAppleScript() {

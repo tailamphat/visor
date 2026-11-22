@@ -15,12 +15,19 @@ public enum TerminalCommand {
         }
     }
 
+    /// True when a login shell path (the passwd entry or $SHELL) is zsh.
+    public static func isZsh(_ shellPath: String?) -> Bool {
+        shellPath?.split(separator: "/").last == "zsh"
+    }
+
     /// nil when the command isn't plain (it is then never sent to a shell).
+    /// The line starts with one space: a startup prompt that reads one character
+    /// (oh-my-zsh's update question) gets " " (no), and zsh ignores it. `--`
+    /// keeps a leading "-" from being read as an option. Only for zsh; other
+    /// shells get the command on the clipboard instead (`needsClipboard`).
     public static func appleScript(typing command: String) -> String? {
         guard isSafe(command) else { return nil }
-        // Inside single quotes nothing is special, and the set has no quote.
-        // Other shells have no `print -z`: they show the command to copy.
-        let line = "if [ -n \"$ZSH_VERSION\" ]; then print -z '\(command)'; else echo '\(command)'; fi"
+        let line = " print -z -- '\(command)'"
         return """
         tell application "Terminal"
             activate

@@ -121,6 +121,8 @@ final class AppModel {
     /// Newer releases of installed tools, shown in Usage until dismissed.
     var releaseOffers: [ReleaseUpdate] = []
     var dismissRelease: ((ReleaseUpdate) -> Void)?
+    /// The tool whose update command was copied (non-zsh shells), for a few seconds.
+    var copiedUpdate: String?
     var updateRelease: ((ReleaseUpdate) -> Void)?
     /// Opened from a release peek: Usage shows plans (the card) this time, without
     /// changing the saved Tokens choice.
