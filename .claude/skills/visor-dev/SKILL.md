@@ -1,0 +1,124 @@
+---
+name: visor-dev
+description: Build or change a Visor feature end to end, from request to a proven local commit on main. Use for `/visor-dev <request>` or any request to add, fix or change behaviour in the Visor notch app: plans it, gets the plan approved by an approver agent, builds test first, gates it with review and perf agents, proves it in the debug app and reports. Never pushes.
+---
+
+# visor-dev
+
+Take `{request}` to a proven local commit on `main`, mostly hands-off. You, the main session, are the builder. Read `CLAUDE.md` and `docs/architecture.md` before planning. Agent prompts are in `briefs.md`; the plan template is `plan-template.md`.
+
+## Size first
+
+| Size | When | Steps | Agents |
+|---|---|---|---|
+| S | Copy fix, one-line bug | 1 (short plan, 1-3 criteria), 3, 4, 7 if visible, 8 | none |
+| M | Most changes | all | approver; gate Review + Perf (+ Security if triggered) |
+| L | New provider, tab, agent CLI | all | approver; full gate; perf before vs after |
+
+Security is triggered when the diff touches hooks, sockets, plugins, network, keychain or the clipboard. When unsure between two sizes, pick the larger.
+
+## Stop list
+
+Never auto-approve these. Stop and ask the user:
+
+- releases, version bumps, `appcast.xml`
+- deleting or migrating user data
+- changes to approval or hook behaviour, or to plugin security
+- editing CLAUDE.md rules
+- new dependencies
+- anything outside this repo
+
+## Pipeline
+
+### 1. Plan
+
+Write `plans/<slug>.md` in the session scratchpad (not the repo) from `plan-template.md`. Sections in order: Request (verbatim), Goal, Size, Done when, Auto criteria, Out of scope, Files in order, Tests first, Proof script, Risks and assumptions.
+
+- Every Done-when row traces to a phrase of the request and names its verifier: a test, a check.sh rule, a proof step with a screenshot, or a perf limit. Never "looks good".
+- Always add the auto criteria: idle CPU <= baseline + 0.2%; check.sh 0 hits and all tests pass; for UI, balanced around the camera; for hooks, debug socket only.
+- Files follow the matching `docs/architecture.md` recipe, VisorCore first.
+- Resolve open questions to the narrower, safer reading and list them.
+- Record the baseline now: `scripts/perf.sh -n 10` against the running release build.
+
+### 1b. Visible changes
+
+If the user will see anything different, publish the options side by side, at real notch size, with a recommendation, to the single mockup page (republish the same artifact, never a new one). The approver picks the recommended option unless it fails the rubric. The run continues. Put the mockup link and the final screenshot in the Done report so the user can ask to switch.
+
+### 2. Approval (M and L)
+
+Spawn `visor-approver` with the approver brief. Give it only the request, the plan path, CLAUDE.md and docs/architecture.md: never the chat or your reasoning. Append its verdict to the plan.
+
+- APPROVED: continue.
+- REJECTED: apply the exact fixes once and resubmit.
+- STOP LIST yes, or a second rejection: stop. Show the user both plan versions and the reasons.
+
+### 3. Build test first
+
+Write the failing tests from the plan in `Tests/VisorCoreTests`, run `scripts/test.sh` and see them fail for the right reason. Then write the code until `scripts/test.sh` is green. Never plain `swift test`.
+
+### 4. Self review
+
+Run `scripts/check.sh` and fix every hit. Then read your own diff (`git diff`) once, top to bottom.
+
+### 5. Gate (M and L)
+
+Send all gate agents in ONE message so they run in parallel. Each gets only the diff, the file list and the relevant CLAUDE.md section (see `briefs.md`):
+
+- `visor-reviewer`: bugs and refactor suggestions.
+- `visor-perf`: `scripts/perf.sh` before and after, `--sample` on hot paths if needed. Give it the baseline and the pid of the debug build with the change.
+- Security (only if triggered): a general agent with the security brief, which applies the built-in security-review approach scoped to the diff.
+
+Each returns at most 8 findings with `file:line` and a concrete failure scenario.
+
+### 6. Fix
+
+Check each finding against the code before acting; a finding is a claim, not a fact. Fix real bugs, apply worthwhile refactors, skip the rest with a reason. Rerun `scripts/check.sh`. Run a second gate pass only after a large fix. Never loop.
+
+### 7. Prove in the real app
+
+- Quit Notchy first if it runs (`pgrep -x Notchy`).
+- `swift build --product Visor`, then `VISOR_NO_MUSIC=1 .build/debug/Visor` in the background.
+- Run the plan's proof script against `hook-debug.sock` only. Never send anything to `hook.sock`.
+- Take each screenshot with `screencapture -x -R x,y,w,h` into the scratchpad and look at it.
+- Quit the debug build and relaunch the release build afterwards (`open /Applications/Visor.app` or `./scripts/bundle.sh --open`).
+
+### 8. Verify, commit, report
+
+Run every Verify-by from the plan. A failure goes back to step 3: at most 2 attempts, then stop and ask the user. Never loosen a criterion to make it pass.
+
+Commit on `main`:
+
+- Conventional Commits: `type(scope): plain description`.
+- Email: `git log -5 --format=%ae` must show the noreply address; commit with `git -c user.email=<that address> commit`.
+- End the message with the session's attribution lines.
+
+Then present the Done report. Push only when the user says so.
+
+## Done report
+
+```
+## Done: {title}  ({size}, commit {hash})
+
+| # | Criterion | Evidence | Pass |
+|---|---|---|---|
+| D1 | ... | test `Suite/name` green / screenshot path / perf number | yes |
+| A1 | Idle CPU <= baseline + 0.2% | 0.3% -> 0.4% | yes |
+
+Gate findings
+| Agent | Finding | Outcome |
+|---|---|---|
+| reviewer | file:line ... | fixed / skipped: reason |
+
+Perf: CPU avg {before}% -> {after}%, max {before}% -> {after}%, memory {before} -> {after} MB
+Mockup: {link} (picked: {option}; ask to switch)
+Screenshot: {path}
+Assumptions: {list}
+Not pushed. Say "push" to push.
+```
+
+## Rules that always hold
+
+- No em dashes anywhere. Fixtures use `acme.ghe.com`, `octocat`, `/Users/me`.
+- Event-driven, off the main thread, idle CPU ~0%. Shared helpers over new copies.
+- Balanced around the camera in every state.
+- Debug socket only. Never `_decide` on the real socket.
