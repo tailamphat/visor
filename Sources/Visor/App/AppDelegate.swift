@@ -28,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Two sessions changing the same file within ten minutes.
     private var clashWatch = ClashWatch()
     private var clashExpiry: DispatchWorkItem?
+    private var stuckWatch = StuckWatch()
+    private var stuckExpiry: DispatchWorkItem?
     private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
     /// Codex CLI and OpenCode sessions, read from their own files (no hooks).
@@ -202,6 +204,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.clashWatch.dismiss(clash)
             self?.refreshClashes()
         }
+        model.ignoreStuck = { [weak self] stuck in
+            self?.stuckWatch.ignore(stuck)
+            self?.refreshStuck()
+        }
 
         restoreAgents()
         // Every launch: the intro, then the full welcome the first time and a short hello after.
@@ -259,6 +265,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.agents.prune(isAlive: alive)
                 self.publishAgents()
                 self.forgetCostsOfEndedSessions()
+                // An agent that exited is no longer stuck, and its counts go.
+                let generation = self.stuckWatch.generation
+                self.stuckWatch.forget(keeping: Set(self.agents.sessions.map(\.id)))
+                if self.stuckWatch.generation != generation { self.refreshStuck() }
                 for session in gone { self.hooks.releaseApprovals(session: session, event: "agent exited") }
             }
         }
@@ -494,6 +504,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                       ranOutAt: Date().addingTimeInterval(-3 * 3600), nextReset: Date().addingTimeInterval(5 * 3600)))
             return
         }
+        // {"event":"_stuck","raw":{"press":"ignore|open"}} presses a button on the first Stuck? card.
+        if message.event == "_stuck", let first = model.stuck.first {
+            if message.payload["press"] as? String == "open" {
+                if let session = model.board.sessions.first(where: { $0.id == first.session }) { model.focusAgent?(session) }
+            } else {
+                model.ignoreStuck?(first)
+            }
+            return
+        }
         // {"event":"_clipdelete","raw":{}} deletes the newest clipboard item.
         if message.event == "_clipdelete", let first = model.clips.items.first {
             clipboard.delete(first.id)
@@ -563,6 +582,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         agents.apply(message)
         mcp.record(message)
         noteEdit(message)
+        noteStuck(message)
         readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
             if let app = ProcessTree.hostAppPath(of: message.pid) {
@@ -639,6 +659,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let next = clashWatch.nextChange(after: now) else { return }
         let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshClashes() } }
         clashExpiry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
+    }
+
+    /// A hook agent failing or repeating the same call: peek once, and keep the
+    /// card while the events say it's still going round.
+    private func noteStuck(_ message: HookMessage) {
+        guard let id = message.sessionID else { return }
+        let agent = agents.sessions.first { $0.id == id }?.agent ?? AgentBoard.agentName(message.provider)
+        let generation = stuckWatch.generation
+        let peek = stuckWatch.record(message, agent: agent, at: Date())
+        // Most events change no warning: nothing to republish or re-arm.
+        if stuckWatch.generation != generation { refreshStuck() }
+        if let peek { show(.stuck(peek), for: 6) }
+    }
+
+    /// The warnings still standing, the peek withdrawn once its warning has
+    /// cleared, and one wake-up for the fallback timeout (no polling).
+    private func refreshStuck() {
+        let now = Date()
+        let active = stuckWatch.active(at: now)
+        if active != model.stuck { model.stuck = active }
+        if case .stuck(let shown)? = model.peek, !active.contains(where: { $0.id == shown.id }) { model.peek = nil }
+        stuckExpiry?.cancel()
+        stuckExpiry = nil
+        guard let next = stuckWatch.nextChange(after: now) else { return }
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshStuck() } }
+        stuckExpiry = work
         DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
     }
 

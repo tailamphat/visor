@@ -113,6 +113,7 @@ struct NotchLayout {
                 }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
+                if !model.stuck.isEmpty { content += StuckBanner.height + 6 }  // an agent going round in circles
                 if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers) + 6 }  // a session's subagents
                 content += MCPSection.height(model)  // the MCP line, and its server list when open
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
@@ -235,6 +236,8 @@ struct CollapsedView: View {
             return ("", news.subtitle.isEmpty ? news.title : news.title + ": " + news.subtitle)
         case .clash(let clash):
             return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
+        case .stuck(let stuck):
+            return (stuck.agent, "\(stuck.agent): \(stuck.label) \(stuck.long)")
         case .status(let agent, let incident):
             return (agent, incident.title)
         case .release(let update):
@@ -259,6 +262,19 @@ struct CollapsedView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.white, Theme.accent)
+                        .background(Circle().fill(.black).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .stuck(let stuck) = peek {
+            // The agent's mark with a coral loop on its corner.
+            AgentMark(agent: stuck.agent, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.black, Theme.stuck)
                         .background(Circle().fill(.black).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
@@ -313,6 +329,10 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .release(let update) = peek {
             Text("\(update.latest.description) out")
+                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .stuck(let stuck) = peek {
+            Text(stuck.short)
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {

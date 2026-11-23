@@ -242,6 +242,9 @@ final class AppModel {
     /// Sessions changing the same file right now (`ClashWatch`), newest first.
     var clashes: [Clash] = []
     var dismissClash: ((Clash) -> Void)?
+    /// Sessions going round in circles right now (`StuckWatch`), newest first.
+    var stuck: [Stuck] = []
+    var ignoreStuck: ((Stuck) -> Void)?
     /// The Agents list's one clock: every card's time reads it, and one timer
     /// moves it each second only while the list is on screen.
     var agentsNow = Date()
@@ -466,6 +469,8 @@ enum Peek: Equatable {
     case plugin(icon: String, PluginPeek)
     /// Two sessions just changed the same file.
     case clash(Clash)
+    /// An agent keeps failing (or repeating) the same call.
+    case stuck(Stuck)
     /// A provider's status page reports an incident on a tool you use.
     case status(agent: String, ProviderIncident)
     /// A tool installed on this Mac has a newer release.

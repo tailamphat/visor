@@ -7,6 +7,9 @@ struct AgentsView: View {
     var body: some View {
         // The cards' one clock: ticks only while the list is on screen.
         VStack(spacing: 6) {
+            if let stuck = model.stuck.first {
+                StuckBanner(stuck: stuck, session: model.board.sessions.first { $0.id == stuck.session }, model: model)
+            }
             if let clash = model.clashes.first { ClashBanner(clash: clash, sessions: model.board.sessions) { model.dismissClash?(clash) } }
             content
         }
@@ -47,7 +50,7 @@ struct AgentsView: View {
                         .padding(.top, 2)
                         // Two cards a row.
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
+                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes), stuck: Self.stuck(for: $0, in: model.stuck)) }
                         }
                         helpers(in: group.sessions)
                     }
@@ -95,7 +98,7 @@ struct AgentsView: View {
             .frame(height: 15)
             .padding(.top, 2)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes)) }
+                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes), stuck: Self.stuck(for: $0, in: model.stuck)) }
             }
             helpers(in: digest.top)
             foldRow(HStack(spacing: 8) {
@@ -135,6 +138,11 @@ struct AgentsView: View {
     /// The other agent on the same file as `session`, if any.
     static func clash(for session: AgentSession, in clashes: [Clash]) -> String? {
         clashes.lazy.compactMap { $0.other(than: session.id) }.first
+    }
+
+    /// The warning standing for `session`, if it's going round in circles.
+    static func stuck(for session: AgentSession, in stuck: [Stuck]) -> Stuck? {
+        stuck.first { $0.session == session.id }
     }
 
     static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
@@ -234,6 +242,65 @@ struct ClashBanner: View {
     }
 }
 
+extension Theme {
+    /// Stuck warnings: coral, apart from the approval amber, the clash orange and the question blue.
+    static let stuck = Color(hex: 0xFF6B6B)
+}
+
+/// Over the Agents list while an agent keeps failing or repeating the same call:
+/// who, what and the latest error line, with Ignore and Open (its terminal).
+struct StuckBanner: View {
+    let stuck: Stuck
+    let session: AgentSession?
+    let model: AppModel
+    static let height: CGFloat = 62
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text("Stuck?").font(.system(size: 10, weight: .semibold)).foregroundStyle(.black)
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(Capsule().fill(Theme.stuck))
+                AgentMark(agent: stuck.agent, size: 13)
+                (Text(stuck.agent).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                    + Text(session.map { " · \($0.project)" } ?? "").foregroundColor(Theme.textMuted))
+                    .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 6)
+                Text(SessionText.elapsed(since: stuck.since, now: model.agentsNow))
+                    .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
+            }
+            (Text(stuck.label).font(.system(size: 11, design: .monospaced)).foregroundColor(Theme.textPrimary)
+                + Text(" " + stuck.long).foregroundColor(Theme.textSecondary))
+                .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+            HStack(spacing: 6) {
+                Text(stuck.error ?? "").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textMuted)
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 6)
+                button("Ignore", primary: false) { model.ignoreStuck?(stuck) }
+                    .help("Hide until it makes progress")
+                if let session {
+                    button("Open", primary: true) { model.focusAgent?(session) }
+                        .help(session.host.map { "Open \($0)" } ?? "Open")
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: Self.height)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.stuck.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.stuck.opacity(0.35), lineWidth: 1))
+    }
+
+    private func button(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(primary ? .white : Theme.textPrimary)
+                .padding(.horizontal, 9).frame(height: 18)
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(primary ? Theme.accent : Color.white.opacity(0.12)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// A card's time from the list's one clock: elapsed while busy, "4m ago" after.
 /// Only this small view redraws each second, not the card.
 struct AgentClock: View {
@@ -261,6 +328,8 @@ struct AgentCard: View {
     var model: AppModel?
     /// Another agent changing the same file as this session right now.
     var clashWith: String?
+    /// This session keeps failing or repeating the same call.
+    var stuck: Stuck?
 
     var body: some View {
         HStack(spacing: 9) {
@@ -275,6 +344,10 @@ struct AgentCard: View {
                 if let clashWith {
                     Text("⇄ \(clashWith) too")
                         .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.clash).lineLimit(1)
+                } else if let stuck {
+                    Text("↻ \(stuck.short)")
+                        .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.stuck).lineLimit(1)
+                        .frame(height: 13)
                 } else {
                     HStack(spacing: 4) {
                         Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
@@ -299,7 +372,8 @@ struct AgentCard: View {
         .frame(height: NotchEars.agentCard)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : clashWith != nil ? Theme.clash.opacity(0.45) : .clear, lineWidth: 1))
+            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : clashWith != nil ? Theme.clash.opacity(0.45)
+                          : stuck != nil ? Theme.stuck.opacity(0.6) : .clear, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onTapGesture { focus?(session) }
         .help(help)
