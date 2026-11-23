@@ -272,6 +272,8 @@ public struct AgentBoard: Equatable, Sendable {
         var board = AgentBoard()
         board.sessions = ((try? JSONDecoder().decode([AgentSession].self, from: data)) ?? []).filter { $0.pid > 0 && isAlive($0.pid) }
         for i in board.sessions.indices {
+            // A saved count may be from before a compact or /clear; the next read sets it.
+            board.sessions[i].contextTokens = nil
             switch board.sessions[i].state {
             case .working, .needsApproval: board.sessions[i].state = .idle
             case .idle, .asking, .needsInput, .done: break
@@ -382,9 +384,10 @@ public struct AgentBoard: Equatable, Sendable {
     /// Records the app a session runs in.
     /// A session's context after a reply. Once a session shows it has the 1M
     /// window it keeps it, even after compacting back under 200k.
-    public mutating func setContext(tokens: Int?, model: String?, session id: String) {
+    public mutating func setContext(tokens: Int?, model: String?, provenWindow: Int? = nil, session id: String) {
         guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[i].contextTokens = tokens
+        if let provenWindow { sessions[i].contextWindow = max(sessions[i].contextWindow ?? 0, provenWindow) }
         if let tokens {
             sessions[i].contextWindow = max(sessions[i].contextWindow ?? 0, ContextUsage.window(tokens: tokens, model: model))
         }

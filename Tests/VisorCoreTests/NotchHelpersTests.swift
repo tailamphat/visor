@@ -60,6 +60,57 @@ struct ContextUsageTests {
         #expect(ContextUsage.tokens(inTail: Data()) == nil)
     }
 
+    @Test func compactBoundaryAfterReplyClears() {
+        let data = Self.tail([
+            Self.assistant(input: 4, cacheRead: 150_000, cacheWrite: 0),
+            Self.line(["type": "user", "message": ["role": "user", "content": "next"]]),
+            Self.line(["type": "system", "subtype": "compact_boundary", "compactMetadata": ["preTokens": 150_004]]),
+            Self.line(["type": "user", "message": ["role": "user", "content": "go"]]),
+        ])
+        #expect(ContextUsage.reading(inTail: data).tokens == nil)
+        #expect(ContextUsage.reading(inTail: data).provenWindow == nil, "under 200k proves nothing")
+    }
+
+    @Test func compactPreTokensProveLargeWindow() {
+        let data = Self.tail([
+            Self.line(["type": "system", "subtype": "compact_boundary", "compactMetadata": ["preTokens": 565_140]]),
+            Self.assistant(input: 4, cacheRead: 50_000, cacheWrite: 0),
+        ])
+        let reading = ContextUsage.reading(inTail: data)
+        #expect(reading.tokens == 50_004)
+        var board = AgentBoard()
+        board.apply(HookMessage(event: "SessionStart", pid: 1, payload: ["session_id": "s1", "cwd": "/x/app"]))
+        board.setContext(tokens: reading.tokens, model: nil, provenWindow: reading.provenWindow, session: "s1")
+        #expect(board.sessions[0].contextWindow == 1_000_000)
+    }
+
+    @Test func restoredSessionHasNoStaleContext() throws {
+        var board = AgentBoard()
+        board.apply(HookMessage(event: "SessionStart", pid: 1, payload: ["session_id": "s1", "cwd": "/x/app"]))
+        board.setContext(tokens: 150_000, model: nil, session: "s1")
+        let restored = AgentBoard.restored(from: try board.saved(), isAlive: { _ in true })
+        #expect(restored.sessions.count == 1)
+        #expect(restored.sessions[0].contextPercent == nil)
+    }
+
+    @Test func contextReadAfterSessionEndIgnored() {
+        var board = AgentBoard()
+        board.apply(HookMessage(event: "SessionStart", pid: 1, payload: ["session_id": "s1", "cwd": "/x/app"]))
+        board.apply(HookMessage(event: "SessionEnd", pid: 1, payload: ["session_id": "s1"]))
+        board.setContext(tokens: 100_000, model: nil, session: "s1")
+        #expect(board.sessions.isEmpty)
+    }
+
+    @Test func clearStartsNewSessionWithoutContext() {
+        var board = AgentBoard()
+        board.apply(HookMessage(event: "SessionStart", pid: 1, payload: ["session_id": "s1", "cwd": "/x/app"]))
+        board.setContext(tokens: 100_000, model: nil, session: "s1")
+        board.apply(HookMessage(event: "SessionEnd", pid: 1, payload: ["session_id": "s1"]))
+        board.apply(HookMessage(event: "SessionStart", pid: 1, payload: ["session_id": "s2", "cwd": "/x/app"]))
+        #expect(board.sessions.count == 1)
+        #expect(board.sessions[0].contextPercent == nil)
+    }
+
     @Test func windowIs200kUnlessTheModelOrTheCountSaysMore() {
         #expect(ContextUsage.window(tokens: 150_000, model: nil) == 200_000)
         #expect(ContextUsage.window(tokens: 150_000, model: "opus[1m]") == 1_000_000)

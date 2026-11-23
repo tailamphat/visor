@@ -38,6 +38,20 @@ public enum ContextUsage {
         return nil
     }
 
+    /// The tokens, plus the window the transcript proves: a compaction that
+    /// started above 200k can only happen in a 1M window, whatever the count is now.
+    public static func reading(inTail data: Data) -> (tokens: Int?, provenWindow: Int?) {
+        var proven: Int?
+        for line in data.split(separator: 0x0A) where line.count < 4096 {
+            guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                  object["subtype"] as? String == "compact_boundary",
+                  let pre = ((object["compactMetadata"] as? [String: Any])?["preTokens"] as? NSNumber)?.intValue,
+                  pre > standardWindow else { continue }
+            proven = largeWindow
+        }
+        return (tokens(inTail: data), proven)
+    }
+
     /// Transcripts don't say which window a session has: 1M when the model
     /// setting asks for it ("opus[1m]") or the context has grown past 200k.
     public static func window(tokens: Int, model: String?) -> Int {

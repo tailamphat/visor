@@ -378,30 +378,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// After a Claude Code reply, reads how full the session's context is from
     /// the end of its transcript, off the main thread, once per burst of events.
     private func readContextSoon(_ message: HookMessage) {
-        guard message.provider == "claude", ["PostToolUse", "Stop", "SessionStart"].contains(message.event),
+        guard message.provider == "claude", ["PostToolUse", "Stop", "SessionStart", "UserPromptSubmit"].contains(message.event),
               let session = message.sessionID, let path = message.payload["transcript_path"] as? String,
               contextPending.insert(session).inserted else { return }
         // Claude Code may still be writing the reply when the hook runs.
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (tokens, model) = autoreleasepool { (Self.contextTokens(at: path), Self.claudeModelSetting()) }
+            let (reading, model) = autoreleasepool { (Self.contextReading(at: path), Self.claudeModelSetting()) }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.contextPending.remove(session)
-                    self.agents.setContext(tokens: tokens, model: model, session: session)
+                    self.agents.setContext(tokens: reading.tokens, model: model, provenWindow: reading.provenWindow, session: session)
                     self.publishAgents()
                 }
             }
         }
     }
 
-    private nonisolated static func contextTokens(at path: String) -> Int? {
-        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+    private nonisolated static func contextReading(at path: String) -> (tokens: Int?, provenWindow: Int?) {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return (nil, nil) }
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()) ?? 0
         let tail = UInt64(ContextUsage.tailBytes)
         try? handle.seek(toOffset: size > tail ? size - tail : 0)
-        return (try? handle.readToEnd()).flatMap(ContextUsage.tokens(inTail:))
+        return (try? handle.readToEnd()).map(ContextUsage.reading(inTail:)) ?? (nil, nil)
     }
 
     /// The model Claude Code is set to ("opus[1m]" asks for the 1M window).
