@@ -71,7 +71,7 @@ A plugin watches something you care about (CI, pull requests, an on-call pager, 
 | `hosts` | | The only hosts `visor.http` may call, over https. `"*.example.com"` matches any subdomain. |
 | `secrets` | | Sign-ins Visor may attach to requests, and where they may go. See [Secrets](#secrets). |
 | `settings` | | Name → default value. Users override them in `settings.json`. |
-| `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars and its primary button. Red, amber and green keep their meaning. |
+| `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars, banners and its primary button, and the `accent` name in the [design system](#design-system). Red, amber and green keep their meaning. |
 
 ```json
 {
@@ -229,7 +229,7 @@ Visor runs the command without a shell, keeps the secret in memory for 30 minute
 
 ## Custom views
 
-Rows are enough for a list. For more, build the plugin's section from Visor's own pieces with `visor.ui` and show it with `visor.view`. Visor draws every piece the way it draws its own Usage and Tokens tabs; you choose pieces and fill them with data, never fonts, sizes or pixel positions.
+Rows are enough for a list. For more, build the plugin's section from Visor's own pieces with `visor.ui` and show it with `visor.view`. Visor draws every piece with its own design system, the way it draws its own tabs; you choose pieces and fill them with data, and pick colours and text sizes by name from the [design system](#design-system), never hex, points or pixel positions.
 
 ```lua
 local ui = visor.ui
@@ -251,7 +251,7 @@ visor.view(ui.stack {
 | `ui.stack { ... }` | pieces, top to bottom | |
 | `ui.columns { a, b, c }` | up to 3 pieces side by side | |
 | `ui.divider()` | | a band of grey stripes |
-| `ui.text { "…", style = }` | `title`, `body` (default), `caption`, `mono`; `state` colours it | |
+| `ui.text { "…", style = }` | `headline`, `title`, `body` (default), `caption`, `footnote`, `mono`; `state` or `color` colours it; `size` and `weight` by name | |
 | `ui.stats { ui.stat{…}, … }` | stats in a row | the Tokens headline |
 | `ui.stat { value =, label =, size = "large", state = }` | | one figure with a label |
 | `ui.meter { title =, value = 0.38, text =, caption =, state = }` | `value` 0 to 1; `text` defaults to the percent | a Usage limit |
@@ -261,11 +261,70 @@ visor.view(ui.stack {
 | `ui.table { columns = { … }, rows = { { … } } }` | up to 6 columns, 30 rows | the Daily grid |
 | `ui.clock { ["until"] = t }` or `{ since = t }` | `style = "large"` | a countdown or timer Visor ticks itself |
 | `ui.progress { value = 0.4 }` | omit `value` while unknown | |
-| `ui.buttons { ui.button { "…", url = }, ui.button { "…", action = } }` | up to 4; `style = "primary"` uses the accent | |
+| `ui.buttons { ui.button { "…", url = }, ui.button { "…", action = } }` | up to 4; `style = "primary"` (the accent) or `"secondary"` (default) | the card buttons |
 | `ui.picker { options = { "25", "50" }, selected =, action = }` | up to 6 | 7D / 30D / All |
 | `ui.toggle { "Notify", on = true, action = }` | | the switches in Connected accounts |
+| `ui.banner { tint =, badge =, title =, text =, dismiss =, ... }` | pieces inside; `dismiss` names the handler its x calls (up to 100 characters, else no x) | the Stuck? and handoff cards |
+| `ui.badge { "…", tint = }` | up to 40 characters; no `tint` is the neutral badge | "Stuck?", a version |
+| `ui.header { "…", badge = }` | up to 80 characters | a section title in the Agents tab |
 
 A view holds at most 300 pieces, 8 levels deep. Past the panel's height the Plugins tab scrolls. A piece this Visor doesn't know shows "needs a newer Visor" in its place.
+
+### Design system
+
+Plugins use Visor's own design system: the same components and the same named colours and text sizes as Visor's tabs, so a plugin looks like part of Visor. Pick everything by name. A name Visor doesn't know (or a hex value, a number of points) is ignored and the piece keeps its default look, so a typo never breaks a view.
+
+**Colours.** `color = "<name>"` works anywhere `state` does (`ui.text`, `ui.stat`, `ui.meter`, a chip, a bar) and wins over it for the colour; `tint = "<name>"` colours a banner or a badge. Names are case-insensitive.
+
+| Name | Colour | Use it for |
+|---|---|---|
+| `accent` | the plugin's `accent` from plugin.json, else Visor's blue | its own highlights (default for meters, bars, banners, primary buttons) |
+| `good` | green | done, passing |
+| `warning` | amber | needs attention soon |
+| `critical` | red | failed, broken |
+| `question` | blue | waiting for an answer |
+| `stuck` | coral | not moving |
+| `clash` | orange | two things in conflict |
+| `claude` | Claude's orange | Claude-related |
+| `onPace` | light green | on track (readable as small text) |
+| `textPrimary`, `textSecondary`, `textMuted` | white, light grey, grey | text levels |
+
+Visor's approval colours aren't offered: in Visor they mean "allow" and "deny".
+
+**Text.** `ui.text` styles sit on Visor's type scale; `size` and `weight` pick another step:
+
+| Style | Size | Weight | Colour |
+|---|---|---|---|
+| `headline` | `xl` (15 pt) | semibold | `textPrimary` |
+| `title` | `lg` (13) | semibold | `textPrimary` |
+| `body` | `md` (12) | regular | `textSecondary` |
+| `mono` | `base` (11), monospaced | regular | `textSecondary` |
+| `caption` | `sm` (10) | regular | `textMuted` |
+| `footnote` | `xs` (9) | regular | `textMuted` |
+
+`size` takes `xs`, `sm`, `base`, `md`, `lg`, `xl` or `display` (26 pt); `weight` takes `regular`, `medium`, `semibold` or `bold`.
+
+**Components.** These are the same components Visor's own cards use:
+
+- `ui.banner`: the tinted card (Stuck?, handoff). The tint fills it faintly and outlines it, with the same padding on all four sides. An optional solid `badge` and `title` sit on its first line, `text` under them, then any pieces you put inside. `dismiss = "name"` adds an x that calls `visor.on("name", ...)`. Visor doesn't hide the banner itself: your handler re-renders without it.
+- `ui.badge`: a small capsule. Solid in its `tint`, or neutral grey without one.
+- `ui.header`: the uppercase grey section title, with an optional neutral `badge` (a count, a version).
+- `ui.button`: the card button. `style = "primary"` fills with the plugin's accent, `"secondary"` with grey.
+
+```lua
+local ui = visor.ui
+visor.view(ui.stack {
+  ui.banner { tint = "warning", badge = "Freeze", title = "Release freeze at 17:00",
+              text = "3 pull requests still open on main", dismiss = "hide",
+    ui.buttons { ui.button { "Later", action = "hide" },
+                 ui.button { "Open PRs", url = "https://github.com/acme/api/pulls", style = "primary" } } },
+  ui.header { "Production", badge = "v2.4.1" },
+  ui.meter { title = "Error budget", value = 0.62, text = "62% left" },
+  ui.header { "Recent" },
+  ui.list { { title = "api · deploy · v2.4.1", status = "good", time = os.time() - 240 } },
+  ui.text { "Next window opens Mon 09:00", size = "lg", weight = "semibold", color = "question" },
+})
+```
 
 ### Buttons, pickers and toggles
 
@@ -349,4 +408,4 @@ cp -R Plugins/hello Plugins/github Plugins/focus ~/Library/Application\ Support/
 
 - **[hello](../Plugins/hello/main.lua):** every building block with no network: a panel listing the repos your agents are in, a badge for its first minute, a peek and a counter kept in `visor.store`.
 - **[github](../Plugins/github/main.lua):** a custom view of GitHub Actions for the branches your agents are on (or the repos in `settings.json`): pass rate, failing runs and median build time, build-time bars, the latest run of each workflow, pull requests waiting for your review, and an Open in GitHub button. Works with github.com and GitHub Enterprise (`*.ghe.com`) through your `gh` sign-in. Shows a red badge while anything is failing, and peeks once per new failure.
-- **[focus](../Plugins/focus/main.lua):** the interactive example: a focus timer with a 25 / 50 / 90 picker, Start, Pause and Reset buttons, a countdown Visor ticks itself, and this week's focus time as bars.
+- **[focus](../Plugins/focus/main.lua):** the interactive example: a focus timer with a 25 / 50 / 90 picker, Start, Pause and Reset buttons, a countdown Visor ticks itself, this week's focus time as bars under a section header with a badge, and a green "Time for a break" banner you can dismiss when a session ends.

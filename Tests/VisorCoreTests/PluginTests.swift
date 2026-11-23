@@ -267,7 +267,7 @@ struct ExamplePluginTests {
         guard case .stats(let stats) = parts[0] else { Issue.record("no stats"); return }
         #expect(stats[0] == .stat(value: "67%", label: "passed, last 3 runs", state: .warn, large: true, pending: false), "every fetched run, not just the newest per workflow")
         #expect(stats[1] == .stat(value: "1", label: "failing now", state: .bad, large: false, pending: false))
-        guard case .bars(_, let states, _, _) = parts[1] else { Issue.record("no bars"); return }
+        guard case .bars(_, let states, _, _, _) = parts[1] else { Issue.record("no bars"); return }
         #expect(states == [nil, nil, .bad], "oldest first, the failure last")
         let lists = parts.compactMap { part -> [PluginRow]? in if case .list(let rows) = part { return rows }; return nil }
         #expect(lists[0].map(\.title) == ["api · feat/x · test", "api · feat/x · lint"], "newest run per workflow, failures first")
@@ -389,7 +389,7 @@ struct FocusPluginTests {
         #expect(host.outputs.last?.badge?.icon == "timer")
         try p.act("pause", value: nil)
         guard case .columns(let paused) = parts()[0], case .stack(let pausedLeft) = paused[0],
-              case .stat(_, "paused", _, _, _) = pausedLeft[0] else { Issue.record("not paused"); return }
+              case .stat(_, "paused", _, _, _, _) = pausedLeft[0] else { Issue.record("not paused"); return }
         #expect(host.outputs.last?.badge == nil)
         #expect(host.errors.isEmpty, "\(host.errors)")
     }

@@ -1,4 +1,6 @@
--- Focus: a timer with a picker, buttons and a week of focus time.
+-- Focus: a timer with a picker, buttons and a week of focus time, drawn with
+-- Visor's design system: a section header with a badge, and a "good" banner
+-- that offers a break when a session ends.
 -- The countdown is drawn by Visor (ui.clock), so the plugin only wakes every
 -- 30 seconds to notice a session that has finished.
 
@@ -17,10 +19,14 @@ end
 local function finish()
   s.days[today()] = (s.days[today()] or 0) + s.length
   s.endsAt, s.left = nil, nil
+  s.breakAt = os.time()
   visor.peek({ title = "Focus done: " .. s.length .. " minutes", subtitle = "Time for a break", state = "good", icon = "checkmark.circle" })
 end
 
 local function render()
+  if s.endsAt and os.time() >= s.endsAt then finish() end
+  if s.breakAt and os.time() - s.breakAt > 15 * 60 then s.breakAt = nil end
+
   -- This week, oldest first.
   local week, total = {}, 0
   for i = 6, 0, -1 do
@@ -44,8 +50,8 @@ local function render()
         ui.text { s.endsAt and ("until " .. os.date("%H:%M", s.endsAt) .. " · " .. done .. " min today") or (done .. " min of focus today"), style = "caption" },
       },
       ui.stack {
+        ui.header { "This week", badge = math.floor(total / 6) / 10 .. " h" },
         ui.bars { values = week, labels = { os.date("%a", os.time() - 6 * 86400), "Today" } },
-        ui.text { math.floor(total / 6) / 10 .. " h this week", style = "caption" },
       },
     },
     ui.columns {
@@ -55,6 +61,10 @@ local function render()
         s.endsAt and ui.button { "Pause", action = "pause" } or ui.button { s.left and "Resume" or "Start", action = "start", style = "primary" },
       },
     },
+    s.breakAt and ui.banner {
+      tint = "good", badge = "Done", title = "Time for a break", dismiss = "dismissBreak",
+      text = s.length .. " minutes of focus. Stand up, look away, drink some water.",
+    } or nil,
   })
   visor.badge(s.endsAt and { icon = "timer", state = "info", help = "Focus until " .. os.date("%H:%M", s.endsAt) } or nil)
 end
@@ -65,7 +75,13 @@ visor.on("length", function(value)
   render()
 end)
 
+visor.on("dismissBreak", function()
+  s.breakAt = nil
+  render()
+end)
+
 visor.on("start", function()
+  s.breakAt = nil
   s.endsAt = os.time() + (s.left or s.length * 60)
   s.left = nil
   render()
@@ -81,8 +97,5 @@ visor.on("reset", function()
   render()
 end)
 
--- Notice a finished session; the clock itself ticks in Visor.
-visor.every(30, function()
-  if s.endsAt and os.time() >= s.endsAt then finish() end
-  render()
-end)
+-- Notice a finished session (render does); the clock itself ticks in Visor.
+visor.every(30, render)

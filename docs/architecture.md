@@ -81,6 +81,8 @@ flowchart LR
 
 `PluginService.reload()` reads each folder's `plugin.json` (`PluginManifest.parse`), creates a `PluginRunner` per enabled plugin and watches files with `DispatchSourceFileSystemObject`. Each runner owns a serial queue `visor.plugin.<id>`, a `LuaPlugin`, and `DispatchSourceTimer`s for `visor.every`. It implements `PluginHost` (requests, secrets, store, log, output) and publishes back through `PluginService.update(_:_:)` on main into `model.plugins`.
 
+Plugin views use the design system: `PluginNode` (VisorCore) carries palette names (`PluginColor`), type steps (`PluginTypeStep`, `PluginWeight`) and the shared components (`.banner`, `.badge`, `.header`); `PluginsView` draws every piece with `DS` tokens, `PluginPieces` measurements and `CardButton`, `Badge`, `SectionHeader`, `.bannerCard`, `DismissButton`.
+
 ## State, threading, persistence
 
 - `AppModel` is `@MainActor @Observable`. View-only state (hover, selections, measured heights) lives there too, since `@State` isn't available.

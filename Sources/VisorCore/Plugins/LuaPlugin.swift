@@ -77,7 +77,8 @@ public final class LuaPlugin {
     private static let prelude = """
     local ui = {}
     for _, kind in ipairs({ "stack", "columns", "text", "stats", "stat", "meter", "bars", "chips", "list",
-                            "table", "clock", "progress", "buttons", "button", "picker", "toggle" }) do
+                            "table", "clock", "progress", "buttons", "button", "picker", "toggle",
+                            "banner", "badge", "header" }) do
       ui[kind] = function(t) t = t or {}; t.kind = kind; return t end
     end
     ui.divider = function() return { kind = "divider" } end

@@ -1,18 +1,21 @@
 import Foundation
 
 /// A plugin's custom view: a tree of Visor's own pieces, built in Lua with
-/// `visor.ui.*` and checked here. Plugins never choose fonts, sizes or
-/// colours beyond the five states and their accent; Visor draws each piece.
+/// `visor.ui.*` and checked here. Plugins pick Visor's design system by name
+/// (palette colours, type steps, weights, the shared components), never hex,
+/// points or pixels; Visor draws each piece. Unknown names keep the default look.
 public indirect enum PluginNode: Equatable, Sendable {
     case stack([PluginNode])
     case columns([PluginNode])
     case divider
-    case text(String, style: TextStyle, state: PluginState?)
+    /// `color` wins over `state` for the colour; `size` and `weight` over the style's.
+    case text(String, style: TextStyle, state: PluginState?, color: PluginColor? = nil, size: PluginTypeStep? = nil, weight: PluginWeight? = nil)
     case stats([PluginNode])
-    case stat(value: String, label: String, state: PluginState?, large: Bool, pending: Bool)
+    case stat(value: String, label: String, state: PluginState?, large: Bool, pending: Bool, color: PluginColor? = nil)
     /// `value` is 0...1.
-    case meter(title: String, value: Double, text: String, caption: String, state: PluginState?, pending: Bool)
-    case bars(values: [Double], states: [PluginState?], labels: [String], pending: Bool)
+    case meter(title: String, value: Double, text: String, caption: String, state: PluginState?, pending: Bool, color: PluginColor? = nil)
+    /// `colors` is empty unless some bar names a colour.
+    case bars(values: [Double], states: [PluginState?], labels: [String], pending: Bool, colors: [PluginColor?] = [])
     case chips([PluginChip])
     case list([PluginRow])
     case table(columns: [String], rows: [[String]])
@@ -23,10 +26,16 @@ public indirect enum PluginNode: Equatable, Sendable {
     case buttons([PluginButton])
     case picker(options: [String], selected: String?, action: String)
     case toggle(label: String, on: Bool, action: String)
+    /// The shared tinted banner card.
+    case banner(PluginBanner)
+    /// The shared capsule label: solid in `tint`, or neutral when nil.
+    case badge(String, tint: PluginColor?)
+    /// The shared uppercase section header, with an optional neutral badge.
+    case header(String, badge: String?)
     /// A piece this version of Visor doesn't know.
     case unsupported(String)
 
-    public enum TextStyle: String, Sendable { case title, body, caption, mono }
+    public enum TextStyle: String, Sendable { case headline, title, body, caption, footnote, mono }
 
     public static let maxNodes = 300
     public static let maxDepth = 8
@@ -40,6 +49,7 @@ public indirect enum PluginNode: Equatable, Sendable {
     public static func count(_ node: PluginNode) -> Int {
         switch node {
         case .stack(let children), .columns(let children), .stats(let children): return 1 + children.reduce(0) { $0 + count($1) }
+        case .banner(let banner): return 1 + banner.children.reduce(0) { $0 + count($1) }
         default: return 1
         }
     }
@@ -57,6 +67,8 @@ public indirect enum PluginNode: Equatable, Sendable {
             return out
         }
         func string(_ key: String) -> String? { text(fields[key]) }
+        func capped(_ key: String, _ limit: Int) -> String? { text(fields[key]).map { String($0.prefix(limit)) } }
+        let color = PluginColor(name: fields["color"])
         switch kind {
         case "stack": return .stack(children())
         case "columns": return .columns(Array(children().prefix(3)))
@@ -64,14 +76,15 @@ public indirect enum PluginNode: Equatable, Sendable {
         case "divider": return .divider
         case "text":
             return .text(text(positional(fields).first) ?? string("text") ?? "", style: TextStyle(rawValue: string("style") ?? "") ?? .body,
-                         state: optionalState(fields["state"]))
+                         state: optionalState(fields["state"]), color: color, size: PluginTypeStep(name: fields["size"]),
+                         weight: PluginWeight(name: fields["weight"]))
         case "stat":
             return .stat(value: string("value") ?? "", label: string("label") ?? "", state: optionalState(fields["state"]),
-                         large: string("size") == "large", pending: pending)
+                         large: string("size") == "large", pending: pending, color: color)
         case "meter":
             let value = min(1, max(0, number(fields["value"]) ?? 0))
             return .meter(title: string("title") ?? "", value: value, text: string("text") ?? "\(Int((value * 100).rounded()))%",
-                          caption: string("caption") ?? "", state: optionalState(fields["state"]), pending: pending)
+                          caption: string("caption") ?? "", state: optionalState(fields["state"]), pending: pending, color: color)
         case "bars":
             let items = (fields["values"] as? [Any] ?? []).prefix(60)
             // A bar is a number, { number, state = ... }, or { number } (which Lua hands over as a list).
@@ -81,13 +94,15 @@ public indirect enum PluginNode: Equatable, Sendable {
                 return max(0, number(item) ?? 0)
             }
             let states = items.map { item -> PluginState? in (item as? [String: Any]).flatMap { optionalState($0["state"]) } }
-            return .bars(values: values, states: states, labels: (fields["labels"] as? [Any] ?? []).prefix(2).compactMap(text), pending: pending)
+            let colors = items.map { item -> PluginColor? in (item as? [String: Any]).flatMap { PluginColor(name: $0["color"]) } }
+            return .bars(values: values, states: states, labels: (fields["labels"] as? [Any] ?? []).prefix(2).compactMap(text), pending: pending,
+                         colors: colors.contains { $0 != nil } ? colors : [])
         case "chips":
             return .chips(positional(fields).prefix(12).compactMap { item in
                 if let label = text(item) { return PluginChip(text: label, state: nil) }
                 if let list = item as? [Any], let label = text(list.first) { return PluginChip(text: label, state: nil) }
                 guard let chip = item as? [String: Any], let label = text(positional(chip).first) ?? text(chip["text"]) else { return nil }
-                return PluginChip(text: label, state: optionalState(chip["state"]))
+                return PluginChip(text: label, state: optionalState(chip["state"]), color: PluginColor(name: chip["color"]))
             })
         case "list":
             return .list(positional(fields).prefix(50).compactMap { ($0 as? [String: Any]).flatMap(PluginRow.decode) })
@@ -111,9 +126,23 @@ public indirect enum PluginNode: Equatable, Sendable {
         case "toggle":
             guard let action = string("action") else { return nil }
             return .toggle(label: text(positional(fields).first) ?? string("label") ?? "", on: fields["on"] as? Bool ?? false, action: action)
+        case "banner":
+            return .banner(PluginBanner(tint: PluginColor(name: fields["tint"]), badge: capped("badge", 40), title: string("title") ?? "",
+                                        text: string("text") ?? "", dismiss: dismissAction(fields["dismiss"]), children: children()))
+        case "badge":
+            return .badge(String((text(positional(fields).first) ?? string("text") ?? "").prefix(40)), tint: PluginColor(name: fields["tint"]))
+        case "header":
+            return .header(String((text(positional(fields).first) ?? string("title") ?? "").prefix(80)), badge: capped("badge", 40))
         default:
             return .unsupported(kind)
         }
+    }
+
+    /// A banner's dismiss handler name: a string, kept whole (a cut name would
+    /// match no handler), or no x at all past 100 characters.
+    private static func dismissAction(_ any: Any?) -> String? {
+        guard let name = any as? String, name.count <= 100 else { return nil }
+        return name
     }
 
     /// The array part of a Lua table: keys "1", "2", ... in order.
@@ -151,10 +180,13 @@ public indirect enum PluginNode: Equatable, Sendable {
 public struct PluginChip: Equatable, Sendable {
     public var text: String
     public var state: PluginState?
+    /// Wins over `state` for the dot's colour.
+    public var color: PluginColor?
 
-    public init(text: String, state: PluginState?) {
+    public init(text: String, state: PluginState?, color: PluginColor? = nil) {
         self.text = text
         self.state = state
+        self.color = color
     }
 }
 

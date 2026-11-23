@@ -12,11 +12,16 @@ struct CardButton: ButtonStyle {
     enum Kind { case primary, secondary }
 
     var kind: Kind
+    /// The primary fill; nil is Visor's accent (a plugin passes its own).
+    var tint: Color?
 
-    init(_ kind: Kind) { self.kind = kind }
+    init(_ kind: Kind, tint: Color? = nil) {
+        self.kind = kind
+        self.tint = tint
+    }
 
     private var fill: Color {
-        kind == .primary ? Theme.accent : Color.white.opacity(Spec.CardButton.secondaryFill)
+        kind == .primary ? tint ?? Theme.accent : Color.white.opacity(Spec.CardButton.secondaryFill)
     }
     private var text: Color { kind == .primary ? .white : Theme.textPrimary }
 
