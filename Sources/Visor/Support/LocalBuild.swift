@@ -9,6 +9,12 @@ enum LocalBuild {
     /// The first menu line. Main thread only; `start()` fills in the commit and worktree.
     private(set) static var menuTitle = BuildKind.menuTitle(version: version, commit: info?["VisorCommit"] as? String, worktree: nil)
 
+    /// Under the short hello: "Visor 0.9.1", marked when it's a local build.
+    static var helloLine: String {
+        let name = version.map { "Visor \($0)" } ?? "Visor"
+        return isLocal ? name + " (local build)" : name
+    }
+
     private static var info: [String: Any]? { Bundle.main.infoDictionary }
     private static var version: String? {
         (info?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty ? nil : $0 }

@@ -92,14 +92,30 @@ final class AppModel {
     var tab: Tab = .agents
     /// Keeps the panel open regardless of the pointer (debug screenshots).
     var pinned = false
-    /// The first-launch hello is in the open notch, until "Get started".
+    /// The hello is in the open notch: the first launch's until "Get started",
+    /// the short one (`welcomeBrief`) for a few seconds.
     var welcome = false
+    /// The short hello of every later launch: title and version, no button.
+    var welcomeBrief = false
+    /// Counts short hellos, so a timer only closes the one it was set for.
+    var helloCount = 0
     /// The hello's title has come into focus (its entrance animation ran).
     var welcomeSettled = false
+
+    /// The short hello gives way (its time is up, a click, a tab). Unlike
+    /// `dismissWelcome` it leaves the panel open: the caller decides, so an
+    /// approval that arrived meanwhile stays up.
+    func endBriefHello() {
+        guard welcomeBrief else { return }
+        welcome = false
+        welcomeBrief = false
+        pinned = false
+    }
 
     /// "Get started": the hello goes and the notch closes.
     func dismissWelcome() {
         welcome = false
+        welcomeBrief = false
         pinned = false
         expanded = false
     }

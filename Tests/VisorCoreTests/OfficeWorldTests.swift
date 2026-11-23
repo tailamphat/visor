@@ -72,13 +72,13 @@ struct AgentsDigestTests {
     }
 }
 
-@Suite("First-launch intro")
+@Suite("Launch intro")
 struct IntroGateTests {
-    /// It plays once, ever: the first launch, or when forced for testing.
-    @Test func playsOnceUnlessForced() {
-        #expect(IntroGate.shouldPlay(seen: false, environment: [:]))
-        #expect(!IntroGate.shouldPlay(seen: true, environment: [:]))
-        #expect(IntroGate.shouldPlay(seen: true, environment: ["VISOR_INTRO": "1"]))
-        #expect(!IntroGate.shouldPlay(seen: false, environment: ["VISOR_INTRO": "0"]), "and can be turned off, e.g. for screenshots")
+    /// The first launch gets the full welcome; every later launch says a short hello.
+    @Test func fullWelcomeFirstThenHelloEveryLaunch() {
+        #expect(IntroGate.kind(seen: false, environment: [:]) == .welcome)
+        #expect(IntroGate.kind(seen: true, environment: [:]) == .hello)
+        #expect(IntroGate.kind(seen: true, environment: ["VISOR_INTRO": "1"]) == .welcome)
+        #expect(IntroGate.kind(seen: false, environment: ["VISOR_INTRO": "0"]) == .off, "and can be turned off, e.g. for screenshots")
     }
 }

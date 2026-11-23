@@ -176,7 +176,8 @@ final class IntroController {
     }
 }
 
-/// What the notch says the first time: hello, what Visor does, and a way in.
+/// What the notch says at launch: the first time, hello, what Visor does and a
+/// way in; every time after, the short hello with the version.
 struct WelcomeView: View {
     let model: AppModel
     static let height: CGFloat = 112
@@ -196,22 +197,36 @@ struct WelcomeView: View {
             .blur(radius: settled ? 0 : 8)
             .opacity(settled ? 1 : 0)
             .animation(.timingCurve(0.2, 0.7, 0.2, 1, duration: 1.4), value: settled)
-            Group {
-                Text("I live up here: your agents, usage, music and clipboard.")
+            if model.welcomeBrief {
+                Text(LocalBuild.helloLine)
                     .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-            // The Allow button's style and key: mint with dark text, Return presses it.
-            Button { model.dismissWelcome() } label: {
-                Label { KeyHint(title: "Get started", key: "↩") } icon: { Image(systemName: "checkmark") }
+                    .opacity(settled ? 1 : 0)
+                    .animation(.easeOut(duration: 0.6).delay(0.9), value: settled)
+            } else {
+                Group {
+                    Text("I live up here: your agents, usage, music and clipboard.")
+                        .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                // The Allow button's style and key: mint with dark text, Return presses it.
+                Button { model.dismissWelcome() } label: {
+                    Label { KeyHint(title: "Get started", key: "↩") } icon: { Image(systemName: "checkmark") }
+                }
+                .buttonStyle(ConsentButton(kind: .allow))
+                .padding(.top, 6)
+                }
+                // The line and the button follow once the title has landed.
+                .opacity(settled ? 1 : 0)
+                .offset(y: settled ? 0 : 6)
+                .animation(.easeOut(duration: 0.6).delay(1.3), value: settled)
             }
-            .buttonStyle(ConsentButton(kind: .allow))
-            .padding(.top, 6)
-            }
-            // The line and the button follow once the title has landed.
-            .opacity(settled ? 1 : 0)
-            .offset(y: settled ? 0 : 6)
-            .animation(.easeOut(duration: 0.6).delay(1.3), value: settled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The short hello closes on a click, as it would by itself.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard model.welcomeBrief else { return }
+            model.endBriefHello()
+            if !model.showsCard { model.expanded = false }
+        }
         .onAppear { DispatchQueue.main.async { model.welcomeSettled = true } }
     }
 }

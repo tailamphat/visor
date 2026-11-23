@@ -125,15 +125,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "approvalsInNotch") }
     }
 
-    /// The intro on the screen with the notch, then the hello in the open notch.
-    private func playIntro() {
+    /// How long the short hello stays before the notch closes by itself.
+    private static let helloShown: TimeInterval = 3
+
+    /// The intro on the screen with the notch, then the hello in the open notch:
+    /// the full welcome, or (`brief`) a short hello that closes by itself.
+    private func playIntro(brief: Bool = false) {
         guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
         intro.play(on: screen) { [weak self] in
             guard let self else { return }
             self.model.welcomeSettled = false
+            self.model.welcomeBrief = brief
             self.model.welcome = true
             self.model.pinned = true
             self.notch.expand()
+            guard brief else { return }
+            self.model.helloCount += 1
+            let hello = self.model.helloCount
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.helloShown) { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.model.welcomeBrief, self.model.helloCount == hello else { return }
+                    self.model.endBriefHello()
+                    // Stays open for an approval or the pointer, like the "limit is back" card.
+                    self.notch.collapseIfAway()
+                }
+            }
         }
     }
 
@@ -187,10 +203,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         restoreAgents()
-        // The first launch: the intro plays once, then the notch says hello.
-        if IntroGate.shouldPlay(seen: UserDefaults.standard.bool(forKey: "introShown"), environment: ProcessInfo.processInfo.environment) {
+        // Every launch: the intro, then the full welcome the first time and a short hello after.
+        let introKind = IntroGate.kind(seen: UserDefaults.standard.bool(forKey: "introShown"), environment: ProcessInfo.processInfo.environment)
+        if introKind != .off {
             UserDefaults.standard.set(true, forKey: "introShown")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.playIntro() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.playIntro(brief: introKind == .hello) }
         }
         hooks.onMessage = { [weak self] message, approval in self?.received(message, approval) }
         hooks.onApprovalGone = { [weak self] id, reason in self?.approvalGone(id, reason) }
@@ -275,7 +292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Return presses the hello's Get started, like Allow on an approval.
     private func welcomeKey(_ event: NSEvent) -> Bool {
-        guard model.expanded, model.welcome, model.approvals.isEmpty, [36, 76].contains(event.keyCode) else { return false }
+        guard model.expanded, model.welcome, !model.welcomeBrief, model.approvals.isEmpty, [36, 76].contains(event.keyCode) else { return false }
         model.dismissWelcome()
         return true
     }
@@ -479,8 +496,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if p["check"] as? Bool == true { radar.debugCheckNow() }
             return
         }
+        // {"event":"_intro","raw":{"kind":"hello"}} plays the short hello; without it, the full welcome.
         if message.event == "_intro" {
-            playIntro()
+            playIntro(brief: message.payload["kind"] as? String == "hello")
             return
         }
         // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list.

@@ -546,6 +546,12 @@ struct ExpandedView: View {
                 TabButton(tab: tab, selected: model.tab == tab && !model.showsCard, width: size.width,
                           help: tab == .agents ? (model.agentsOffice ? "Agents: the office. Click again for the list"
                                                                      : "Agents: the list. Click again for the office") : nil) {
+                    // A tab clicked during the short hello opens that tab.
+                    if model.welcomeBrief {
+                        model.endBriefHello()
+                        model.tab = tab
+                        return
+                    }
                     // Agents again, while on it: switch between the list and the office.
                     if tab == .agents && model.tab == .agents && !model.showsCard {
                         model.agentsOffice.toggle()

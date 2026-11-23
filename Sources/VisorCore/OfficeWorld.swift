@@ -94,14 +94,17 @@ public struct AgentsDigest: Equatable, Sendable {
     }
 }
 
-/// Whether the first-launch intro plays: once ever, unless VISOR_INTRO forces it
-/// on ("1") or off ("0").
+/// What a launch shows: the intro with the full welcome the first time, the
+/// intro with a short hello every time after. VISOR_INTRO forces the full
+/// welcome ("1") or nothing ("0").
+public enum IntroKind: Equatable, Sendable { case off, welcome, hello }
+
 public enum IntroGate {
-    public static func shouldPlay(seen: Bool, environment: [String: String]) -> Bool {
+    public static func kind(seen: Bool, environment: [String: String]) -> IntroKind {
         switch environment["VISOR_INTRO"] {
-        case "1": return true
-        case "0": return false
-        default: return !seen
+        case "1": return .welcome
+        case "0": return .off
+        default: return seen ? .hello : .welcome
         }
     }
 }
