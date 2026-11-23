@@ -62,6 +62,7 @@ Send with `printf '%s\n' '<json>' | nc -U "$HOME/Library/Application Support/Vis
 
 ## Updates and releases
 
+- Release with `/visor-release <version>`: preflight, docs and website sync, release notes, two stops for the user (review, then ship), then release.sh and publish.
 - Check for Updates… is Sparkle 2 (`SPUStandardUpdaterController` in `AppDelegate`), reading `appcast.xml` from `main` (SUFeedURL). Automatic installs are on by default (`SUAutomaticallyUpdate`, checked every 6 hours): an update downloads silently and installs on quit; `UpdateFeed` keeps Sparkle's install-now block for the menu's "Restart to Update". The menu toggle writes the user default, which wins over Info.plist. Updates are verified with the EdDSA key whose public half is SUPublicEDKey; the private key is in the login Keychain (shared with Treatly) and never in the repo. On a new Mac, import it with `.build/artifacts/sparkle/Sparkle/bin/generate_keys -f <exported-key-file>` before releasing.
 - Release: tag, `scripts/release.sh <version>` (zip plus a new `appcast.xml` entry), push `main` with `appcast.xml`, `gh release create` with the zip, then bump the tap's `Casks/visor.rb`. Add `auto_updates true` to the cask only once the version with Sparkle (0.6.4) has been out a while: with it, plain `brew upgrade` skips Visor, which would strand anyone still on 0.6.3 (no updater).
 - CFBundleVersion is the commit count, which Sparkle compares; never build a release from a commit behind the last one.
