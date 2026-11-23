@@ -129,6 +129,8 @@ Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value 
 
 A banner's height is `DesignComponents.Banner.height(rows:spacing:)`: fixed-height rows plus gaps inside the inset. To add a component: its measurements as token references in `DesignComponents`, each added to `measurements` (`Design components` tests fail otherwise), then the view in `SharedComponents.swift`, then a row in this table.
 
+Migrated areas (no literal colours, type sizes, radii or white fills; `DesignAdoptionTests` scans each folder): Usage. Add a folder to `DesignAdoptionTests.migrated` once its views are moved.
+
 ## Patterns
 
 - A service is a `@MainActor final class` holding `let model: AppModel`, with `init(model:)` and `start()`. Work runs on a private queue; results come back with `DispatchQueue.main.async { MainActor.assumeIsolated { ... } }` (`UsageService+Antigravity.swift:17`).

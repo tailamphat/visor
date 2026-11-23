@@ -8,8 +8,8 @@ struct SpendView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("Claude spend").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                Text("API value").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                Text("Claude spend").font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("API value").font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
             }
             .help("What your Claude Code usage would cost at API prices, from local transcripts")
             if let spend = model.spend {
@@ -20,7 +20,7 @@ struct SpendView: View {
                 }
                 SpendChart(model: model, values: spend.daily)
             } else {
-                Text("Reading transcripts…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                Text("Reading transcripts…").font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
             }
         }
     }
@@ -34,9 +34,9 @@ struct Figure: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(format(value)).font(.system(size: large ? 18 : 13, weight: .semibold).monospacedDigit())
+            Text(format(value)).font(DS.font(large ? .xl : .lg, .semibold).monospacedDigit())
                 .foregroundStyle(Theme.textPrimary)
-            Text(label).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+            Text(label).font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
         }
     }
 
@@ -69,7 +69,7 @@ struct SpendChart: View {
                         p.addLine(to: CGPoint(x: size.width, y: size.height - 0.5))
                     }
                     .stroke(Theme.deemphasis, lineWidth: 1)
-                    area(size).fill(LinearGradient(colors: [Theme.accent.opacity(0.5), Theme.accent.opacity(0.06)],
+                    area(size).fill(LinearGradient(colors: [Theme.accent.opacity(DS.Fill.Opacity.heavy), Theme.accent.opacity(DS.Fill.Opacity.faint)],
                                                    startPoint: .top, endPoint: .bottom))
                     line(size).stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                     if let focus {
@@ -77,7 +77,7 @@ struct SpendChart: View {
                             p.move(to: CGPoint(x: point(focus, size).x, y: 0))
                             p.addLine(to: CGPoint(x: point(focus, size).x, y: size.height))
                         }
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        .stroke(DS.Fill.heavy, lineWidth: 1)
                     }
                     if !values.isEmpty {
                         Circle().fill(Theme.accent).frame(width: 5, height: 5)
@@ -99,7 +99,7 @@ struct SpendChart: View {
             GeometryReader { geo in
                 ForEach(DayAxis.labels(days: values.count, every: 3), id: \.index) { label in
                     Text(label.text)
-                        .font(.system(size: 9, weight: label.index == values.count - 1 ? .semibold : .regular))
+                        .font(DS.font(.xs, label.index == values.count - 1 ? .semibold : .regular))
                         .foregroundStyle(label.index == values.count - 1 ? Theme.textSecondary : Theme.textMuted)
                         .fixedSize()
                         .position(x: point(label.index, geo.size).x, y: geo.size.height / 2)
@@ -115,7 +115,7 @@ struct SpendChart: View {
                     Text("Last \(values.count) days").foregroundStyle(Theme.textMuted)
                 }
             }
-            .font(.system(size: 10).monospacedDigit())
+            .font(DS.font(.sm).monospacedDigit())
         }
     }
 

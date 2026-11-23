@@ -20,7 +20,7 @@ struct UsageView: View {
                     Text(ConnectionProvider.allCases.contains(where: model.installed)
                          ? "Every tool is switched off. Turn one on under Connected accounts (the gear)."
                          : "No AI tools on this Mac yet. Usage shows up once Claude Code, Copilot CLI, Antigravity or OpenCode is installed.")
-                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        .font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,13 +74,13 @@ struct UsageView: View {
                         }
                         if let extra = plan.extra {
                             Text(String(format: "Extra usage: %@ of %@", money(extra.used), extra.limit.map(money) ?? "no limit"))
-                                .font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                                .font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                         }
                     } else {
-                        Text(model.planError ?? "Loading…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        Text(model.planError ?? "Loading…").font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                     }
                     if let error = model.planError, model.plan != nil {
-                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        Text(error).font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                     }
                 }
             } usage: {

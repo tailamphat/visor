@@ -23,17 +23,17 @@ struct ProviderHeader<Note: View>: View {
             AgentMark(agent: agent, size: 18)
             if inlineNote {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    Text(title).font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
                         .lineLimit(1).fixedSize()
-                    note.font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    note.font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
             } else {
                 // The title never wraps; the note beside it gives way.
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text(title).font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
                     .lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
-                note.font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                note.font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
             }
         }
     }
@@ -55,10 +55,15 @@ extension EnvironmentValues {
 /// major, amber for minor, the title, since when, and the status page.
 struct IncidentLine: View {
     let incident: ProviderIncident
-    static let height: CGFloat = 44
+    /// Title row and text row, fixed so the card's height is known.
+    static let titleRow: CGFloat = 15
+    static let textRow: CGFloat = 14
+    static let rowGap: CGFloat = 3
+    /// The banner card around both rows (NotchView sizes the panel with it).
+    static let height = CGFloat(DesignComponents.Banner.height(rows: [Double(titleRow), Double(textRow)], spacing: Double(rowGap)))
 
     static func color(_ incident: ProviderIncident) -> Color {
-        incident.severity == .major ? Color(hex: 0xF06A5A) : Theme.warning
+        incident.severity == .major ? Theme.critical : Theme.warning
     }
 
     /// "Claude", "Copilot": how the peek names a tool.
@@ -72,28 +77,28 @@ struct IncidentLine: View {
 
     var body: some View {
         let color = Self.color(incident)
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Self.rowGap) {
             HStack(spacing: 7) {
                 Circle().fill(color).frame(width: 7, height: 7)
-                Text(incident.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Text(incident.title).font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Spacer(minLength: 6)
                 if let since = incident.since {
-                    Text("since \(since.formatted(date: .omitted, time: .shortened))").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                    Text("since \(since.formatted(date: .omitted, time: .shortened))").font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                         .lineLimit(1).fixedSize()
                 }
             }
+            .frame(height: Self.titleRow)
             HStack(spacing: 4) {
                 Text("Your agents may be slow or fail.").foregroundStyle(Theme.textSecondary)
                 if let url = URL(string: incident.link) {
-                    Link(destination: url) { Text("\(url.host ?? "Status page") ↗").foregroundStyle(Color(hex: 0x5AA2F0)) }
+                    Link(destination: url) { Text("\(url.host ?? "Status page") ↗").foregroundStyle(Theme.accent) }
                 }
             }
-            .font(.system(size: 11)).lineLimit(1)
+            .font(DS.font(.base)).lineLimit(1)
+            .frame(height: Self.textRow)
         }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: Self.height, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(color.opacity(0.09)))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(color.opacity(0.3), lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .bannerCard(tint: color, height: Self.height)
     }
 }
 
@@ -116,7 +121,7 @@ struct CopilotBlock: View {
                                caption: allowance(usage.completionsRemaining, of: usage.completionsEntitlement))
                 }
                 if usage.chatEntitlement == 0 && usage.completionsEntitlement == 0 {
-                    Text("No premium requests on this plan").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    Text("No premium requests on this plan").font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                 }
             } else if usage.premiumUnlimited {
                 LimitMeter(title: "Premium requests", used: 0, caption: caption, unlimited: true)
@@ -148,11 +153,11 @@ struct CopilotBlock: View {
     /// A small fact about the plan: "∞ Chat unlimited".
     private func chip(_ symbol: String, _ text: String, short: String? = nil, if useShort: Bool = false) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(nsColor: AgentStyle.mark("Copilot CLI")))
-            Text(useShort ? short ?? text : text).font(.system(size: 10)).foregroundStyle(Theme.textSecondary).fixedSize()
+            Image(systemName: symbol).font(DS.font(.xs, .semibold)).foregroundStyle(Color(nsColor: AgentStyle.mark("Copilot CLI")))
+            Text(useShort ? short ?? text : text).font(DS.font(.sm)).foregroundStyle(Theme.textSecondary).fixedSize()
         }
         .padding(.horizontal, 7).padding(.vertical, 3)
-        .background(Capsule().fill(Color.white.opacity(0.07)))
+        .background(Capsule().fill(DS.Fill.subtle))
         .help(symbol == "infinity" ? text : "Overage allowed: requests past the limit are billed instead of refused")
     }
 
@@ -203,12 +208,12 @@ struct AntigravityBlock: View {
                                    resetsAt: limit.resetsAt)
                     }
                     if let error = model.antigravityError {
-                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        Text(error).font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                     }
                 } else if let error = model.antigravityError {
-                    Text(error).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    Text(error).font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                 } else {
-                    Text("Checking…").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    Text("Checking…").font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                 }
             }
         }
@@ -243,10 +248,10 @@ struct OpenCodeBlock: View {
                         }
                     }
                     if let usage = model.openCode {
-                        Text(Self.caption(usage.today)).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        Text(Self.caption(usage.today)).font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                     }
                     if let error = model.openCodeError {
-                        Text(error).font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                        Text(error).font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                     }
                 }
             } usage: {
@@ -282,8 +287,8 @@ struct OpenCodeTokensView: View {
         let tokens = { (value: Double) in TokenCount.compact(Int(value)) }
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("OpenCode tokens").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                Text("this Mac").font(.system(size: 10)).foregroundStyle(Theme.textMuted)
+                Text("OpenCode tokens").font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("this Mac").font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
             }
             .help("Tokens OpenCode recorded in its local database")
             HStack(alignment: .firstTextBaseline, spacing: 14) {

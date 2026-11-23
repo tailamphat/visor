@@ -11,17 +11,17 @@ struct UsageViewSwitch: View {
             option("chart.bar.fill", tokens: true, help: "Tokens used")
         }
         .padding(1)
-        .background(Capsule().fill(Color.white.opacity(0.08)))
+        .background(Capsule().fill(DS.Fill.subtle))
     }
 
     private func option(_ symbol: String, tokens: Bool, help: String) -> some View {
         let on = model.showsTokens == tokens
         return Button { model.radarPlans = false; model.usageTokens = tokens } label: {
             Image(systemName: symbol)
-                .font(.system(size: 9, weight: .semibold))
+                .font(DS.font(.xs, .semibold))
                 .foregroundStyle(on ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: 24, height: 15)
-                .background(Capsule().fill(on ? Color.white.opacity(0.16) : .clear))
+                .background(Capsule().fill(on ? DS.Fill.strong : .clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -37,8 +37,7 @@ struct UsageBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Text("Plans & limits").font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-                .foregroundStyle(Theme.textMuted)
+            SectionHeader("Plans & limits")
             Spacer(minLength: 8)
             // Connected accounts, beside the switch (the header's slots are the same on every tab).
             Button {
@@ -46,7 +45,7 @@ struct UsageBar: View {
                 model.refreshPlan?()
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(DS.font(.base, .semibold))
                     .foregroundStyle(Theme.textMuted)
                     .frame(width: 24, height: 18)
                     .contentShape(Rectangle())
@@ -66,7 +65,11 @@ struct TokensView: View {
     let model: AppModel
     static let height: CGFloat = 396
 
-    private static let palette: [UInt32] = [0xD97757, 0xA78BFA, 0x7EE0A0, 0x5AA2F0, 0xF2C14E, 0xF29A9A, 0x4FB8A8, 0xC9B8FF]
+    /// Chart series, from the palette. Most people have one to four models, so the
+    /// first four differ most; near hues (rose and clash after Claude's orange, onPace
+    /// after mint) come late, and the amber that also means "75% used" isn't early.
+    private static let palette: [Color] = [Theme.claude, Theme.question, DS.Palette.mint, Theme.textSecondary,
+                                           Theme.warning, DS.Palette.rose, Theme.onPace, Theme.clash]
 
     var body: some View {
         let summary = model.tokenLedger.summary(days: model.tokensRange)
@@ -104,7 +107,7 @@ struct TokensView: View {
     static func colors(_ summary: TokenSummary) -> [String: Color] {
         var out: [String: Color] = [:]
         for model in summary.models where out[model.model] == nil {
-            out[model.model] = Color(hex: palette[out.count % palette.count])
+            out[model.model] = palette[out.count % palette.count]
         }
         return out
     }
@@ -116,7 +119,7 @@ struct TokensView: View {
             ForEach(TokensPage.allCases, id: \.self) { page in
                 Button { model.tokensPage = page } label: {
                     Text(page.rawValue.capitalized)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(DS.font(.base, .semibold))
                         .foregroundStyle(model.tokensPage == page ? Theme.textPrimary : Theme.textMuted)
                         .padding(.horizontal, 6)
                         .frame(height: UsageBar.height)
@@ -134,7 +137,7 @@ struct TokensView: View {
                 range("All", nil)
             }
             .padding(1)
-            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .background(Capsule().fill(DS.Fill.subtle))
             .padding(.trailing, 6)
             UsageViewSwitch(model: model)
         }
@@ -145,10 +148,10 @@ struct TokensView: View {
         let on = model.tokensRange == days
         return Button { model.tokensRange = days } label: {
             Text(title)
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(DS.font(.xs, .semibold))
                 .foregroundStyle(on ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: 30, height: 15)
-                .background(Capsule().fill(on ? Color.white.opacity(0.16) : .clear))
+                .background(Capsule().fill(on ? DS.Fill.strong : .clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -161,8 +164,8 @@ struct TokensView: View {
         HStack(alignment: .lastTextBaseline, spacing: 18) {
             HStack(alignment: .lastTextBaseline, spacing: 5) {
                 Text(Self.headline(summary.total.total))
-                    .font(.system(size: 26, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
-                Text("tokens").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                    .font(DS.font(.display, .bold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+                Text("tokens").font(DS.font(.md, .medium)).foregroundStyle(Theme.textSecondary)
             }
             fact(TokenCount.compact(summary.total.withoutCacheRead), "without cache reads")
             fact("\(summary.activeDays)", summary.activeDays == 1 ? "active day" : "active days")
@@ -178,14 +181,13 @@ struct TokensView: View {
 
     private func fact(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(value).font(.system(size: 12.5, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
-            Text(label).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+            Text(value).font(DS.font(.md, .semibold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+            Text(label).font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
         }
     }
 
     private func section(_ title: String) -> some View {
-        Text(title).font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-            .foregroundStyle(Theme.textMuted)
+        SectionHeader(title)
     }
 
     // MARK: Lists
@@ -197,27 +199,27 @@ struct TokensView: View {
                 let share = total > 0 ? Double(item.count.total) / Double(total) : 0
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(item.color).frame(width: 8, height: 8)
-                        Text(item.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                        if let tool = item.tool { Text(tool).font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1) }
+                        RoundedRectangle(cornerRadius: DS.Radius.xs).fill(item.color).frame(width: 8, height: 8)
+                        Text(item.name).font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        if let tool = item.tool { Text(tool).font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1) }
                         Spacer(minLength: 8)
-                        Text(TokenCount.compact(item.count.total)).font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        Text(TokenCount.compact(item.count.total)).font(DS.font(.md, .semibold).monospacedDigit())
                             .foregroundStyle(Theme.textPrimary)
-                        Text(String(format: "%.1f%%", share * 100)).font(.system(size: 10.5).monospacedDigit())
+                        Text(String(format: "%.1f%%", share * 100)).font(DS.font(.sm).monospacedDigit())
                             .foregroundStyle(Theme.textMuted).frame(width: 40, alignment: .trailing)
                     }
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Color.white.opacity(0.07))
+                            Capsule().fill(DS.Fill.subtle)
                             Capsule().fill(item.color).frame(width: max(2, geo.size.width * share))
                         }
                     }
                     .frame(height: Theme.barHeight)
                     Text("In \(TokenCount.compact(item.count.input)) · Out \(TokenCount.compact(item.count.output)) · Cache read \(TokenCount.compact(item.count.cacheRead)) · Cache write \(TokenCount.compact(item.count.cacheWrite))")
-                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                        .font(DS.font(.sm, .regular, design: .monospaced)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.raised))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
             }
         }
     }
@@ -231,7 +233,7 @@ struct TokensView: View {
                     Text("DAY").gridColumnAlignment(.leading)
                     ForEach(["IN", "OUT", "CACHE R", "CACHE W", "TOTAL"], id: \.self) { Text($0).frame(maxWidth: .infinity, alignment: .trailing) }
                 }
-                .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                .font(DS.font(.xs, .semibold)).foregroundStyle(Theme.textMuted)
                 ForEach(summary.daily) { day in
                     GridRow {
                         Text(Self.dayName(day.day, weekday: true)).foregroundStyle(Theme.textSecondary)
@@ -241,7 +243,7 @@ struct TokensView: View {
                         Text(TokenCount.compact(day.count.cacheWrite))
                         Text(TokenCount.compact(day.count.total)).fontWeight(.semibold).foregroundStyle(Theme.textPrimary)
                     }
-                    .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                    .font(DS.font(.base).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -282,11 +284,11 @@ struct TokensChart: View {
                             let h = CGFloat(value) / CGFloat(peak) * size.height
                             y -= h
                             let rect = CGRect(x: CGFloat(i) * width + 0.5, y: y, width: max(1, width - 1), height: h)
-                            context.fill(Path(rect), with: .color(colors[name] ?? .gray))
+                            context.fill(Path(rect), with: .color(colors[name] ?? Theme.textMuted))
                         }
                         if day.day == model.tokensHover {
                             context.fill(Path(CGRect(x: CGFloat(i) * width, y: 0, width: width, height: size.height)),
-                                         with: .color(.white.opacity(0.06)))
+                                         with: .color(DS.Fill.faint))
                         }
                     }
                 }
@@ -313,7 +315,7 @@ struct TokensChart: View {
                 Spacer()
                 if let last = series.last, series.count > 1 { Text(TokensView.dayName(last.day, weekday: false)) }
             }
-            .font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textMuted)
+            .font(DS.font(.xs).monospacedDigit()).foregroundStyle(Theme.textMuted)
             // The biggest four, so names fit; the tooltip names every model.
             legend(order.prefix(4), colors)
         }
@@ -322,22 +324,22 @@ struct TokensChart: View {
     private func tooltip(_ day: TokenSummary.Day, _ colors: [String: Color], _ order: [String]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(TokensView.dayName(day.day, weekday: true)) · \(TokenCount.compact(day.total))")
-                .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                .font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary)
             ForEach(order.filter { (day.byModel[$0] ?? 0) > 0 }, id: \.self) { name in
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
+                    RoundedRectangle(cornerRadius: DS.Radius.xs).fill(colors[name] ?? Theme.textMuted).frame(width: 7, height: 7)
                     Text(name).lineLimit(1)
                     Spacer(minLength: 8)
                     Text(TokenCount.compact(day.byModel[name] ?? 0)).monospacedDigit()
                 }
-                .font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+                .font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
             }
-            if day.total == 0 { Text("No tokens").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted) }
+            if day.total == 0 { Text("No tokens").font(DS.font(.sm)).foregroundStyle(Theme.textMuted) }
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(width: 170, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x1A1A19)))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color(hex: 0x2E2D2B)))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).strokeBorder(DS.Fill.subtle))
         .allowsHitTesting(false)
     }
 
@@ -345,11 +347,11 @@ struct TokensChart: View {
         HStack(spacing: 10) {
             ForEach(Array(names), id: \.self) { name in
                 HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 2).fill(colors[name] ?? .gray).frame(width: 7, height: 7)
+                    RoundedRectangle(cornerRadius: DS.Radius.xs).fill(colors[name] ?? Theme.textMuted).frame(width: 7, height: 7)
                     Text(name).lineLimit(1)
                 }
             }
         }
-        .font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+        .font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
     }
 }

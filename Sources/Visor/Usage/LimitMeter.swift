@@ -17,16 +17,16 @@ struct LimitMeter: View {
         let fill = used >= 90 ? Theme.critical : used >= 75 ? Theme.warning : Theme.accent
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                Text(title).font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary)
                 if used >= 75 {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(fill)
+                    Image(systemName: "exclamationmark.triangle.fill").font(DS.font(.xs)).foregroundStyle(fill)
                 }
                 Spacer()
                 if unlimited {
-                    Text("Unlimited").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    Text("Unlimited").font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary)
                 } else {
-                    (Text("\(Int((100 - used).rounded()))%").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.textPrimary)
-                     + Text(" left").font(.system(size: 11)).foregroundColor(Theme.textSecondary))
+                    (Text("\(Int((100 - used).rounded()))%").font(DS.font(.lg, .semibold)).foregroundColor(Theme.textPrimary)
+                     + Text(" left").font(DS.font(.base)).foregroundColor(Theme.textSecondary))
                         .monospacedDigit()
                 }
             }
@@ -38,9 +38,9 @@ struct LimitMeter: View {
             }
             .frame(height: Theme.barHeight)
             if let forecast, let resetsAt {
-                forecastText(forecast, resetsAt: resetsAt).font(.system(size: 10)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                forecastText(forecast, resetsAt: resetsAt).font(DS.font(.sm)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             } else if let caption, !caption.isEmpty {
-                Text(caption).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text(caption).font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)

@@ -19,12 +19,14 @@ struct RadarSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Self.spacing) {
             HStack {
-                Text("WHAT'S NEW").kerning(0.4)
+                SectionHeader("What's new")
                 Spacer(minLength: 8)
                 let pending = model.releaseOffers.filter { !$0.updated }.count
-                if pending > 0 { Text(pending == 1 ? "1 update" : "\(pending) updates") }
+                if pending > 0 {
+                    Text(pending == 1 ? "1 update" : "\(pending) updates")
+                        .font(DS.font(.sm, .semibold)).foregroundStyle(Theme.textMuted)
+                }
             }
-            .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
             .frame(height: Self.titleHeight)
             ForEach(model.releaseOffers, id: \.toolID) { update in
                 RadarCard(update: update, updating: model.updatingTool == update.toolID, dismiss: { model.dismissRelease?(update) }, install: { model.updateRelease?(update) })
@@ -45,8 +47,6 @@ struct RadarCard: View {
     static let titleRow: CGFloat = 20
     static let changeRow: CGFloat = 15
     static let gap: CGFloat = 5
-    /// The Update button's width.
-    static let actionSlot: CGFloat = 58
 
     /// An updated card is its title row only.
     static func height(_ update: ReleaseUpdate) -> CGFloat {
@@ -58,7 +58,7 @@ struct RadarCard: View {
         VStack(alignment: .leading, spacing: Self.gap) {
             HStack(spacing: 7) {
                 AgentMark(agent: update.name, size: 16)
-                Text(update.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text(update.name).font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
                     .lineLimit(1).fixedSize()
                 Group {
                     if update.updated {
@@ -68,30 +68,20 @@ struct RadarCard: View {
                             + Text(update.latest.description).foregroundStyle(Theme.textPrimary)
                     }
                 }
-                .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
+                .font(DS.font(.base, .medium, design: .monospaced)).lineLimit(1)
                 Spacer(minLength: 8)
                 if update.updated {
                     Label("Updated", systemImage: "checkmark").labelStyle(.titleAndIcon)
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.onPace).lineLimit(1)
+                        .font(DS.font(.base, .semibold)).foregroundStyle(Theme.onPace).lineLimit(1)
                 } else if updating {
-                    Text("Updating…").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Text("Updating…").font(DS.font(.sm)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 } else if update.command != nil {
-                    Button(action: install) {
-                        Text("Update").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                            .frame(width: Self.actionSlot, height: Self.titleRow)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Run the update in a new Terminal window")
+                    Button("Update", action: install)
+                        .buttonStyle(CardButton(.secondary))
+                        .help("Run the update in a new Terminal window")
                 }
                 if !update.updated {
-                    Button(action: dismiss) {
-                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textMuted)
-                            .frame(width: 18, height: 18).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Dismiss this update")
+                    DismissButton(help: "Dismiss this update", action: dismiss)
                 }
             }
             .frame(height: Self.titleRow)
@@ -100,12 +90,12 @@ struct RadarCard: View {
                     Text("•").foregroundStyle(Theme.textMuted)
                     Text(change).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
                 }
-                .font(.system(size: 11.5))
+                .font(DS.font(.base))
                 .frame(height: Self.changeRow)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, Self.padding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.raised))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous).fill(Theme.raised))
     }
 }

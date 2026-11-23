@@ -11,14 +11,14 @@ struct AccountsView: View {
             HStack(spacing: 8) {
                 Button { model.showAccounts = false } label: {
                     HStack(spacing: 2) {
-                        Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
-                        Text("Usage").font(.system(size: 12, weight: .medium))
+                        Image(systemName: "chevron.left").font(DS.font(.sm, .semibold))
+                        Text("Usage").font(DS.font(.md, .medium))
                     }
                     .foregroundStyle(Theme.accent)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                Text("Connected accounts").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text("Connected accounts").font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
             }
             VStack(spacing: Self.gap) {
                 ForEach(model.providerOrder, id: \.self) { provider in
@@ -53,7 +53,7 @@ extension AccountsView {
     /// The handle: drag it to reorder the tools in Usage and the closed notch.
     private func grip(_ provider: ConnectionProvider) -> some View {
         Image(systemName: "line.3.horizontal")
-            .font(.system(size: 11, weight: .semibold))
+            .font(DS.font(.base, .semibold))
             .foregroundStyle(Theme.textMuted)
             .frame(width: 18, height: 26)
             .contentShape(Rectangle())
@@ -85,28 +85,20 @@ struct AccountRow<Grip: View>: View {
             grip.padding(.trailing, -4)
             AgentMark(agent: provider.agent, size: 14)
                 .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(AgentStyle.tile))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous).fill(AgentStyle.tile))
             VStack(alignment: .leading, spacing: 2) {
-                Text(provider.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text(provider.title).font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary)
                 HStack(spacing: 5) {
                     Circle().fill(shown ? tone(state.tone) : Theme.textMuted).frame(width: 6, height: 6)
                     Text(shown ? state.text : "Hidden")
-                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
+                        .font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
                 }
                 .help(shown ? state.text : "Hidden")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if shown, let action = state.action {
-                Button { model.connectionAction?(provider, action) } label: {
-                    Text(label(action))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(action == .refresh ? Color.white.opacity(0.1) : Theme.accent))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                Button(label(action)) { model.connectionAction?(provider, action) }
+                    .buttonStyle(CardButton(action == .refresh ? .secondary : .primary))
             }
             // Drawn here: a system switch in the notch panel, never the key window, looks switched off.
             Button {
@@ -118,7 +110,7 @@ struct AccountRow<Grip: View>: View {
                 Capsule().fill(shown ? Theme.good : Theme.deemphasis)
                     .frame(width: 28, height: 16)
                     .overlay(alignment: shown ? .trailing : .leading) {
-                        Circle().fill(.white).frame(width: 12, height: 12).padding(2)
+                        Circle().fill(Theme.textPrimary).frame(width: 12, height: 12).padding(2)
                     }
                     .animation(.easeOut(duration: 0.15), value: shown)
                     .contentShape(Rectangle())
@@ -128,7 +120,7 @@ struct AccountRow<Grip: View>: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .frame(minHeight: 44)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.05)))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(DS.Fill.faint))
         .opacity(shown ? 1 : 0.5)
     }
 
