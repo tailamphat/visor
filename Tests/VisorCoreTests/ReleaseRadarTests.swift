@@ -231,4 +231,31 @@ struct ReleaseRadarTests {
                 == "https://api.github.com/repos/openai/codex/releases/tags/rust-v0.171.0")
         #expect(ReleaseFeed.url("https://example.com/x") == nil && ReleaseFeed.url("http://api.github.com/x") == nil)
     }
+
+    @Test func updatedIsNotSaved() throws {
+        var update = try #require(ReleaseRadar.update(tool: tool("Claude Code"), installed: v("2.1.311"), method: .brew, latest: v("2.1.312"), notes: nil))
+        update.updated = true
+        let restored = try JSONDecoder().decode(ReleaseUpdate.self, from: JSONEncoder().encode(update))
+        #expect(!restored.updated && restored.latest == update.latest)
+    }
+}
+
+@Suite("Brew receipt")
+struct BrewReceiptTests {
+    @Test func receiptPathFromCellarBinary() {
+        #expect(BrewReceipt.path(forBinary: "/opt/homebrew/Cellar/opencode/1.19.6/bin/opencode")
+                == "/opt/homebrew/Cellar/opencode/1.19.6/INSTALL_RECEIPT.json")
+        #expect(BrewReceipt.path(forBinary: "/usr/local/Cellar/opencode/1.19.6/libexec/bin/opencode")
+                == "/usr/local/Cellar/opencode/1.19.6/INSTALL_RECEIPT.json")
+        #expect(BrewReceipt.path(forBinary: "/opt/homebrew/Caskroom/claude-code/2.1.311/claude") == nil)
+        #expect(BrewReceipt.path(forBinary: "/Users/me/.local/bin/opencode") == nil)
+        #expect(BrewReceipt.path(forBinary: "/opt/homebrew/Cellar/opencode") == nil)
+    }
+
+    @Test func tapFromReceipt() {
+        #expect(BrewReceipt.tap(Data(#"{"source":{"tap":"anomalyco/tap","path":"x"}}"#.utf8)) == "anomalyco/tap")
+        #expect(BrewReceipt.tap(Data(#"{"source":{}}"#.utf8)) == nil)
+        #expect(BrewReceipt.tap(Data("not json".utf8)) == nil)
+        #expect(BrewReceipt.isCore("homebrew/core") && BrewReceipt.isCore(nil) && !BrewReceipt.isCore("anomalyco/tap"))
+    }
 }

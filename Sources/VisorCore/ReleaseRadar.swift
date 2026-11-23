@@ -356,6 +356,9 @@ public struct ReleaseUpdate: Equatable, Sendable, Codable {
     public var command: String?
     /// The channel it was read from; decides the command.
     public var method: InstallMethod?
+    /// The card is confirming an update that just landed (`installed` is the
+    /// new version). Shown for a moment, never saved.
+    public var updated = false
 }
 
 extension ReleaseUpdate {
@@ -385,6 +388,30 @@ extension ReleaseUpdate {
         try container.encode(latest, forKey: .latest)
         try container.encode(changes, forKey: .changes)
     }
+}
+
+/// Homebrew's receipt for an installed formula, which says the tap it came
+/// from. The radar's feed is Homebrew core's, so a formula from another tap
+/// has no feed it can compare with.
+public enum BrewReceipt {
+    /// `<prefix>/Cellar/<name>/<version>/INSTALL_RECEIPT.json` for a binary
+    /// inside a Cellar keg; nil for anything else.
+    public static func path(forBinary path: String) -> String? {
+        guard let range = path.range(of: "/Cellar/") else { return nil }
+        let rest = path[range.upperBound...].split(separator: "/", omittingEmptySubsequences: false)
+        guard rest.count >= 3, !rest[0].isEmpty, !rest[1].isEmpty else { return nil }
+        return String(path[..<range.upperBound]) + "\(rest[0])/\(rest[1])/INSTALL_RECEIPT.json"
+    }
+
+    /// The receipt's `source.tap`, if it names one.
+    public static func tap(_ data: Data) -> String? {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let source = root["source"] as? [String: Any] else { return nil }
+        return source["tap"] as? String
+    }
+
+    /// Homebrew core, or an older receipt that doesn't say.
+    public static func isCore(_ tap: String?) -> Bool { tap == nil || tap == "homebrew/core" }
 }
 
 public enum ReleaseRadar {

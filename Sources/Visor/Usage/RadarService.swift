@@ -6,8 +6,11 @@ import VisorCore
 /// `--version` (only when the binary changed) and the latest version from the
 /// feed of the channel it was installed with (npm, Homebrew or GitHub), plus
 /// the release notes when it's newer. A new version peeks once; its card stays
-/// in Usage until dismissed. All work runs on its own queue; the model is
-/// written only when the cards change.
+/// in Usage until dismissed, or until the tool's binary changes to that version:
+/// the folder holding each offered tool's link and the binary itself are
+/// watched, a change reruns only `--version` (no network), and a caught-up card
+/// says "Updated" for a moment and goes. All work runs on its own queue; the
+/// model is written only when the cards change.
 final class RadarService: @unchecked Sendable {
     private let queue = DispatchQueue(label: "visor.radar", qos: .utility)
     private var timer: DispatchSourceTimer?
@@ -15,6 +18,16 @@ final class RadarService: @unchecked Sendable {
     private var state = RadarState()
     private var logHandle: FileHandle?
     private lazy var fetcher = ReleaseFetcher { [weak self] in self?.log($0) }
+    private var watchers: [String: DispatchSourceFileSystemObject] = [:]
+    private var refreshItem: DispatchWorkItem?
+    /// The folder each offered tool's link was last seen in, kept watched while
+    /// an update has the link removed.
+    private var linkFolders: [String: String] = [:]
+    /// Cards confirming an update, shown for `updatedShown` before they go.
+    private var updated: [ReleaseUpdate] = []
+    private static let updatedShown: TimeInterval = 3
+    /// A brew upgrade touches its folders several times; wait for it to settle.
+    private static let settle: TimeInterval = 2
 
     /// The cards to show changed (main thread).
     var onOffers: (([ReleaseUpdate]) -> Void)?
@@ -43,7 +56,9 @@ final class RadarService: @unchecked Sendable {
             } else if let data = try? Data(contentsOf: Self.stateURL), let saved = try? JSONDecoder().decode(RadarState.self, from: data) {
                 state = saved
             }
-            publish(state.visibleOffers)
+            publish()
+            // A tool updated while Visor wasn't running: its card goes now, not at the next check.
+            refreshInstalled()
             var delay = max(0, state.nextCheck(now: Date(), launch: launch).timeIntervalSinceNow)
             #if DEBUG
             if ProcessInfo.processInfo.environment["VISOR_RADAR_SOON"] == "1" { delay = 5 }
@@ -63,7 +78,8 @@ final class RadarService: @unchecked Sendable {
             guard state.dismiss(toolID) else { return }
             log("dismissed \(toolID)")
             save()
-            publish(state.visibleOffers)
+            publish()
+            rewatch()
         }
     }
 
@@ -75,11 +91,11 @@ final class RadarService: @unchecked Sendable {
             var located: [String: String] = [:]
             var links: [String: String] = [:]
             for tool in ReleaseTool.all where !tool.isSkipped {
-                guard let path = Shell.which(tool.binary) else { continue }
+                guard let path = locate(tool.binary) else { continue }
                 links[tool.id] = path
                 located[tool.id] = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
             }
-            let plan = RadarState.plan(located: located, home: home)
+            let plan = RadarState.plan(located: located, home: home, formulaTap: Self.formulaTap)
             log("check: found \(located.keys.sorted().joined(separator: ", ")); checking \(plan.map { "\($0.toolID) (\($0.method.rawValue))" }.joined(separator: ", "))")
             var checked: [String: ReleaseUpdate?] = [:]
             for item in plan {
@@ -97,7 +113,111 @@ final class RadarService: @unchecked Sendable {
             }
             state.lastCheck = Date()
             apply(state.merge(checked: checked, installed: Set(plan.map(\.toolID))))
+            rewatch()
         }
+    }
+
+    /// Where a tool's binary is. Debug builds look in `VISOR_RADAR_PATH` first,
+    /// so a proof can swap a fake binary.
+    private func locate(_ binary: String) -> String? {
+        #if DEBUG
+        if let dir = ProcessInfo.processInfo.environment["VISOR_RADAR_PATH"] {
+            let path = (dir as NSString).appendingPathComponent(binary)
+            if FileManager.default.isExecutableFile(atPath: path) { return path }
+        }
+        #endif
+        return Shell.which(binary)
+    }
+
+    /// The tap in a Cellar formula's install receipt (a small local file).
+    private static func formulaTap(_ path: String) -> String? {
+        guard let receipt = BrewReceipt.path(forBinary: path),
+              ((try? FileManager.default.attributesOfItem(atPath: receipt))?[.size] as? Int ?? .max) <= 64_000,
+              let data = FileManager.default.contents(atPath: receipt) else { return nil }
+        return BrewReceipt.tap(data)
+    }
+
+    // MARK: After an update (on `queue`)
+
+    /// Reads the version of each offered tool whose binary changed (no network)
+    /// and lets a caught-up card confirm and go. Also drops offers for
+    /// formulae from another tap.
+    private func refreshInstalled() {
+        autoreleasepool {
+            var located: [String: String] = [:]
+            var links: [String: String] = [:]
+            for offer in state.offers {
+                guard let tool = ReleaseTool.all.first(where: { $0.id == offer.toolID }), let link = locate(tool.binary) else { continue }
+                links[tool.id] = link
+                located[tool.id] = URL(fileURLWithPath: link).resolvingSymlinksInPath().path
+            }
+            let before = state
+            if state.dropThirdPartyTaps(located: located, formulaTap: Self.formulaTap) { log("dropped offers from other taps") }
+            var done: [ReleaseUpdate] = []
+            for offer in state.offers {
+                guard let tool = ReleaseTool.all.first(where: { $0.id == offer.toolID }),
+                      let path = located[tool.id], let link = links[tool.id],
+                      let installed = installedVersion(tool, path: path, run: link) else { continue }
+                if let confirmed = state.confirm(tool.id, installed: installed) {
+                    log("\(tool.id): updated to \(installed)")
+                    done.append(confirmed)
+                }
+            }
+            if state != before { save() }
+            if state.offers != before.offers {
+                updated.removeAll { card in done.contains { $0.toolID == card.toolID } }
+                updated += done
+                publish()
+                if !done.isEmpty {
+                    let ids = Set(done.map(\.toolID))
+                    queue.asyncAfter(deadline: .now() + Self.updatedShown) { [weak self] in
+                        guard let self else { return }
+                        updated.removeAll { ids.contains($0.toolID) }
+                        publish()
+                    }
+                }
+            }
+            rewatch()
+        }
+    }
+
+    /// Watches the folder holding each visible offer's link (an update relinks
+    /// it) and the binary it resolves to (an update replaces it). No offers, no watchers.
+    private func rewatch() {
+        var paths = Set<String>()
+        for offer in state.visibleOffers {
+            guard let tool = ReleaseTool.all.first(where: { $0.id == offer.toolID }) else { continue }
+            if let link = locate(tool.binary) {
+                linkFolders[tool.id] = (link as NSString).deletingLastPathComponent
+                paths.insert(URL(fileURLWithPath: link).resolvingSymlinksInPath().path)
+            }
+            if let folder = linkFolders[tool.id] { paths.insert(folder) }
+        }
+        linkFolders = linkFolders.filter { id, _ in state.visibleOffers.contains { $0.toolID == id } }
+        for path in watchers.keys where !paths.contains(path) { watchers.removeValue(forKey: path)?.cancel() }
+        for path in paths where watchers[path] == nil { watch(path) }
+    }
+
+    private func watch(_ path: String) {
+        let fd = open(path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename], queue: queue)
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            // A replaced file is watched again by the refresh's rewatch.
+            if !source.data.isDisjoint(with: [.delete, .rename]) { watchers.removeValue(forKey: path)?.cancel() }
+            scheduleRefresh()
+        }
+        source.setCancelHandler { close(fd) }
+        watchers[path] = source
+        source.resume()
+    }
+
+    private func scheduleRefresh() {
+        refreshItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.refreshInstalled() }
+        refreshItem = item
+        queue.asyncAfter(deadline: .now() + Self.settle, execute: item)
     }
 
     /// The tool's own `--version`, run again only when its binary changed.
@@ -133,13 +253,14 @@ final class RadarService: @unchecked Sendable {
 
     private func apply(_ merge: RadarMerge) {
         save()
-        if merge.visibleChanged { publish(state.visibleOffers) }
+        if merge.visibleChanged { publish() }
         if let peek = merge.peek {
             DispatchQueue.main.async { [weak self] in self?.onNew?(peek) }
         }
     }
 
-    private func publish(_ offers: [ReleaseUpdate]) {
+    private func publish() {
+        let offers = state.cards(updated: updated)
         DispatchQueue.main.async { [weak self] in self?.onOffers?(offers) }
     }
 
@@ -176,14 +297,17 @@ final class RadarService: @unchecked Sendable {
             log("debug: fake \(toolID) \(installed) -> \(latest)")
             let keep = Set(state.offers.map(\.toolID)).union([toolID])
             apply(state.merge(checked: [toolID: update], installed: keep))
+            rewatch()
         }
     }
 
     func debugClear() {
         queue.async { [self] in
             state = RadarState()
+            updated = []
             save()
-            publish([])
+            publish()
+            rewatch()
         }
     }
 

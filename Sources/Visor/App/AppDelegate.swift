@@ -168,7 +168,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         status.onNew = { [weak self] agent, incident in self?.show(.status(agent: agent, incident), for: 6) }
         status.start()
         radar.onOffers = { [weak self] offers in
-            MainActor.assumeIsolated { if self?.model.releaseOffers != offers { self?.model.releaseOffers = offers } }
+            MainActor.assumeIsolated {
+                guard let model = self?.model else { return }
+                if model.releaseOffers != offers { model.releaseOffers = offers }
+                // "Updating…" lasts until its card confirms or goes.
+                if let tool = model.updatingTool, !offers.contains(where: { $0.toolID == tool && !$0.updated }) { model.updatingTool = nil }
+            }
         }
         radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
         model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
@@ -704,7 +709,8 @@ extension AppDelegate {
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self?.model.updatingTool = update.toolID
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+                    // Until the card confirms the new version; this only stops it sticking if the binary never changes.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + RadarState.updatingFallback) { [weak self] in
                         MainActor.assumeIsolated { if self?.model.updatingTool == update.toolID { self?.model.updatingTool = nil } }
                     }
                 }

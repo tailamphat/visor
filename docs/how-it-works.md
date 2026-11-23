@@ -105,8 +105,8 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 
 - **Reads:** each installed tool's own `--version` (only when its binary changes) and the latest version from its install channel's public feed.
 - **Network:** `registry.npmjs.org` (npm), `formulae.brew.sh` (Homebrew) and `api.github.com` (GitHub releases). No sign-in is sent. Every redirect target is checked, and answers are capped at 2 MB.
-- **Refresh:** every 6 hours.
-- **Good to know:** the **Update** button writes a private script that opens in Terminal and runs the tool's update command from Visor's own list. Nothing is typed into your shell and no Automation permission is needed.
+- **Refresh:** every 6 hours. While a card is shown, Visor also watches that tool's binary: when it changes (from Update or your own terminal), Visor rereads only its `--version` and the card says "Updated" and goes.
+- **Good to know:** formulae installed from a tap other than Homebrew core get no card, since there's no public feed for them. The **Update** button writes a private script that opens in Terminal and runs the tool's update command from Visor's own list. Nothing is typed into your shell and no Automation permission is needed.
 
 ## Everyday
 

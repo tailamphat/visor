@@ -46,6 +46,9 @@ public struct RadarState: Codable, Equatable, Sendable {
     public static let interval: TimeInterval = 6 * 3600
     /// The first check after launch waits this long, so it never adds to startup.
     public static let launchDelay: TimeInterval = 120
+    /// "Updating…" clears by itself after this long if the binary never changes
+    /// (the update failed or the window was closed).
+    public static let updatingFallback: TimeInterval = 900
 
     public var offers: [ReleaseUpdate] = []
     public var dismissed: Set<String> = []
@@ -63,14 +66,58 @@ public struct RadarState: Codable, Equatable, Sendable {
     }
 
     /// The tools to check, from where each binary resolved (tool id -> path):
-    /// skipped tools and installs with no known method are left out.
-    public static func plan(located: [String: String], home: String) -> [RadarCheck] {
+    /// skipped tools, installs with no known method and formulae from a tap
+    /// other than Homebrew core (`formulaTap` reads the receipt) are left out.
+    public static func plan(located: [String: String], home: String,
+                            formulaTap: (String) -> String? = { _ in nil }) -> [RadarCheck] {
         ReleaseTool.all.compactMap { tool in
             guard !tool.isSkipped, let path = located[tool.id],
                   let method = tool.installMethod(path: path, home: home),
-                  tool.versionURL(for: method) != nil else { return nil }
+                  tool.versionURL(for: method) != nil,
+                  !isThirdPartyFormula(tool, path: path, formulaTap: formulaTap) else { return nil }
             return RadarCheck(toolID: tool.id, method: method, path: path)
         }
+    }
+
+    static func isThirdPartyFormula(_ tool: ReleaseTool, path: String, formulaTap: (String) -> String?) -> Bool {
+        guard case .formula(let name)? = tool.brew, path.contains("/Cellar/\(name)/") else { return false }
+        return !BrewReceipt.isCore(formulaTap(path))
+    }
+
+    /// Drops saved offers for formulae now known to come from another tap, so
+    /// they go at launch rather than at the next check. True when one went.
+    public mutating func dropThirdPartyTaps(located: [String: String], formulaTap: (String) -> String?) -> Bool {
+        let count = offers.count
+        offers.removeAll { offer in
+            guard let tool = ReleaseTool.all.first(where: { $0.id == offer.toolID }), let path = located[offer.toolID] else { return false }
+            return Self.isThirdPartyFormula(tool, path: path, formulaTap: formulaTap)
+        }
+        return offers.count != count
+    }
+
+    /// A tool's binary changed and printed `installed`. Caught up with the
+    /// offer: the offer goes and comes back marked `updated` for the card to
+    /// confirm. Still behind: the card's "from" version follows. nil unless
+    /// the offer went.
+    public mutating func confirm(_ toolID: String, installed: ToolVersion) -> ReleaseUpdate? {
+        guard let index = offers.firstIndex(where: { $0.toolID == toolID }) else { return nil }
+        guard installed >= offers[index].latest else {
+            offers[index].installed = installed
+            return nil
+        }
+        var done = offers.remove(at: index)
+        done.installed = installed
+        done.updated = true
+        return done
+    }
+
+    /// What Usage shows: the visible offers plus the updates being confirmed
+    /// (never one whose card was dismissed), in catalog order.
+    public func cards(updated: [ReleaseUpdate]) -> [ReleaseUpdate] {
+        let order = ReleaseTool.all.map(\.id)
+        let pending = visibleOffers.filter { offer in !updated.contains { $0.toolID == offer.toolID } }
+        let confirming = updated.filter { !dismissed.contains(Self.key($0)) }
+        return (pending + confirming).sorted { (order.firstIndex(of: $0.toolID) ?? 0) < (order.firstIndex(of: $1.toolID) ?? 0) }
     }
 
     /// The version read for this exact binary before, if it hasn't changed.

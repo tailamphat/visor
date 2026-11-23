@@ -21,7 +21,8 @@ struct RadarSection: View {
             HStack {
                 Text("WHAT'S NEW").kerning(0.4)
                 Spacer(minLength: 8)
-                Text(model.releaseOffers.count == 1 ? "1 update" : "\(model.releaseOffers.count) updates")
+                let pending = model.releaseOffers.filter { !$0.updated }.count
+                if pending > 0 { Text(pending == 1 ? "1 update" : "\(pending) updates") }
             }
             .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.textMuted)
             .frame(height: Self.titleHeight)
@@ -47,8 +48,9 @@ struct RadarCard: View {
     /// The Update button's width.
     static let actionSlot: CGFloat = 58
 
+    /// An updated card is its title row only.
     static func height(_ update: ReleaseUpdate) -> CGFloat {
-        let changes = CGFloat(min(update.changes.count, 3))
+        let changes = update.updated ? 0 : CGFloat(min(update.changes.count, 3))
         return padding * 2 + titleRow + changes * (changeRow + gap)
     }
 
@@ -58,11 +60,20 @@ struct RadarCard: View {
                 AgentMark(agent: update.name, size: 16)
                 Text(update.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     .lineLimit(1).fixedSize()
-                (Text("\(update.installed.description) → ").foregroundStyle(Theme.textSecondary)
-                 + Text(update.latest.description).foregroundStyle(Theme.textPrimary))
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
+                Group {
+                    if update.updated {
+                        Text(update.installed.description).foregroundStyle(Theme.textPrimary)
+                    } else {
+                        Text("\(update.installed.description) → ").foregroundStyle(Theme.textSecondary)
+                            + Text(update.latest.description).foregroundStyle(Theme.textPrimary)
+                    }
+                }
+                .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
                 Spacer(minLength: 8)
-                if updating {
+                if update.updated {
+                    Label("Updated", systemImage: "checkmark").labelStyle(.titleAndIcon)
+                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.onPace).lineLimit(1)
+                } else if updating {
                     Text("Updating…").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 } else if update.command != nil {
                     Button(action: install) {
@@ -74,15 +85,17 @@ struct RadarCard: View {
                     .buttonStyle(.plain)
                     .help("Run the update in a new Terminal window")
                 }
-                Button(action: dismiss) {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textMuted)
-                        .frame(width: 18, height: 18).contentShape(Rectangle())
+                if !update.updated {
+                    Button(action: dismiss) {
+                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                            .frame(width: 18, height: 18).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Dismiss this update")
                 }
-                .buttonStyle(.plain)
-                .help("Dismiss this update")
             }
             .frame(height: Self.titleRow)
-            ForEach(Array(update.changes.prefix(3).enumerated()), id: \.offset) { _, change in
+            ForEach(Array(update.changes.prefix(update.updated ? 0 : 3).enumerated()), id: \.offset) { _, change in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("•").foregroundStyle(Theme.textMuted)
                     Text(change).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)

@@ -217,4 +217,100 @@ struct RadarStateTests {
         let m5 = state.merge(checked: ["copilot": ReleaseUpdate?.none], installed: ["claude", "copilot"])
         #expect(!m5.visibleChanged)
     }
+
+    // MARK: After an update
+
+    @Test func confirmRemovesOfferWhenCaughtUp() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["claude": try offer("claude", "2.1.311", "2.1.323")], installed: ["claude"])
+        let announced = state.announced
+        let new = try v("2.1.323")
+        let confirmed = state.confirm("claude", installed: new)
+        let done = try #require(confirmed)
+        #expect(done.updated && done.installed == new && done.latest == new)
+        #expect(state.offers.isEmpty && state.announced == announced)
+    }
+
+    @Test func confirmKeepsOfferWhenStillBehind() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["claude": try offer("claude", "2.1.311", "2.1.323")], installed: ["claude"])
+        let installed = try v("2.1.320"), latest = try v("2.1.323")
+        let confirmed = state.confirm("claude", installed: installed)
+        #expect(confirmed == nil)
+        #expect(state.offers.map(\.installed) == [installed] && state.offers.map(\.latest) == [latest])
+        #expect(state.offers.allSatisfy { !$0.updated })
+    }
+
+    @Test func confirmIgnoresToolWithoutOffer() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["copilot": try offer("copilot", "1.0.107", "1.0.114")], installed: ["copilot"])
+        let before = state
+        let confirmed = state.confirm("claude", installed: try v("2.1.323"))
+        #expect(confirmed == nil)
+        #expect(state == before)
+    }
+
+    @Test func cardsMergeUpdatedInCatalogOrder() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["claude": try offer("claude", "2.1.311", "2.1.323"),
+                                  "copilot": try offer("copilot", "1.0.107", "1.0.114"),
+                                  "opencode": try offer("opencode", "1.19.5", "1.19.6")], installed: ["claude", "copilot", "opencode"])
+        state.dismiss("opencode")
+        let confirmed = state.confirm("claude", installed: try v("2.1.323"))
+        let done = try #require(confirmed)
+        let cards = state.cards(updated: [done])
+        #expect(cards.map(\.toolID) == ["claude", "copilot"])
+        #expect(cards.map(\.updated) == [true, false])
+    }
+
+    @Test func dismissedOfferNeverComesBackAsUpdated() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["claude": try offer("claude", "2.1.311", "2.1.312")], installed: ["claude"])
+        state.dismiss("claude")
+        let confirmed = state.confirm("claude", installed: try v("2.1.312"))
+        let done = try #require(confirmed)
+        #expect(state.cards(updated: [done]).isEmpty)
+    }
+
+    @Test func planSkipsThirdPartyTapFormula() {
+        let located = ["opencode": "/opt/homebrew/Cellar/opencode/1.19.6/bin/opencode"]
+        #expect(RadarState.plan(located: located, home: home, formulaTap: { _ in "anomalyco/tap" }).isEmpty)
+        #expect(RadarState.plan(located: located, home: home, formulaTap: { _ in "homebrew/core" }).map(\.method) == [.brew])
+        #expect(RadarState.plan(located: located, home: home, formulaTap: { _ in nil }).map(\.method) == [.brew])
+        // Casks never ask for a tap.
+        let cask = ["claude": "/opt/homebrew/Caskroom/claude-code/2.1.311/claude"]
+        #expect(RadarState.plan(located: cask, home: home, formulaTap: { _ in "acme/tap" }).map(\.toolID) == ["claude"])
+    }
+
+    @Test func dropsSavedOfferForThirdPartyTap() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["opencode": try offer("opencode", "1.19.5", "2.3.2"),
+                                  "claude": try offer("claude", "2.1.311", "2.1.323")], installed: ["opencode", "claude"])
+        let located = ["opencode": "/opt/homebrew/Cellar/opencode/1.19.6/bin/opencode",
+                       "claude": "/opt/homebrew/Caskroom/claude-code/2.1.311/claude"]
+        var kept = state
+        let keptDropped = kept.dropThirdPartyTaps(located: located, formulaTap: { _ in nil })
+        #expect(!keptDropped && kept.offers.count == 2)
+        let dropped = state.dropThirdPartyTaps(located: located, formulaTap: { _ in "anomalyco/tap" })
+        #expect(dropped)
+        #expect(state.offers.map(\.toolID) == ["claude"])
+    }
+
+    @Test func refreshAtStartConfirmsChangedStamp() throws {
+        var state = RadarState()
+        _ = state.merge(checked: ["claude": try offer("claude", "2.1.311", "2.1.312")], installed: ["claude"])
+        let old = BinaryStamp(path: "/opt/homebrew/Caskroom/claude-code/2.1.311/claude", size: 100, modified: 1_000)
+        state.remember("claude", stamp: old, version: try v("2.1.311"))
+        // The binary was replaced while Visor wasn't running: no cached version, so --version runs.
+        let new = BinaryStamp(path: "/opt/homebrew/Caskroom/claude-code/2.1.312/claude", size: 120, modified: 2_000)
+        #expect(state.cachedVersion("claude", stamp: old) != nil && state.cachedVersion("claude", stamp: new) == nil)
+        state.remember("claude", stamp: new, version: try v("2.1.312"))
+        let confirmed = state.confirm("claude", installed: try v("2.1.312"))
+        #expect(confirmed?.updated == true)
+        #expect(state.visibleOffers.isEmpty)
+    }
+
+    @Test func updatingFallbackIsGenerous() {
+        #expect(RadarState.updatingFallback >= 600)
+    }
 }
