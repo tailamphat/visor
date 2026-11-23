@@ -14,7 +14,7 @@ struct HandoffBanner: View {
 
     static func height(for handoff: Handoff) -> CGFloat {
         let rows = CGFloat(min(maxTargets, handoff.targets.count))
-        return 2 * 7 + 16 + 18 + rows * rowHeight + (rows + 1) * spacing
+        return 2 * Theme.cardInset + 16 + 18 + rows * rowHeight + (rows + 1) * spacing
     }
 
     var body: some View {
@@ -60,8 +60,7 @@ struct HandoffBanner: View {
             }
             .frame(height: 18)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(Theme.cardInset)
         .frame(height: Self.height(for: handoff))
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.warning.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.warning.opacity(0.35), lineWidth: 1))

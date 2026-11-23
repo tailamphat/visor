@@ -254,10 +254,12 @@ struct StuckBanner: View {
     let stuck: Stuck
     let session: AgentSession?
     let model: AppModel
-    static let height: CGFloat = 62
+    static let spacing: CGFloat = 3
+    /// Three rows (16, 15 and 18 pt) inside the same inset on every side.
+    static let height: CGFloat = 2 * Theme.cardInset + 16 + 15 + 18 + 2 * spacing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Self.spacing) {
             HStack(spacing: 6) {
                 Text("Stuck?").font(.system(size: 10, weight: .semibold)).foregroundStyle(.black)
                     .padding(.horizontal, 6).padding(.vertical, 1)
@@ -270,9 +272,11 @@ struct StuckBanner: View {
                 Text(SessionText.elapsed(since: stuck.since, now: model.agentsNow))
                     .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
             }
+            .frame(height: 16)
             (Text(stuck.label).font(.system(size: 11, design: .monospaced)).foregroundColor(Theme.textPrimary)
                 + Text(" " + stuck.long).foregroundColor(Theme.textSecondary))
                 .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+                .frame(height: 15)
             HStack(spacing: 6) {
                 Text(stuck.error ?? "").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textMuted)
                     .lineLimit(1).truncationMode(.tail)
@@ -284,8 +288,9 @@ struct StuckBanner: View {
                         .help(session.host.map { "Open \($0)" } ?? "Open")
                 }
             }
+            .frame(height: 18)
         }
-        .padding(.horizontal, 10)
+        .padding(Theme.cardInset)
         .frame(height: Self.height)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.stuck.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.stuck.opacity(0.35), lineWidth: 1))

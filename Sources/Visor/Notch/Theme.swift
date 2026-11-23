@@ -5,6 +5,8 @@ import SwiftUI
 enum Theme {
     /// Every progress bar and meter in the app: Usage, Agents' context, Tokens, Music, plugins.
     static let barHeight: CGFloat = 4
+    /// Padding inside a banner card (Stuck, handoff), the same on all four sides.
+    static let cardInset: CGFloat = 10
     static let surface = Color.black
     static let raised = Color(hex: 0x1A1A19)
     static let textPrimary = Color.white
