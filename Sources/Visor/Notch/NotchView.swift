@@ -114,6 +114,7 @@ struct NotchLayout {
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
                 if !model.stuck.isEmpty { content += StuckBanner.height + 6 }  // an agent going round in circles
+                if let handoff = model.handoff { content += HandoffBanner.height(for: handoff) + 6 }  // a Claude limit running out
                 if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers) + 6 }  // a session's subagents
                 content += MCPSection.height(model)  // the MCP line, and its server list when open
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
@@ -238,6 +239,9 @@ struct CollapsedView: View {
             return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
         case .stuck(let stuck):
             return (stuck.agent, "\(stuck.agent): \(stuck.label) \(stuck.long)")
+        case .handoff(let handoff):
+            return ("Claude Code", "Claude \(handoff.limitTitle) limit " + (handoff.runsOutAt == nil ? "is out; " : "runs out soon; ")
+                    + handoff.targets.map(\.agent).joined(separator: ", ") + " can take over")
         case .status(let agent, let incident):
             return (agent, incident.title)
         case .release(let update):
@@ -275,6 +279,19 @@ struct CollapsedView: View {
                     Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.black, Theme.stuck)
+                        .background(Circle().fill(.black).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .handoff = peek {
+            // Claude's mark with an amber arrow on its corner: hand the task on.
+            AgentMark(agent: "Claude Code", size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.black, Theme.warning)
                         .background(Circle().fill(.black).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
@@ -334,6 +351,10 @@ struct CollapsedView: View {
         } else if let peek = model.peek, case .stuck(let stuck) = peek {
             Text(stuck.short)
                 .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .handoff(let handoff) = peek {
+            Text("\(handoff.targets.first?.agent ?? "Another agent") has room")
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {
             Text("same file")

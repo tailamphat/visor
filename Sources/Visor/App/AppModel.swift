@@ -245,6 +245,15 @@ final class AppModel {
     /// Sessions going round in circles right now (`StuckWatch`), newest first.
     var stuck: [Stuck] = []
     var ignoreStuck: ((Stuck) -> Void)?
+    /// A Claude limit about to run out and the agents with room (`HandoffPlanner`),
+    /// re-derived on every limit reading and session change; nil once it no longer applies.
+    var handoff: Handoff?
+    var laterHandoff: ((Handoff) -> Void)?
+    var copyHandoff: ((Handoff) -> Void)?
+    /// The handoff whose note was just copied, for a moment's "Copied".
+    var handoffCopied: String?
+    /// Agents on this Mac that Visor reads no limit for (Codex CLI, Gemini CLI, OpenCode).
+    var unmeteredAgents: [String] = []
     /// The Agents list's one clock: every card's time reads it, and one timer
     /// moves it each second only while the list is on screen.
     var agentsNow = Date()
@@ -475,6 +484,8 @@ enum Peek: Equatable {
     case status(agent: String, ProviderIncident)
     /// A tool installed on this Mac has a newer release.
     case release(ReleaseUpdate)
+    /// A Claude limit runs out soon and another agent has room.
+    case handoff(Handoff)
 
     var isRelease: Bool { if case .release = self { return true } else { return false } }
 }

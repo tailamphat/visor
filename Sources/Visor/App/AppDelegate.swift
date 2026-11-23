@@ -30,6 +30,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var clashExpiry: DispatchWorkItem?
     private var stuckWatch = StuckWatch()
     private var stuckExpiry: DispatchWorkItem?
+    /// Later and peeked limit windows; the card itself is re-derived each time.
+    private var handoffGate = HandoffGate()
+    /// One wake-up at the shown handoff's reset, so it clears without waiting for a reading.
+    private var handoffExpiry: DispatchWorkItem?
+    private var handoffCopiedWork: DispatchWorkItem?
+    #if DEBUG
+    /// `_handoff`: a fake Claude limit and pace, and fake other quotas, used in place of the real ones.
+    private var debugHandoff: (plan: PlanUsage, runsOutAt: Date, others: [NotchQuota])?
+    #endif
     private var clipboardHotKey: HotKey?
     private let hooks = HookServer()
     /// Codex CLI and OpenCode sessions, read from their own files (no hooks).
@@ -208,6 +217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.stuckWatch.ignore(stuck)
             self?.refreshStuck()
         }
+        model.laterHandoff = { [weak self] handoff in
+            self?.handoffGate.later(handoff)
+            self?.refreshHandoff()
+        }
+        model.copyHandoff = { [weak self] handoff in self?.copyHandoff(handoff) }
 
         restoreAgents()
         // Every launch: the intro, then the full welcome the first time and a short hello after.
@@ -246,6 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.notch.clickedAt(NSEvent.mouseLocation) }
         }
         watchBarVisibility()
+        watchHandoff()
         notch.start()
         usage.start()
         // VISOR_NO_MUSIC=1 keeps a test run from scripting your players (and asking for permission).
@@ -381,6 +396,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: Limit handoff
+
+    /// Re-derives the handoff whenever a limit reading or the sessions change.
+    /// Only the inputs are tracked, so the card and peek it writes don't call it again.
+    private func watchHandoff() {
+        withObservationTracking {
+            _ = (model.plan, model.quotas, model.antigravityUpdated, model.unmeteredAgents, model.board)
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.watchHandoff() } }
+        }
+        refreshHandoff()
+    }
+
+    /// Shows exactly what `HandoffPlanner.decide` returns from the current
+    /// readings and the live sessions (`agents`, which also has the files,
+    /// tests and last-event times the notch's copy skips), minus a window put
+    /// off with Later: no stored
+    /// "shown" state, so it clears once the limit resets, the pace recovers,
+    /// another agent takes over or the session ends.
+    private func refreshHandoff() {
+        let now = Date()
+        var plan = model.plan
+        var quotas = model.quotas
+        var forecast: (String, Double, Date?, TimeInterval?) -> BurnForecast? = model.forecast
+        #if DEBUG
+        if let fake = debugHandoff {
+            plan = fake.plan
+            quotas = fake.others
+            forecast = { _, _, _, _ in .runsOut(at: fake.runsOutAt) }
+        }
+        #endif
+        let inputs = HandoffInputs.make(quotas: quotas, antigravityUpdated: model.antigravityUpdated,
+                                        installed: model.unmeteredAgents, now: now)
+        let decided = HandoffPlanner.decide(plan: plan, forecast: forecast, others: inputs.others,
+                                            unmetered: inputs.unmetered, sessions: agents.sessions, now: now)
+        let (shown, peek) = handoffGate.update(decided, now: now)
+        if shown != model.handoff { model.handoff = shown }
+        if case .handoff(let peeked)? = model.peek, !HandoffGate.keepsPeek(peekID: peeked.id, shown: shown) { model.peek = nil }
+        if let shown, peek { show(.handoff(shown), for: 6) }
+        handoffExpiry?.cancel()
+        handoffExpiry = nil
+        // One wake-up: the limit resets, or an Antigravity reading offered as room turns stale.
+        guard let shown else { return }
+        let stale = HandoffInputs.staleAt(antigravityUpdated: model.antigravityUpdated, others: inputs.others)
+        let next = min(shown.resetsAt, stale ?? .distantFuture)
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshHandoff() } }
+        handoffExpiry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 1), execute: work)
+    }
+
+    /// Only copies: Visor never types into a terminal. Marked concealed and
+    /// transient so clipboard managers, Visor's own history included, skip it.
+    private func copyHandoff(_ handoff: Handoff) {
+        let pasteboard = NSPasteboard.general
+        let marks = HandoffPlanner.pasteboardTypes.map { NSPasteboard.PasteboardType($0) }
+        pasteboard.clearContents()
+        pasteboard.declareTypes([.string] + marks, owner: nil)
+        pasteboard.setString(HandoffPlanner.note(for: handoff, sessions: agents.sessions), forType: .string)
+        for mark in marks { pasteboard.setData(Data(), forType: mark) }
+        model.handoffCopied = handoff.id
+        handoffCopiedWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.model.handoffCopied = nil } }
+        handoffCopiedWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+    }
+
     // MARK: Context window
 
     private let contextQueue = DispatchQueue(label: "visor.context", qos: .utility)
@@ -511,6 +592,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 model.ignoreStuck?(first)
             }
+            return
+        }
+        // {"event":"_handoff","raw":{"used":85,"runsOutIn":1200,"resetsIn":2400,"others":[{"agent":"Copilot CLI","left":45}]}}
+        // fakes a Claude session limit running out (resetsIn below 0: it has reset); "clear":true drops the
+        // fake, "press":"later|copy" presses the handoff card's buttons.
+        if message.event == "_handoff" {
+            let p = message.payload
+            if let press = p["press"] as? String {
+                guard let shown = model.handoff else { return }
+                if press == "later" { model.laterHandoff?(shown) } else { model.copyHandoff?(shown) }
+                return
+            } else if p["clear"] as? Bool == true {
+                debugHandoff = nil
+            } else {
+                let now = Date()
+                let number = { (key: String, fallback: Double) in (p[key] as? NSNumber)?.doubleValue ?? fallback }
+                let others = (p["others"] as? [[String: Any]] ?? []).compactMap { entry -> NotchQuota? in
+                    guard let agent = entry["agent"] as? String else { return nil }
+                    return NotchQuota(agent: agent, percentLeft: (entry["left"] as? NSNumber)?.doubleValue ?? 50, label: "")
+                }
+                let plan = PlanUsage(limits: [PlanLimit(kind: "session", percentUsed: number("used", 85),
+                                                        resetsAt: now + number("resetsIn", 2400))])
+                debugHandoff = (plan, now + number("runsOutIn", 1200), others)
+            }
+            refreshHandoff()
             return
         }
         // {"event":"_clipdelete","raw":{}} deletes the newest clipboard item.

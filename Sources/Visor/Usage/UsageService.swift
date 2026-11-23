@@ -44,6 +44,7 @@ final class UsageService {
         model.openCodeInstalled = Self.openCodeInstalled
         model.copilotInstalled = Self.ghPath != nil || Self.copilotPath != nil
             || FileManager.default.fileExists(atPath: Self.copilotConfig.path) || !Self.editorAccounts().isEmpty
+        findUnmeteredAgents()
         loadLedger()
         scanTranscripts()
         refreshCopilotTokens()
@@ -58,12 +59,27 @@ final class UsageService {
             }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshPlan() }
+            MainActor.assumeIsolated {
+                self?.refreshPlan()
+                self?.findUnmeteredAgents()
+            }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshOpenCode() }
         })
         for timer in timers { timer.tolerance = 3 }
+    }
+
+    /// Agents a limit handoff can offer without a limit reading, so one installed
+    /// while Visor runs is offered too. A few file checks, off the main thread.
+    func findUnmeteredAgents() {
+        work.async {
+            let unmetered = [("codex", "Codex CLI"), ("gemini", "Gemini CLI")].filter { Self.tool($0.0) != nil }.map(\.1)
+                + (Self.openCodeInstalled ? ["OpenCode"] : [])
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { if self.model.unmeteredAgents != unmetered { self.model.unmeteredAgents = unmetered } }
+            }
+        }
     }
 
     func checkLimitsBack() {

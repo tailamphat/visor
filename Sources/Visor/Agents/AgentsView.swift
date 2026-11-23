@@ -7,6 +7,7 @@ struct AgentsView: View {
     var body: some View {
         // The cards' one clock: ticks only while the list is on screen.
         VStack(spacing: 6) {
+            if let handoff = model.handoff { HandoffBanner(handoff: handoff, model: model) }
             if let stuck = model.stuck.first {
                 StuckBanner(stuck: stuck, session: model.board.sessions.first { $0.id == stuck.session }, model: model)
             }
