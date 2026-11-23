@@ -3,6 +3,20 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.9.1</title>
+            <pubDate>Mon, 23 Nov 2026 12:44:37 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>221</sparkle:version>
+            <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
+            <description><![CDATA[<h3>Fixes</h3>
+<ul>
+<li>A release card now clears by itself once the tool is updated, from its Update button or your own terminal: it shows "Updated" for a moment, then goes. Cards for tools updated while Visor was closed clear at launch.</li>
+<li>Tools installed from a Homebrew tap other than Homebrew core no longer get an update card they can't use.</li>
+</ul>]]></description>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.9.1/Visor-0.9.1.zip" length="8211121" type="application/octet-stream" sparkle:edSignature="zZRhGZmJOMZQfMnRumsp1D6iYAtLdPD2bE4Nm/JgojZQqyhnMnrk6bwgf3VUFtUkrhDjWuBzIMzZ6X1MribACA=="/>
+        </item>
+        <item>
             <title>0.9.0</title>
             <pubDate>Mon, 23 Nov 2026 09:45:28 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
@@ -27,15 +41,6 @@
             <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.2/Visor-0.8.2.zip" length="7019733" type="application/octet-stream" sparkle:edSignature="/1+B1MjVnNyL3Lx4OPlNK9ks4oRd/7DkCqCHEFPrl96YmeTdD5l475XnOpQxUONUUiF8HTEqiVYv8/Bi3xc8Bw=="/>
-        </item>
-        <item>
-            <title>0.8.1</title>
-            <pubDate>Sat, 21 Nov 2026 22:51:10 +0700</pubDate>
-            <link>https://tailamphat.github.io/visor/</link>
-            <sparkle:version>188</sparkle:version>
-            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.1/Visor-0.8.1.zip" length="7017496" type="application/octet-stream" sparkle:edSignature="wNusi1p6mVmnp//tpVTWzvZ1W1uE9zoriQPrEPI1Kfyl53e+Lf9+F7b61ug5ns9qbKMuVXEVFtfJ3K0NjsMgAA=="/>
         </item>
     </channel>
 </rss>
