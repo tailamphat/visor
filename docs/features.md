@@ -15,7 +15,7 @@ Every feature below uses the same labels, in the same order. A label is left out
 
 - [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Provider status](#provider-status), [MCP servers](#mcp-servers)
 - [Usage](#usage): [Limits](#limits), [Pace](#pace), [Spend](#spend), [Tokens](#tokens), [Connected accounts](#connected-accounts), [Release radar](#release-radar)
-- [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Keep awake](#keep-awake)
+- [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Keep awake](#keep-awake), [Hello](#hello)
 - [Plugins](#plugins)
 - [Closed notch signs](#closed-notch-signs)
 - [Menu bar settings](#menu-bar-settings)
@@ -224,6 +224,14 @@ Keep your Mac from sleeping while agents work.
 - **Settings:** in the menu bar menu, **Keep the Screen On Too** (on by default, so the screen doesn't lock; turn it off to let the display sleep) and **Only Above 20% Battery** (on battery, lets go below 20%).
 - **Good to know:** closing the lid still sleeps the Mac.
 - **How it works:** a macOS power assertion, shown as "Visor: agents are working" in `pmset -g assertions`.
+
+### Hello
+
+Visor says hello each time it starts.
+
+- **What you see:** the intro plays, then the notch opens. The first launch shows the full welcome: "Hi, I'm Visor", a line about what Visor does and **Get started**. Every later launch shows a short "Hi, I'm Visor" with the version.
+- **How to use:** on the first launch, click **Get started** (or press Return) to close the welcome. The short hello closes by itself after 3 seconds, or on a click.
+- **Good to know:** the short hello gives way to an approval, to the pointer over the notch and to a tab click.
 
 ## Plugins
 

@@ -135,4 +135,5 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 
 - A hook entry in each connected agent's settings: `~/.claude/settings.json` (with a one-time backup), `~/.copilot/hooks/visor.json`, `~/.gemini/config/hooks.json`.
 - `~/Library/Application Support/Visor/`: the hook script, sockets, `sessions.json`, `copilot-rules.json`, `clipboard.json` and `Clips/`, `tokens.json`, `release-radar.json` (debug builds: `release-radar-debug.json`), `Plugins/` and `PluginData/`.
+- `~/Library/Logs/Visor/`: `approvals.log` (debug builds: `approvals-debug.log`, restarted past 256 KB), `radar.log` and one log per plugin.
 - Settings in Visor's own user defaults.

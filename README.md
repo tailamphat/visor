@@ -46,6 +46,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 - **Clipboard**: everything you copy, newest first. ⌘⇧V opens it from anywhere; search, pin, paste. Secrets from password managers are never kept, and history stays on this Mac.
 - **Music**: what Spotify, Apple Music or a browser tab is playing, with artwork, progress and controls. Any browser with the **Visor Media** extension.
 - **Keep awake**: the cup in the Agents tab keeps your Mac from sleeping. On, Auto (only while an agent works) or Off.
+- **Hello**: the notch says hi at every launch: a full welcome the first time, then a short "Hi, I'm Visor" with the version that closes after 3 seconds.
 
 ### Plugins
 
