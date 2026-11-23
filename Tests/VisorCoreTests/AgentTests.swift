@@ -387,3 +387,49 @@ struct AntigravitySettingsTests {
         #expect(HookSettings.uninstallAntigravity(from: existing)["visor"] != nil)
     }
 }
+
+@Suite("Agent board: session cost")
+struct AgentCostTests {
+    let base = #""session_id":"s1","cwd":"/Users/me/workspace/notchboard""#
+
+    @Test func costLabelOnlyWithReading() {
+        var board = AgentBoard()
+        board.apply(hook("SessionStart", "{\(base)}"))
+        #expect(board.sessions[0].cost == nil)
+        board.setCost(SessionCost(dollars: 0.86, tokens: 3000), session: "s1")
+        #expect(board.sessions[0].cost?.label == "$0.86")
+        board.setCost(SessionCost(dollars: 9, tokens: 1), session: "nope")
+        #expect(board.sessions.count == 1 && board.sessions[0].cost?.label == "$0.86")
+    }
+
+    @Test func costChangesVisiblyOnlyWhenLabelChanges() {
+        var a = AgentBoard()
+        a.apply(hook("SessionStart", "{\(base)}"))
+        var b = a
+        b.setCost(SessionCost(dollars: 0.861, tokens: 1), session: "s1")
+        #expect(b.differsVisibly(from: a), "nil to $0.86")
+        var c = b
+        c.setCost(SessionCost(dollars: 0.862, tokens: 2), session: "s1")
+        #expect(!c.differsVisibly(from: b), "same cent")
+        c.setCost(SessionCost(dollars: 0.87, tokens: 3), session: "s1")
+        #expect(c.differsVisibly(from: b))
+    }
+
+    @Test func restoredSessionDropsCost() throws {
+        var board = AgentBoard()
+        board.apply(hook("SessionStart", "{\(base)}"))
+        board.setCost(SessionCost(dollars: 4, tokens: 1), session: "s1")
+        let restored = try AgentBoard.restored(from: board.saved()) { _ in true }
+        #expect(restored.sessions.count == 1 && restored.sessions[0].cost == nil)
+    }
+
+    @Test func oldSavedSessionsLoadWithoutCost() throws {
+        var board = AgentBoard()
+        board.apply(hook("SessionStart", "{\(base)}"))
+        var object = try #require(JSONSerialization.jsonObject(with: board.saved()) as? [[String: Any]])
+        object[0]["cost"] = nil
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let restored = AgentBoard.restored(from: data) { _ in true }
+        #expect(restored.sessions.count == 1 && restored.sessions[0].cost == nil)
+    }
+}

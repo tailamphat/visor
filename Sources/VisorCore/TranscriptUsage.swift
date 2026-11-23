@@ -36,33 +36,41 @@ public final class TranscriptUsage: @unchecked Sendable {
             let start = offsets[url.path] ?? 0
             if size == start { continue }
             // A file that shrank was rewritten; start it over (dedupe keeps totals right).
-            var offset = size < start ? 0 : start
-            guard let handle = try? FileHandle(forReadingFrom: url) else { continue }
-            defer { try? handle.close() }
-            try? handle.seek(toOffset: offset)
-            // Chunks keep memory flat on big transcripts. The pool frees the
-            // JSON parser's temporaries, which a background queue never drains.
-            var carry = Data()
-            while true {
-                let done: Bool = autoreleasepool {
-                    guard let chunk = try? handle.read(upToCount: Self.chunkSize), !chunk.isEmpty else { return true }
-                    var data = carry
-                    data.append(chunk)
-                    // Only consume complete lines; a half-written last line waits.
-                    guard let lastNewline = data.lastIndex(of: 0x0A) else {
-                        carry = data
-                        return false
-                    }
-                    ingest(data[data.startIndex...lastNewline])
-                    offset += UInt64(lastNewline - data.startIndex + 1)
-                    carry = Data(data[(lastNewline + 1)...])
-                    return false
-                }
-                if done { break }
-            }
+            guard let offset = Self.readLines(of: url.path, from: size < start ? 0 : start, ingest) else { continue }
             offsets[url.path] = offset
         }
         return records.count != before
+    }
+
+    /// Reads complete lines of `path` from `offset` in chunks and returns the
+    /// offset after the last complete line; nil when the file can't be opened.
+    /// Shared with `SessionCostReader`.
+    static func readLines(of path: String, from offset: UInt64, _ body: (Data) -> Void) -> UInt64? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        var offset = offset
+        try? handle.seek(toOffset: offset)
+        // Chunks keep memory flat on big transcripts. The pool frees the
+        // JSON parser's temporaries, which a background queue never drains.
+        var carry = Data()
+        while true {
+            let done: Bool = autoreleasepool {
+                guard let chunk = try? handle.read(upToCount: chunkSize), !chunk.isEmpty else { return true }
+                var data = carry
+                data.append(chunk)
+                // Only consume complete lines; a half-written last line waits.
+                guard let lastNewline = data.lastIndex(of: 0x0A) else {
+                    carry = data
+                    return false
+                }
+                body(data[data.startIndex...lastNewline])
+                offset += UInt64(lastNewline - data.startIndex + 1)
+                carry = Data(data[(lastNewline + 1)...])
+                return false
+            }
+            if done { break }
+        }
+        return offset
     }
 
     static let chunkSize = 4 << 20
@@ -71,6 +79,13 @@ public final class TranscriptUsage: @unchecked Sendable {
 
     /// Parses complete JSONL lines.
     public func ingest(_ data: Data) {
+        Self.forEachUsageLine(in: data) { line in
+            if let record = Self.parse(line: line) { add(record.key, record.usage) }
+        }
+    }
+
+    /// Calls `body` with each line of `data` that carries usage. Shared with `SessionCostReader`.
+    static func forEachUsageLine(in data: Data, _ body: (Data) -> Void) {
         // memchr and memmem: Data's own byte search went through generic collection code.
         let marker = Self.usageMarkerBytes
         let lines: [Range<Int>] = data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> [Range<Int>] in
@@ -89,8 +104,7 @@ public final class TranscriptUsage: @unchecked Sendable {
             return found
         }
         for range in lines {
-            let line = data[(data.startIndex + range.lowerBound)..<(data.startIndex + range.upperBound)]
-            if let record = Self.parse(line: line) { add(record.key, record.usage) }
+            body(data[(data.startIndex + range.lowerBound)..<(data.startIndex + range.upperBound)])
         }
     }
 

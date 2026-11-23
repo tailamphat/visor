@@ -279,8 +279,13 @@ struct AgentCard: View {
                     HStack(spacing: 4) {
                         Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
                             .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                        Spacer(minLength: 0)
+                        // On this line, not beside the clock: there it squeezed the project name.
+                        if let cost = session.cost?.label {
+                            Text(cost).font(.system(size: 10).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                                .lineLimit(1).fixedSize()
+                        }
                         if let model, !session.helpers.isEmpty {
-                            Spacer(minLength: 0)
                             HelpersButton(session: session, model: model)
                         }
                     }
@@ -310,6 +315,10 @@ struct AgentCard: View {
         if let percent = session.contextPercent {
             lines.append("\(Int(percent))% context: \((session.contextTokens ?? 0).formatted()) of \((session.contextWindow ?? 0).formatted()) tokens"
                          + (SessionText.contextHigh(percent) ? ", compacts soon" : ""))
+        }
+        // Only the label: the board republishes when it changes, not on every token.
+        if let cost = session.cost, let label = cost.label {
+            lines.append("\(label) so far" + (cost.dollars > 0 ? " at API prices" : ""))
         }
         return lines.joined(separator: "\n")
     }

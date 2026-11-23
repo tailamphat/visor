@@ -43,6 +43,7 @@ flowchart LR
 4. `received` sets `message.pid` to `ProcessTree.agentAncestor`, calls `agents.apply(message)` on its private `AgentBoard` and `mcp.record(message)` (MCP calls), looks up the host app, releases moot approvals (`ApprovalRelease.after`), then `publishAgents()`.
 5. `publishAgents` copies `agents` into `model.board` only if `differsVisibly(from:)`, at most every 0.25 s, then saves sessions and updates keep awake.
 6. A `Stop` produces `agents.finished(message)`, shown as a `Peek.done` via `show(_:for:)`.
+6b. For Claude Code, `readContextSoon` (queue `visor.context`, after `PostToolUse`, `Stop`, `SessionStart`, `UserPromptSubmit`) reads the context from the transcript's tail and the session's cost from only its newly appended bytes (`SessionCostReader`, including `<session>/subagents/*.jsonl`), then `agents.setContext` and `agents.setCost`; tallies of ended sessions are dropped on the prune tick.
 7. Codex CLI, OpenCode and Gemini CLI send no hooks: `FileAgentsService` (queue `visor.file-agents`) reads their rollouts, database and chats when a watched file changes or on the 5 s prune tick, parses with `CodexRollout` and `OpenCodeSessions` (`FileAgents.swift`) and `GeminiChat` (`GeminiSessions.swift`), and `AppDelegate.fileAgentsRead` calls `agents.sync(agent:scanned:live:)`, which replaces that agent's sessions and returns finished turns for the peek.
 
 ### Approvals

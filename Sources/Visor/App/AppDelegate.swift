@@ -258,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let gone = self.agents.sessions.filter { $0.pid > 0 && !alive($0.pid) }.map(\.id)
                 self.agents.prune(isAlive: alive)
                 self.publishAgents()
+                self.forgetCostsOfEndedSessions()
                 for session in gone { self.hooks.releaseApprovals(session: session, event: "agent exited") }
             }
         }
@@ -374,25 +375,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private let contextQueue = DispatchQueue(label: "visor.context", qos: .utility)
     private var contextPending: Set<String> = []
+    /// Sessions that had an event while their read ran: read again once it's done.
+    private var contextDirty: [String: String] = [:]
+    /// Running cost per session; used on `contextQueue` only.
+    private let costReader = SessionCostReader()
+    /// Sessions the cost reader holds a tally for, as far as the main thread knows.
+    private var costSessions: Set<String> = []
 
     /// After a Claude Code reply, reads how full the session's context is from
-    /// the end of its transcript, off the main thread, once per burst of events.
+    /// the end of its transcript, and the cost of what was appended, off the
+    /// main thread, once per burst of events.
     private func readContextSoon(_ message: HookMessage) {
         guard message.provider == "claude", ["PostToolUse", "Stop", "SessionStart", "UserPromptSubmit"].contains(message.event),
-              let session = message.sessionID, let path = message.payload["transcript_path"] as? String,
-              contextPending.insert(session).inserted else { return }
+              let session = message.sessionID, let path = message.payload["transcript_path"] as? String else { return }
+        readContext(session: session, path: path)
+    }
+
+    private func readContext(session: String, path: String) {
+        guard contextPending.insert(session).inserted else {
+            // The read may already be past this event's write; read again after it.
+            contextDirty[session] = path
+            return
+        }
         // Claude Code may still be writing the reply when the hook runs.
+        let costReader = costReader
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (reading, model) = autoreleasepool { (Self.contextReading(at: path), Self.claudeModelSetting()) }
+            let (reading, model, cost) = autoreleasepool {
+                (Self.contextReading(at: path), Self.claudeModelSetting(), costReader.read(transcript: path, session: session))
+            }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.contextPending.remove(session)
+                    self.costSessions.insert(session)
                     self.agents.setContext(tokens: reading.tokens, model: model, provenWindow: reading.provenWindow, session: session)
+                    // A transcript missing for a moment keeps the last cost.
+                    if let cost { self.agents.setCost(cost, session: session) }
                     self.publishAgents()
+                    if let again = self.contextDirty.removeValue(forKey: session) { self.readContext(session: session, path: again) }
                 }
             }
         }
+    }
+
+    /// Drops the running cost of sessions that left the board (exited, ended, /clear).
+    /// `costSessions` is filled when a read finishes, so a read queued before the
+    /// session ended is still forgotten on a later tick.
+    private func forgetCostsOfEndedSessions() {
+        let ids = Set(agents.sessions.map(\.id))
+        guard !costSessions.isSubset(of: ids) else { return }
+        costSessions.formIntersection(ids)
+        contextDirty = contextDirty.filter { ids.contains($0.key) }
+        let costReader = costReader
+        contextQueue.async { costReader.forget(keeping: ids) }
     }
 
     private nonisolated static func contextReading(at path: String) -> (tokens: Int?, provenWindow: Int?) {

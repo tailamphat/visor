@@ -69,6 +69,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     /// Tokens in its context window after the last reply, and the window's size.
     public var contextTokens: Int?
     public var contextWindow: Int?
+    /// What it has cost so far, from its transcript (`SessionCostReader`).
+    public var cost: SessionCost?
 
     /// How full the context window is, 0-100; nil when unknown.
     public var contextPercent: Double? {
@@ -274,6 +276,8 @@ public struct AgentBoard: Equatable, Sendable {
         for i in board.sessions.indices {
             // A saved count may be from before a compact or /clear; the next read sets it.
             board.sessions[i].contextTokens = nil
+            // The cost may have grown meanwhile; the next read counts it again.
+            board.sessions[i].cost = nil
             switch board.sessions[i].state {
             case .working, .needsApproval: board.sessions[i].state = .idle
             case .idle, .asking, .needsInput, .done: break
@@ -393,6 +397,12 @@ public struct AgentBoard: Equatable, Sendable {
         }
     }
 
+    /// A session's cost so far, as read from its transcript.
+    public mutating func setCost(_ cost: SessionCost?, session id: String) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].cost = cost
+    }
+
     public mutating func setHost(_ host: String?, session id: String) {
         guard let host, let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].host != host else { return }
         sessions[i].host = host
@@ -431,7 +441,7 @@ extension AgentBoard {
             a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
                 || a.agent != b.agent || a.host != b.host || a.task != b.task
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
-                || a.helperList != b.helperList
+                || a.helperList != b.helperList || a.cost?.label != b.cost?.label
         }
     }
 }
