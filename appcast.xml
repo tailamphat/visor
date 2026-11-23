@@ -3,6 +3,23 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.9.0</title>
+            <pubDate>Mon, 23 Nov 2026 09:45:28 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>219</sparkle:version>
+            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+            <description><![CDATA[<h3>New</h3>
+<ul>
+<li>Codex CLI, Gemini CLI and OpenCode sessions show in the Agents tab next to Claude Code, Copilot CLI and Antigravity, read from their own files with no setup.</li>
+<li>Release radar: a short peek when a tool you use ships a new version, and a "What's new" card in Usage with its top changes until you dismiss it. Checked every 6 hours.</li>
+<li>Update on a release card runs that tool's own update command in a new Terminal window.</li>
+<li>MCP health: one line under your sessions says how many MCP servers your agents use and which one is failing ("figma failed 3x in web-shop"). Click it for every server, what calls it and its most-used tools.</li>
+<li>Builds you make yourself show an orange line under the notch and an orange menu bar icon, so you can tell them from the release.</li>
+</ul>]]></description>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.9.0/Visor-0.9.0.zip" length="8161873" type="application/octet-stream" sparkle:edSignature="ZBVeucmKT5fAF9PCcKiGiwceA/UudW3Iuq1HbrsO4ftqJH3NX1wANqf1kRGMPCC+epDuUAou/TOIKSEg9Cr3CA=="/>
+        </item>
+        <item>
             <title>0.8.2</title>
             <pubDate>Sun, 22 Nov 2026 11:15:04 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
@@ -19,15 +36,6 @@
             <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.1/Visor-0.8.1.zip" length="7017496" type="application/octet-stream" sparkle:edSignature="wNusi1p6mVmnp//tpVTWzvZ1W1uE9zoriQPrEPI1Kfyl53e+Lf9+F7b61ug5ns9qbKMuVXEVFtfJ3K0NjsMgAA=="/>
-        </item>
-        <item>
-            <title>0.8.0</title>
-            <pubDate>Sat, 21 Nov 2026 22:40:18 +0700</pubDate>
-            <link>https://tailamphat.github.io/visor/</link>
-            <sparkle:version>186</sparkle:version>
-            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.0/Visor-0.8.0.zip" length="7006569" type="application/octet-stream" sparkle:edSignature="wX2FybedVwZq703o/SYX+wgRN6xYtjjL6qYkXhqH0oLF1BDVPlEvGB0+gz6ELNlJbGABKyj0EG9HwJyt/vkjDA=="/>
         </item>
     </channel>
 </rss>
