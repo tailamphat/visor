@@ -3,6 +3,24 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.10.0</title>
+            <pubDate>Mon, 23 Nov 2026 13:45:53 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>225</sparkle:version>
+            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+            <description><![CDATA[<h3>New</h3>
+<ul>
+<li>Visor says hello every time it starts: the intro plays, then a short "Hi, I'm Visor" with the version, which closes by itself after 3 seconds or on a click. The first launch keeps the full welcome.</li>
+</ul>
+<h3>Fixes</h3>
+<ul>
+<li>An approval card no longer disappears when a subagent, or another call of the same tool, finishes while it waits. It stays until its own request is answered.</li>
+<li>A new log, ~/Library/Logs/Visor/approvals.log, records when each approval came and how it ended (agent, project folder, tool), never the command, so a missing card can be traced.</li>
+</ul>]]></description>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.10.0/Visor-0.10.0.zip" length="8278004" type="application/octet-stream" sparkle:edSignature="OnpWnfG0G/Jxqa1LyQB18M+nzok9xPeNOvqvnB47iSrVhVYEj8+e3ft/brsB1OV+MbUQfHgZJYJ/p+KcUaQ5Dw=="/>
+        </item>
+        <item>
             <title>0.9.1</title>
             <pubDate>Mon, 23 Nov 2026 12:44:37 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
@@ -32,15 +50,6 @@
 </ul>]]></description>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.9.0/Visor-0.9.0.zip" length="8161873" type="application/octet-stream" sparkle:edSignature="ZBVeucmKT5fAF9PCcKiGiwceA/UudW3Iuq1HbrsO4ftqJH3NX1wANqf1kRGMPCC+epDuUAou/TOIKSEg9Cr3CA=="/>
-        </item>
-        <item>
-            <title>0.8.2</title>
-            <pubDate>Sun, 22 Nov 2026 11:15:04 +0700</pubDate>
-            <link>https://tailamphat.github.io/visor/</link>
-            <sparkle:version>190</sparkle:version>
-            <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.8.2/Visor-0.8.2.zip" length="7019733" type="application/octet-stream" sparkle:edSignature="/1+B1MjVnNyL3Lx4OPlNK9ks4oRd/7DkCqCHEFPrl96YmeTdD5l475XnOpQxUONUUiF8HTEqiVYv8/Bi3xc8Bw=="/>
         </item>
     </channel>
 </rss>
