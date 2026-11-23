@@ -13,7 +13,7 @@ Every feature below uses the same labels, in the same order. A label is left out
 
 ## Contents
 
-- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Provider status](#provider-status), [MCP servers](#mcp-servers)
+- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Stuck warning](#stuck-warning), [Limit handoff](#limit-handoff), [Provider status](#provider-status), [MCP servers](#mcp-servers)
 - [Usage](#usage): [Limits](#limits), [Pace](#pace), [Spend](#spend), [Tokens](#tokens), [Connected accounts](#connected-accounts), [Release radar](#release-radar)
 - [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Keep awake](#keep-awake), [Hello](#hello)
 - [Plugins](#plugins)
@@ -29,10 +29,10 @@ See every running agent session and what it is doing right now.
 <img src="assets/agents.png" width="496" alt="The Agents tab with three sessions">
 
 - **Works with:** Claude Code, Copilot CLI, Antigravity CLI. Codex CLI, OpenCode and Gemini CLI show too, read-only.
-- **What you see:** the Agents tab lists sessions grouped by agent, two to a row, with the current activity ("Bash: npm test", "Edit: Main.swift"), and which ones are waiting for you or have finished. Each Claude Code session has a ring around its icon showing how full its context window is; it turns amber with the percent from 80%, when the session is about to compact.
+- **What you see:** the Agents tab lists sessions grouped by agent, two to a row, with the current activity ("Bash: npm test", "Edit: Main.swift"), and which ones are waiting for you or have finished. Each Claude Code session has a ring around its icon showing how full its context window is; it turns amber with the percent from 80%, when the session is about to compact. Each Claude Code card also shows its cost so far at API prices (tokens for a model without a price).
 - **How to use:** click a session to bring its app forward. Connect agents with **Connect your agents** in the notch, or under Agents in the menu bar menu.
 - **Good to know:** transcripts don't say whether a session has the 200k or the 1M context window. Visor counts it as 1M once it goes past 200k, or when the `model` setting asks for `[1m]`. Sessions are saved and restored after a restart, minus agents whose process has exited. Codex CLI, OpenCode and Gemini CLI sessions come from their own files: no hooks and no approvals. They show while the agent runs in its folder, or for 30 minutes (working) or 10 minutes (finished) after the file last changed.
-- **How it works:** agent hooks send events to a Unix socket owned by Visor. See [Claude Code](how-it-works.md#claude-code-hooks), [Copilot CLI](how-it-works.md#copilot-cli-hooks) and [Antigravity CLI](how-it-works.md#antigravity-cli-hooks) hooks. The context ring reads the last reply in the session's transcript. Codex, OpenCode and Gemini sessions are read from their files, see [Codex CLI, OpenCode and Gemini CLI](how-it-works.md#codex-cli-opencode-and-gemini-cli).
+- **How it works:** agent hooks send events to a Unix socket owned by Visor. See [Claude Code](how-it-works.md#claude-code-hooks), [Copilot CLI](how-it-works.md#copilot-cli-hooks) and [Antigravity CLI](how-it-works.md#antigravity-cli-hooks) hooks. The context ring reads the last reply in the session's transcript. The cost reads only the new bytes of the session's transcript and its subagents' transcripts, after each hook event, and starts over if the transcript is rewritten. Codex, OpenCode and Gemini sessions are read from their files, see [Codex CLI, OpenCode and Gemini CLI](how-it-works.md#codex-cli-opencode-and-gemini-cli).
 
 ### Subagents
 
@@ -100,6 +100,26 @@ See what an agent did when it finishes.
 Catch two agents editing the same file.
 
 - **What you see:** when two agents edit the same file within ten minutes, the notch peeks with both marks and "same file", and the Agents tab names the file until it goes quiet.
+
+### Stuck warning
+
+Catch an agent that keeps repeating the same failing call.
+
+- **Works with:** hook agents (Claude Code, Copilot CLI, Antigravity CLI).
+- **What you see:** the notch peeks once, and the Agents tab shows a "Stuck?" card.
+- **How to use:** **Ignore** hides the card; **Open** brings the agent's app forward.
+- **Good to know:** it fires when the same call fails 3 times in a row, or runs 4 times with no edit between and no success (Antigravity: 5 runs back to back). It clears by itself on a success, a different call, an edit, a new prompt, Stop, the session ending or the agent exiting. A 15 minute timeout is only a fallback.
+- **How it works:** it counts hook tool events per session and subagent. Nothing is stored.
+
+### Limit handoff
+
+Move work to another agent when a Claude limit is about to run out.
+
+- **Works with:** Claude limits. Agents with a limit reading (Copilot CLI, OpenCode Go, Antigravity) are offered with their percent left, first. Installed agents Visor reads no limit for (Codex CLI, Gemini CLI, OpenCode) are offered too, marked "limit not tracked"; an Antigravity reading over 15 minutes old shows "checked 40m ago" instead of a percent.
+- **What you see:** when a blocking Claude limit runs out within the hour (or is out before its reset), the Agents tab shows which agents have room. The closed notch peeks once per limit window.
+- **How to use:** **Later** hides the card; the copy button puts a handoff note on the clipboard. Paste it into the other agent yourself.
+- **Good to know:** the note has the project, the task, the files touched and the last test outcome, never commands or tool input. Token-shaped text is redacted. It is copied as concealed and transient, so clipboard history skips it. The card clears by itself on a reset, a recovered pace, extra usage, a takeover or the session ending.
+- **How it works:** worked out from current limits, pace and live sessions only. Nothing is stored and nothing is typed anywhere.
 
 ### Provider status
 
@@ -257,6 +277,8 @@ Put your own things in the notch with small Lua files.
 | Small cup | [Keep awake](#keep-awake) is holding sleep off |
 | Red or amber dot on a mark | A [provider incident](#provider-status) |
 | Two marks and "same file" | A [clash warning](#clash-warning) |
+| Peek, then a "Stuck?" card | An agent is [stuck](#stuck-warning) on the same call |
+| Peek about a limit | A [limit handoff](#limit-handoff) is offered |
 
 ## Menu bar settings
 

@@ -6,7 +6,7 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 
 ## Contents
 
-- [Agents](#agents): [Claude Code](#claude-code-hooks), [Copilot CLI](#copilot-cli-hooks), [Antigravity CLI](#antigravity-cli-hooks), [Codex CLI, OpenCode and Gemini CLI](#codex-cli-opencode-and-gemini-cli), [MCP servers](#mcp-servers), [Approvals](#approvals)
+- [Agents](#agents): [Claude Code](#claude-code-hooks), [Copilot CLI](#copilot-cli-hooks), [Antigravity CLI](#antigravity-cli-hooks), [Codex CLI, OpenCode and Gemini CLI](#codex-cli-opencode-and-gemini-cli), [MCP servers](#mcp-servers), [Session cost and stuck watch](#session-cost-and-stuck-watch), [Approvals](#approvals)
 - [Usage](#usage): [Claude limits](#claude-limits), [Copilot](#copilot), [Antigravity](#antigravity), [OpenCode](#opencode), [Claude spend](#claude-spend), [Provider status](#provider-status), [Release radar](#release-radar)
 - [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Browser music](#browser-music)
 - [What Visor writes](#what-visor-writes)
@@ -43,6 +43,13 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 - **Reads:** the server names (never values) from each agent's config: Claude Code, Copilot CLI, Codex CLI, Gemini CLI, Antigravity CLI and OpenCode. Call counts, recent failures and top tools come from the `PostToolUse` and `PostToolUseFailure` hooks.
 - **Refresh:** configs are read off the main thread, only when the session folders or a config file change.
 - **Good to know:** size, type and count caps apply; protected folders and folders outside your home are never opened.
+
+### Session cost and stuck watch
+
+- **Reads:** for cost, the new bytes of a Claude Code session's transcript and its subagents' transcripts, priced like [Claude spend](#claude-spend). For the stuck warning and limit handoff, the hook tool events and limit readings Visor already has.
+- **Network:** none.
+- **Refresh:** after each hook event; only appended bytes are read.
+- **Good to know:** the handoff note is built in memory and copied as concealed and transient. Nothing new is written to disk.
 
 ### Approvals
 

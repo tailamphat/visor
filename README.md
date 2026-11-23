@@ -22,6 +22,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 
 - **Sessions**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, with what it's doing now ("Bash: npm test") and which are waiting for you or done. Codex CLI, OpenCode and Gemini CLI sessions show too, read from their own files (no hooks, no approvals).
   - Context ring around each Claude Code session's icon, amber with the percent from 80%.
+  - Cost so far on each Claude Code session's card, at API prices.
   - Subagents: "Waiting on 3 helpers" and a list of each helper's task, type and current tool.
 - **MCP**: one line under the sessions ("MCP 4 · figma failed 3x in web-shop") opens a list of every MCP server, the agents that use it, its state and its most called tools.
 - **Approvals**: Allow / Deny / Always allow from the notch (Return / A / Esc). Claude Code and Copilot CLI.
@@ -30,6 +31,8 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 - **Turn summary**: when an agent finishes, open the notch for time taken, files changed, lines, commands, tests, and View diff.
 - **Clash warning**: the notch peeks when two agents edit the same file within ten minutes.
 - **Provider status**: Claude and GitHub incidents show as a peek and a red or amber dot.
+- **Stuck warning**: the notch peeks when a hook agent repeats the same failing call, and the Agents tab shows a "Stuck?" card with Ignore and Open.
+- **Limit handoff**: when a Claude limit runs out within the hour, the Agents tab shows which other agents have room and a button that copies a handoff note.
 - **Release radar**: when an AI tool on your Mac (Claude Code, Copilot CLI, Codex CLI, Gemini CLI, OpenCode) has a newer release, a peek shows once and a "What's new" card with the top changes stays in Usage until you dismiss it. Checked every 6 hours.
 
 ### Usage
