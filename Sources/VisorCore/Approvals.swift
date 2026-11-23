@@ -15,6 +15,8 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
 
     /// The session's working directory: which project an always-allow rule belongs to.
     public var cwd: String
+    /// Which call this is, so only that call finishing lets the card go.
+    public var call: ApprovalCall
 
     /// A question (AskUserQuestion) rather than an action: the terminal answers
     /// it, so Visor only needs to tell it apart from an approval.
@@ -38,6 +40,7 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
             preview = ""
         }
         suggestions = message.payload["permission_suggestions"] as? [Any] ?? []
+        call = ApprovalCall(message)
     }
 
     /// What the agent wants to do, in plain words: "run a command", "edit a file".
@@ -98,12 +101,37 @@ public struct ApprovalRequest: Identifiable, @unchecked Sendable {
     }
 }
 
+/// One tool call: its tool, its input (canonical JSON, or the raw string some
+/// agents send) and the subagent that made it (nil for the main agent).
+/// Subagent events share the main session's id, so the tool name alone can't
+/// tell two calls apart.
+public struct ApprovalCall: Equatable, Sendable {
+    public var tool: String
+    public var input: String
+    public var agent: String?
+
+    public init(_ message: HookMessage) {
+        tool = message.toolName ?? "Tool"
+        agent = message.payload["agent_id"] as? String
+        switch message.payload["tool_input"] {
+        case let text as String:
+            input = text
+        case let object as [String: Any]:
+            input = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        default:
+            input = ""
+        }
+    }
+}
+
 /// Which held approvals a session's next event makes moot.
 public enum ApprovalRelease: Equatable, Sendable {
     /// Every approval the session holds (it moved on: new prompt, idle, stop).
     case all
-    /// Approvals for this tool (it ran or failed, so it was answered elsewhere).
-    case tool(String)
+    /// The approval for this exact call (it ran or failed, so it was answered
+    /// elsewhere). Another call of the same tool, or a subagent's, leaves it.
+    case call(ApprovalCall)
 
     public static func after(_ message: HookMessage) -> ApprovalRelease? {
         guard message.sessionID != nil else { return nil }
@@ -111,12 +139,45 @@ public enum ApprovalRelease: Equatable, Sendable {
         case "UserPromptSubmit", "Stop", "SessionEnd":
             return .all
         case "PostToolUse", "PostToolUseFailure":
-            return message.toolName.map(ApprovalRelease.tool) ?? .all
+            return message.toolName == nil ? .all : .call(ApprovalCall(message))
         case "Notification" where message.payload["notification_type"] as? String == "idle_prompt":
             return .all
         default:
             return nil
         }
+    }
+
+    /// Which of a session's held approvals (oldest first) this lets go of.
+    /// A finished call takes the oldest card for the same call: same tool and
+    /// input, from the same agent.
+    /// With no exact match, a tool other than Bash takes the oldest card for
+    /// that tool and agent: its input can change on the way (an edit changed
+    /// in the IDE before accepting), and unlike Bash, Visor can't see it start.
+    public func releases<ID>(from held: [(id: ID, call: ApprovalCall)]) -> [ID] {
+        switch self {
+        case .all:
+            return held.map(\.id)
+        case .call(let done):
+            if let exact = held.first(where: { $0.call == done }) {
+                return [exact.id]
+            }
+            guard done.tool != "Bash",
+                  let near = held.first(where: { $0.call.tool == done.tool && $0.call.agent == done.agent }) else { return [] }
+            return [near.id]
+        }
+    }
+}
+
+/// One line of ~/Library/Logs/Visor/approvals.log: when, which agent, the
+/// project folder, the tool and what happened. Never the command, file or
+/// input: the log says why a card came and went, not what it was for.
+public enum ApprovalLog {
+    public static func line(_ request: ApprovalRequest, _ outcome: String, at date: Date) -> String {
+        // Agents choose these names: no control characters (newlines, ANSI escapes), at most 64 characters.
+        let fields = [request.provider, request.project.isEmpty ? "-" : request.project, request.tool].map { field in
+            String(String.UnicodeScalarView(field.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0) ? " " : $0 }).prefix(64))
+        }
+        return "\(ISODate.string(date)) \(fields.joined(separator: " ")): \(outcome)\n"
     }
 }
 

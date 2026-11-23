@@ -53,9 +53,68 @@ struct ApprovalReleaseTests {
         #expect(ApprovalRelease.after(event(name)) == .all)
     }
 
-    @Test func toolRanOrFailed() {
-        #expect(ApprovalRelease.after(event("PostToolUse", #","tool_name":"Bash""#)) == .tool("Bash"))
-        #expect(ApprovalRelease.after(event("PostToolUseFailure", #","tool_name":"Edit""#)) == .tool("Edit"))
+    /// A held request, as PermissionRequest sends it.
+    func held(_ tool: String, _ input: String, agent: String? = nil) throws -> ApprovalCall {
+        let agentField = agent.map { #","agent_id":"\#($0)""# } ?? ""
+        let message = hook("PermissionRequest", pid: 1, #"{"session_id":"s1","tool_name":"\#(tool)","tool_input":\#(input)\#(agentField)}"#)
+        return try #require(ApprovalRequest(message)).call
+    }
+
+    /// What the release lets go of, from cards held oldest first.
+    func released(_ release: ApprovalRelease?, _ cards: ApprovalCall...) -> [Int] {
+        release?.releases(from: cards.enumerated().map { (id: $0.offset, call: $0.element) }) ?? []
+    }
+
+    func ran(_ tool: String, _ input: String, agent: String? = nil, failed: Bool = false) -> ApprovalRelease? {
+        let agentField = agent.map { #","agent_id":"\#($0)""# } ?? ""
+        return ApprovalRelease.after(event(failed ? "PostToolUseFailure" : "PostToolUse", #","tool_name":"\#(tool)","tool_input":\#(input)\#(agentField)"#))
+    }
+
+    @Test func sameCallReleases() throws {
+        let card = try held("Bash", #"{"command":"npm test","description":"Run tests"}"#)
+        #expect(released(ran("Bash", #"{"description":"Run tests","command":"npm test"}"#), card) == [0], "key order doesn't matter")
+        #expect(released(ran("Bash", #"{"command":"npm test","description":"Run tests"}"#, failed: true), card) == [0])
+    }
+
+    @Test func subagentCallKeepsMainCard() throws {
+        let card = try held("Bash", #"{"command":"npm test"}"#)
+        #expect(released(ran("Bash", #"{"command":"ls"}"#, agent: "sub1"), card).isEmpty)
+        #expect(released(ran("Bash", #"{"command":"npm test"}"#, agent: "sub1"), card).isEmpty, "the same command run by a subagent")
+    }
+
+    @Test func parallelSameToolKeepsCard() throws {
+        let card = try held("Bash", #"{"command":"npm test"}"#)
+        #expect(released(ran("Bash", #"{"command":"ls"}"#), card).isEmpty)
+        #expect(released(ran("Read", #"{"command":"npm test"}"#), card).isEmpty)
+    }
+
+    @Test func subagentOwnCallReleases() throws {
+        let card = try held("Edit", #"{"file_path":"/Users/me/web-shop/a.ts","old_string":"a","new_string":"b"}"#, agent: "sub1")
+        #expect(released(ran("Edit", #"{"new_string":"b","file_path":"/Users/me/web-shop/a.ts","old_string":"a"}"#, agent: "sub1"), card) == [0])
+        #expect(released(ran("Edit", #"{"new_string":"b","file_path":"/Users/me/web-shop/a.ts","old_string":"a"}"#), card).isEmpty)
+    }
+
+    @Test func oneFinishedCallTakesOneCard() throws {
+        let card = try held("Bash", #"{"command":"npm test"}"#)
+        #expect(released(ran("Bash", #"{"command":"npm test"}"#), card, card) == [0], "the oldest of two identical calls")
+    }
+
+    @Test func editChangedInIDEStillReleases() throws {
+        let card = try held("Edit", #"{"file_path":"/Users/me/web-shop/a.ts","new_string":"b"}"#)
+        let other = try held("Edit", #"{"file_path":"/Users/me/web-shop/c.ts","new_string":"d"}"#, agent: "sub1")
+        #expect(released(ran("Edit", #"{"file_path":"/Users/me/web-shop/a.ts","new_string":"b2"}"#), other, card) == [1], "same tool and agent, oldest")
+        #expect(released(ran("Bash", #"{"command":"npm test -w"}"#), try held("Bash", #"{"command":"npm test"}"#)).isEmpty, "Bash never falls back")
+    }
+
+    @Test func noInputFallsBackToTool() throws {
+        let card = try held("shell", #"{}"#)
+        #expect(released(ran("shell", #"{}"#), card) == [0])
+    }
+
+    @Test func movedOnStillReleasesAll() throws {
+        let card = try held("Bash", #"{"command":"npm test"}"#)
+        for name in ["UserPromptSubmit", "Stop", "SessionEnd"] { #expect(released(ApprovalRelease.after(event(name)), card) == [0]) }
+        #expect(released(ApprovalRelease.after(event("Notification", #","notification_type":"idle_prompt""#)), card) == [0])
     }
 
     @Test func notifications() {
@@ -357,5 +416,32 @@ struct TerminalAnswerTests {
         board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"ship it\"}"))
         board.answeredInTerminal(session: "s1", allowed: false)
         #expect(board.sessions.first?.state == .working("Thinking"))
+    }
+}
+
+@Suite("Approvals log")
+struct ApprovalLogTests {
+    @Test func lineHasNoContent() throws {
+        let message = hook("PermissionRequest", pid: 1, #"{"session_id":"s1","cwd":"/Users/me/web-shop","tool_name":"Bash","tool_input":{"command":"curl SECRET-MARKER"}}"#)
+        let request = try #require(ApprovalRequest(message))
+        let line = ApprovalLog.line(request, "allowed in notch", at: Date(timeIntervalSince1970: 1_800_000_000))
+        #expect(line.contains("claude") && line.contains("web-shop") && line.contains("Bash") && line.contains("allowed in notch"))
+        #expect(!line.contains("SECRET-MARKER") && !line.contains("/Users/me"))
+        #expect(line.hasSuffix("\n") && line.filter { $0 == "\n" }.count == 1)
+    }
+
+    @Test func oddNamesStayOnOneLine() throws {
+        let message = hook("PermissionRequest", pid: 1, #"{"session_id":"s1","cwd":"/Users/me/web\nshop","tool_name":"mcp__x\ny"}"#)
+        let request = try #require(ApprovalRequest(message))
+        #expect(ApprovalLog.line(request, "card", at: Date()).filter { $0 == "\n" }.count == 1)
+    }
+
+    @Test func fieldsAreCleanAndShort() throws {
+        let long = String(repeating: "x", count: 500)
+        let message = hook("PermissionRequest", pid: 1, #"{"session_id":"s1","cwd":"/Users/me/a\u001b[2Kb","tool_name":"\#(long)"}"#)
+        let request = try #require(ApprovalRequest(message))
+        let line = ApprovalLog.line(request, "card", at: Date())
+        #expect(!line.unicodeScalars.contains { $0.value == 0x1B })
+        #expect(line.count < 200)
     }
 }

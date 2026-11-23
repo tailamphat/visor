@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let intro = IntroController()
     private lazy var status = StatusService(model: model)
     private let radar = RadarService()
+    private let approvalLog = ApprovalLogger()
     private lazy var awake = AwakeService(model: model)
     /// Two sessions changing the same file within ten minutes.
     private var clashWatch = ClashWatch()
@@ -257,7 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let gone = self.agents.sessions.filter { $0.pid > 0 && !alive($0.pid) }.map(\.id)
                 self.agents.prune(isAlive: alive)
                 self.publishAgents()
-                for session in gone { self.hooks.releaseApprovals(session: session) }
+                for session in gone { self.hooks.releaseApprovals(session: session, event: "agent exited") }
             }
         }
         pruneTimer?.tolerance = 1
@@ -536,15 +537,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         // The session moved on (answered in the terminal, interrupted, new prompt): its approvals are moot.
-        if let session = message.sessionID, let release = ApprovalRelease.after(message) {
-            switch release {
-            case .all: hooks.releaseApprovals(session: session)
-            case .tool(let tool): hooks.releaseApprovals(session: session, tool: tool)
-            }
-        }
+        hooks.releaseApprovals(after: message)
         noteAnsweredQuestion(message)
         if let approval {
-            switch ApprovalRoute.of(approval, inNotch: Self.approvalsInNotch, rules: copilotRules) {
+            let route = ApprovalRoute.of(approval, inNotch: Self.approvalsInNotch, rules: copilotRules)
+            approvalLog.write(approval, route == .notch ? "card" : route == .allow ? "allowed by Always rule" : "asked in terminal")
+            switch route {
             case .terminal:
                 // A question, or approvals are off: the terminal's own prompt answers it.
                 hooks.reply(approval, nil)
@@ -655,7 +653,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             copilotRules.add(for: request)
             saveCopilotRules()
         }
-        hooks.reply(request, decision)
+        let outcome: String
+        switch decision {
+        case .allow?: outcome = "allowed in notch"
+        case .allowAlways?: outcome = "always allowed in notch"
+        case .deny?: outcome = "denied in notch"
+        case nil: outcome = "handed to terminal"
+        }
+        hooks.reply(request, decision) { [approvalLog] in approvalLog.write(request, outcome) }
         model.approvals.removeAll { $0.id == request.id }
         if decision != nil { agents.resolveApproval(session: request.sessionID) }
         publishAgents()
@@ -666,9 +671,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func approvalGone(_ id: UUID, _ reason: HookServer.LetGo) {
         if let approval = model.approvals.first(where: { $0.id == id }) {
             switch reason {
-            case .allowedInTerminal: agents.answeredInTerminal(session: approval.sessionID, allowed: true)
-            case .endedInTerminal: agents.answeredInTerminal(session: approval.sessionID, allowed: false)
-            case .timedOut, .movedOn: break
+            case .allowedInTerminal:
+                agents.answeredInTerminal(session: approval.sessionID, allowed: true)
+                approvalLog.write(approval, "allowed in terminal")
+            case .endedInTerminal:
+                agents.answeredInTerminal(session: approval.sessionID, allowed: false)
+                approvalLog.write(approval, "ended in terminal")
+            case .timedOut:
+                approvalLog.write(approval, "let go: timed out")
+            case .movedOn(let event):
+                approvalLog.write(approval, "let go: \(event)")
             }
             publishAgents()
         }

@@ -42,7 +42,10 @@ final class HookServer: @unchecked Sendable {
     private struct Held {
         var fd: Int32
         var session: String
-        var tool: String
+        /// When it arrived, so a finished call takes the oldest matching card.
+        var arrived: UInt64
+        /// The exact call, so only it finishing lets the card go.
+        var call: ApprovalCall
         var hookPID: Int32
         /// The process that ran the hook (the agent), and the Bash command it
         /// asked to run: once that command starts, it was allowed in the terminal.
@@ -52,7 +55,8 @@ final class HookServer: @unchecked Sendable {
     private var watchingHooks = false
 
     /// Why a held approval went away without an answer from the notch.
-    enum LetGo { case timedOut, movedOn, endedInTerminal, allowedInTerminal }
+    /// `movedOn` names the event that made it moot, for the approvals log.
+    enum LetGo { case timedOut, movedOn(String), endedInTerminal, allowedInTerminal }
 
     /// Called on the main thread for every event, and when an approval goes away
     /// on its own (it timed out or Claude Code moved on).
@@ -100,7 +104,7 @@ final class HookServer: @unchecked Sendable {
         let approval = ApprovalRequest(message)
         if let approval {
             let command = approval.provider == "claude" && approval.tool == "Bash" ? approval.preview : nil
-            pending[approval.id] = Held(fd: client, session: approval.sessionID, tool: approval.tool,
+            pending[approval.id] = Held(fd: client, session: approval.sessionID, arrived: DispatchTime.now().uptimeNanoseconds, call: approval.call,
                                         hookPID: message.hookPID, agentPID: ProcessTree.agentAncestor(of: message.pid), command: command)
             watchHooks()
             // The hook's nc gives up at 110s; let go just before so the card doesn't linger.
@@ -111,9 +115,11 @@ final class HookServer: @unchecked Sendable {
     }
 
     /// Answers a held approval. nil hands the decision back to the terminal.
-    func reply(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
+    /// `sent` runs on main only if the request was still held (not already let go).
+    func reply(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?, sent: (@MainActor () -> Void)? = nil) {
         queue.async {
             guard let held = self.pending.removeValue(forKey: request.id) else { return }
+            if let sent { DispatchQueue.main.async { MainActor.assumeIsolated { sent() } } }
             if let decision {
                 let data = request.reply(decision)
                 data.withUnsafeBytes { _ = write(held.fd, $0.baseAddress, data.count) }
@@ -122,13 +128,28 @@ final class HookServer: @unchecked Sendable {
         }
     }
 
-    /// Lets go of approvals a session is holding (optionally only for one tool)
-    /// once it has moved on, e.g. the user answered in the terminal instead.
-    func releaseApprovals(session: String, tool: String? = nil) {
+    /// Lets go of every approval a session holds once it has moved on (its
+    /// agent exited). `event` is what made them moot, for the log.
+    func releaseApprovals(session: String, event: String) {
+        queue.async { self.letGo(session: session, .all, event: event) }
+    }
+
+    /// The same for a hook event (`ApprovalRelease`), read here rather than on
+    /// main: matching a call serializes its input (a Write's can be large), so
+    /// it only happens when the session actually holds an approval.
+    func releaseApprovals(after message: HookMessage) {
         queue.async {
-            for (id, held) in self.pending where held.session == session && (tool == nil || held.tool == tool) {
-                self.release(id, .movedOn)
-            }
+            guard let session = message.sessionID, self.pending.values.contains(where: { $0.session == session }),
+                  let release = ApprovalRelease.after(message) else { return }
+            self.letGo(session: session, release, event: message.event)
+        }
+    }
+
+    /// queue only.
+    private func letGo(session: String, _ release: ApprovalRelease, event: String) {
+        let held = pending.filter { $0.value.session == session }.sorted { $0.value.arrived < $1.value.arrived }
+        for id in release.releases(from: held.map { (id: $0.key, call: $0.value.call) }) {
+            self.release(id, .movedOn(event))
         }
     }
 

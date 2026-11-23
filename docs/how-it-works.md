@@ -52,6 +52,8 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
   - Questions (`AskUserQuestion`) go through the same hook, but Visor lets go at once so the terminal's own prompt answers the question. The notch only signals it: the blue "?" and the Agents row point you to the terminal.
   - **Approvals in the Notch** in the menu bar menu is one switch for every agent that can ask the notch (Claude Code and Copilot CLI). Off, Visor lets go of each request at once, so it asks in its own terminal; agents still show in the notch.
   - If another app (for example Notchy) also registers a `PermissionRequest` hook, both will ask you. Use one at a time.
+  - A card goes away by itself only when that exact call finishes (same tool, input and agent), so a subagent's tool calls don't clear the main agent's card.
+  - `~/Library/Logs/Visor/approvals.log` has one line when a request arrives and one when it ends (agent, project folder, tool and what happened), never the command or file, so a card that didn't show can be traced.
 
 ## Usage
 
