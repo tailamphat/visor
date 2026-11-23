@@ -172,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
         model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
-        model.updateRelease = { [weak self] update in self?.typeUpdate(update) }
+        model.updateRelease = { [weak self] update in self?.runUpdate(update) }
         radar.start()
         model.awakeChanged = { [weak self] in self?.awake.update() }
         awake.start()
@@ -464,7 +464,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 radar.debugFake(toolID: tool, installed: installed, latest: latest, notes: p["notes"] as? String)
             }
             if let tool = p["dismiss"] as? String { radar.dismiss(tool) }
-            if let tool = p["update"] as? String, let offer = model.releaseOffers.first(where: { $0.toolID == tool }) { model.updateRelease?(offer) }
+            if let tool = p["update"] as? String, let offer = model.releaseOffers.first(where: { $0.toolID == tool }) {
+                // "fakeCommand" (debug only) swaps in a harmless command to see the Terminal path run; never a real installer.
+                if let fake = p["fakeCommand"] as? String { launchInTerminal(update: offer, toolName: offer.name, command: fake, binary: "sh") }
+                else { model.updateRelease?(offer) }
+            }
             if p["expand"] as? Bool == true { notch.expandFromPointer() }
             if p["probeRedirect"] as? Bool == true { radar.debugProbeRedirect() }
             if p["check"] as? Bool == true { radar.debugCheckNow() }
@@ -668,30 +672,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 extension AppDelegate {
     private static let terminalQueue = DispatchQueue(label: "visor.radar.terminal", qos: .userInitiated)
 
-    /// Update on a release card: Terminal gets the catalog command typed in, not run.
-    /// Re-derived from the catalog here, so nothing from a feed or file reaches a shell.
-    @MainActor func typeUpdate(_ update: ReleaseUpdate) {
+    /// Update on a release card: Terminal runs the catalog command in a new window,
+    /// from a private script. Re-derived from the catalog here, so nothing from a
+    /// feed or file reaches a shell.
+    @MainActor func runUpdate(_ update: ReleaseUpdate) {
         guard let method = update.method,
-              let command = ReleaseTool.all.first(where: { $0.id == update.toolID })?.updateCommand(method),
-              TerminalCommand.isSafe(command) else { return }
+              let tool = ReleaseTool.all.first(where: { $0.id == update.toolID }),
+              let command = tool.updateCommand(method) else { return }
+        launchInTerminal(update: update, toolName: tool.name, command: command, binary: tool.binary)
+    }
+
+    /// `command` is always catalog text; the debug `_radar` fake passes a harmless one.
+    @MainActor func launchInTerminal(update: ReleaseUpdate, toolName: String, command: String, binary: String) {
         // Fast repeat clicks would open several windows.
         let now = Date()
         if let last = lastUpdateClick, now.timeIntervalSince(last) < 2 { return }
         lastUpdateClick = now
-        let shell = getpwuid(getuid()).map { String(cString: $0.pointee.pw_shell) } ?? ProcessInfo.processInfo.environment["SHELL"]
-        if TerminalCommand.isZsh(shell), let source = TerminalCommand.appleScript(typing: command) {
-            Self.terminalQueue.async {
-                var error: NSDictionary?
-                NSAppleScript(source: source)?.executeAndReturnError(&error)
-            }
-        } else {
-            // No `print -z` outside zsh: copy it, open Terminal, the card says to paste.
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(command, forType: .string)
-            Self.terminalQueue.async { _ = Shell.run("/usr/bin/open", ["-a", "Terminal"]) }
-            model.copiedUpdate = update.toolID
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-                MainActor.assumeIsolated { if self?.model.copiedUpdate == update.toolID { self?.model.copiedUpdate = nil } }
+        Self.terminalQueue.async { [weak self] in
+            let dir = Shell.which(binary).map { ($0 as NSString).deletingLastPathComponent }
+            guard let text = TerminalCommand.script(toolName: toolName, command: command, binaryDir: dir),
+                  let url = try? TerminalCommand.write(text),
+                  let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+            NSWorkspace.shared.open([url], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.model.updatingTool = update.toolID
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+                        MainActor.assumeIsolated { if self?.model.updatingTool == update.toolID { self?.model.updatingTool = nil } }
+                    }
+                }
             }
         }
     }

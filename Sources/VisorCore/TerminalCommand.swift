@@ -1,13 +1,12 @@
 import Foundation
 
-/// The AppleScript that opens a Terminal tab with a catalog command typed on
-/// its prompt, not run. zsh's `print -z` pushes text onto the next prompt's
-/// edit buffer, so the user reads it and presses Return; no keystrokes are
-/// posted, so no Accessibility is needed. The only thing Terminal runs is our
-/// own `print`, never the command.
+/// The script Terminal runs for Update on a release card. It is written to a
+/// private temp folder and opened with Terminal (a `.command` file runs in a
+/// new window), so nothing is typed into the user's own shell and no
+/// Automation permission is needed. The only command in it is the catalog's.
 public enum TerminalCommand {
     /// Letters, digits and `space - _ . / @ :` only: every catalog command fits,
-    /// and nothing a shell or AppleScript treats specially can get through.
+    /// and nothing a shell treats specially (quotes, `$`, `;`, newlines) can get through.
     public static func isSafe(_ command: String) -> Bool {
         !command.isEmpty && command.count <= 120 && command.unicodeScalars.allSatisfy {
             ($0.isASCII && ($0.properties.isAlphabetic || ("0"..."9").contains(Character($0))))
@@ -15,29 +14,37 @@ public enum TerminalCommand {
         }
     }
 
-    /// True when a login shell path (the passwd entry or $SHELL) is zsh.
-    public static func isZsh(_ shellPath: String?) -> Bool {
-        shellPath?.split(separator: "/").last == "zsh"
-    }
-
-    /// nil when the command isn't plain (it is then never sent to a shell).
-    /// The line starts with one space: a startup prompt that reads one character
-    /// (oh-my-zsh's update question) gets " " (no), and zsh ignores it. `--`
-    /// keeps a leading "-" from being read as an option. Only for zsh; other
-    /// shells get the command on the clipboard instead (`needsClipboard`).
-    public static func appleScript(typing command: String) -> String? {
-        guard isSafe(command) else { return nil }
-        let line = " print -z -- '\(command)'"
+    /// nil when the command, the tool name or the folder isn't plain. PATH is the
+    /// radar's: the binary's folder, then Homebrew and the system. The script
+    /// removes itself first so it is gone even if the window is closed mid-run.
+    public static func script(toolName: String, command: String, binaryDir: String?) -> String? {
+        guard isSafe(command), isSafe(toolName) else { return nil }
+        var path = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        if let dir = binaryDir, isSafe(dir), dir.hasPrefix("/") { path = "\(dir):" + path }
         return """
-        tell application "Terminal"
-            activate
-            do script "\(escaped(line))"
-        end tell
+        #!/bin/zsh -f
+        rm -f -- "$0"; rmdir -- "${0:h}" 2>/dev/null
+        export PATH='\(path)'
+        print -r -- 'Visor: updating \(toolName)'
+        \(command)
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+          print -r -- 'Done. You can close this window.'
+        else
+          print -r -- "Update failed (exit status $rc). You can close this window."
+        fi
+
         """
     }
 
-    /// For an AppleScript string literal.
-    public static func escaped(_ text: String) -> String {
-        text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+    /// Writes the script into a fresh 0700 folder as a 0700 `.command` file.
+    public static func write(_ script: String, in base: URL = FileManager.default.temporaryDirectory) throws -> URL {
+        let dir = base.appendingPathComponent("visor-update-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        let url = dir.appendingPathComponent("update.command")
+        guard FileManager.default.createFile(atPath: url.path, contents: Data(script.utf8), attributes: [.posixPermissions: 0o700]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return url
     }
 }
