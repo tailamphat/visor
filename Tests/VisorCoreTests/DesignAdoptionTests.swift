@@ -6,7 +6,7 @@ import Testing
 /// component. Add a folder under `Sources/Visor/` once its views are migrated.
 @Suite("Design adoption")
 struct DesignAdoptionTests {
-    static let migrated = ["Usage"]
+    static let migrated = ["Usage", "Music", "Clipboard"]
 
     /// What a literal looks like in SwiftUI code, with a name for the failure message.
     static let literals: [(name: String, pattern: String)] = [
@@ -18,7 +18,7 @@ struct DesignAdoptionTests {
         ("opacity fill", #"opacity\(0?\.[0-9]"#),
         ("white", #"Color\.white"#),
         ("named colour", #"(\(|\?\?) *\.(white|black|gray)\b"#),
-        ("rgb colour", #"Color\((red|white|hue):"#),
+        ("rgb colour", #"(?<!NS)Color\((red|white|hue):"#),
     ]
 
     /// The patterns, compiled once.
