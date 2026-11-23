@@ -256,14 +256,12 @@ struct StuckBanner: View {
     let model: AppModel
     static let spacing: CGFloat = 3
     /// Three rows (16, 15 and 18 pt) inside the same inset on every side.
-    static let height: CGFloat = 2 * Theme.cardInset + 16 + 15 + 18 + 2 * spacing
+    static let height = CGFloat(DesignComponents.Banner.height(rows: [16, 15, 18], spacing: Double(spacing)))
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.spacing) {
             HStack(spacing: 6) {
-                Text("Stuck?").font(.system(size: 10, weight: .semibold)).foregroundStyle(.black)
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(Capsule().fill(Theme.stuck))
+                Badge("Stuck?", .solid(Theme.stuck))
                 AgentMark(agent: stuck.agent, size: 13)
                 (Text(stuck.agent).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
                     + Text(session.map { " · \($0.project)" } ?? "").foregroundColor(Theme.textMuted))
@@ -281,29 +279,16 @@ struct StuckBanner: View {
                 Text(stuck.error ?? "").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textMuted)
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
-                button("Ignore", primary: false) { model.ignoreStuck?(stuck) }
+                Button("Ignore") { model.ignoreStuck?(stuck) }.buttonStyle(CardButton(.secondary))
                     .help("Hide until it makes progress")
                 if let session {
-                    button("Open", primary: true) { model.focusAgent?(session) }
+                    Button("Open") { model.focusAgent?(session) }.buttonStyle(CardButton(.primary))
                         .help(session.host.map { "Open \($0)" } ?? "Open")
                 }
             }
             .frame(height: 18)
         }
-        .padding(Theme.cardInset)
-        .frame(height: Self.height)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.stuck.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.stuck.opacity(0.35), lineWidth: 1))
-    }
-
-    private func button(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(primary ? .white : Theme.textPrimary)
-                .padding(.horizontal, 9).frame(height: 18)
-                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(primary ? Theme.accent : Color.white.opacity(0.12)))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        .bannerCard(tint: Theme.stuck, height: Self.height)
     }
 }
 

@@ -13,8 +13,8 @@ struct HandoffBanner: View {
     static let spacing: CGFloat = 3
 
     static func height(for handoff: Handoff) -> CGFloat {
-        let rows = CGFloat(min(maxTargets, handoff.targets.count))
-        return 2 * Theme.cardInset + 16 + 18 + rows * rowHeight + (rows + 1) * spacing
+        let targets = Array(repeating: Double(rowHeight), count: min(maxTargets, handoff.targets.count))
+        return CGFloat(DesignComponents.Banner.height(rows: [16] + targets + [18], spacing: Double(spacing)))
     }
 
     var body: some View {
@@ -56,18 +56,17 @@ struct HandoffBanner: View {
             }
             HStack(spacing: 6) {
                 Spacer(minLength: 6)
-                button("Later", primary: false) { model.laterHandoff?(handoff) }
+                Button("Later") { model.laterHandoff?(handoff) }.buttonStyle(CardButton(.secondary))
                     .help("Hide until this limit resets")
-                button(model.handoffCopied == handoff.id ? "Copied" : "Copy handoff for \(handoff.targets.first?.agent ?? "")",
-                       primary: true) { model.copyHandoff?(handoff) }
-                    .help("Copies a note for the other agent: project, task, files touched, last test run")
+                Button(model.handoffCopied == handoff.id ? "Copied" : "Copy handoff for \(handoff.targets.first?.agent ?? "")") {
+                    model.copyHandoff?(handoff)
+                }
+                .buttonStyle(CardButton(.primary))
+                .help("Copies a note for the other agent: project, task, files touched, last test run")
             }
             .frame(height: 18)
         }
-        .padding(Theme.cardInset)
-        .frame(height: Self.height(for: handoff))
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.warning.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.warning.opacity(0.35), lineWidth: 1))
+        .bannerCard(tint: Theme.warning, height: Self.height(for: handoff))
     }
 
     private var project: String? {
@@ -79,16 +78,5 @@ struct HandoffBanner: View {
             return "Claude \(handoff.limitTitle) limit is out"
         }
         return "Claude limit runs out in ~\(time)"
-    }
-
-    private func button(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(primary ? .white : Theme.textPrimary)
-                .lineLimit(1)
-                .padding(.horizontal, 9).frame(height: 18)
-                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(primary ? Theme.accent : Color.white.opacity(0.12)))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }

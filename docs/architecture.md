@@ -6,7 +6,7 @@ Visor is a menu bar app with no Dock icon that draws a black panel over the MacB
 
 | Target | Owns |
 |---|---|
-| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalCall`, `ApprovalRelease`, `TerminalAnswer`, `ApprovalLog`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), the limit handoff (`HandoffPlanner`: from current limits, pace and sessions only, whether a Claude limit runs out soon, which agents have room, and the clipboard note: project, task, files, test outcome, never commands or tool input), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), MCP health (`MCPConfig`: configured server names only, never values, from each agent's config files; `MCPStats`: calls, recent failures and top tools per server from `PostToolUse`/`PostToolUseFailure` tool names, capped; `MCPSummary`: the Agents-tab line and rows, no dates or counts), the Lua runtime (`Plugins/LuaPlugin.swift`), design tokens (`DesignTokens`, `DesignScale`). |
+| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalCall`, `ApprovalRelease`, `TerminalAnswer`, `ApprovalLog`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), the limit handoff (`HandoffPlanner`: from current limits, pace and sessions only, whether a Claude limit runs out soon, which agents have room, and the clipboard note: project, task, files, test outcome, never commands or tool input), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), MCP health (`MCPConfig`: configured server names only, never values, from each agent's config files; `MCPStats`: calls, recent failures and top tools per server from `PostToolUse`/`PostToolUseFailure` tool names, capped; `MCPSummary`: the Agents-tab line and rows, no dates or counts), the Lua runtime (`Plugins/LuaPlugin.swift`), design tokens (`DesignTokens`, `DesignScale`) and shared component measurements (`DesignComponents`). |
 | `Sources/Visor` | The app. One folder per feature, below. |
 | `Sources/VisorBridge` | `visor-bridge`, the native messaging host browsers start for the extension. |
 | `Sources/CLua` | Vendored Lua 5.4.7 plus `clua.c`. |
@@ -20,7 +20,7 @@ App folders:
 - `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`), and the release radar: `RadarService` (every 6 h on queue `visor.radar`, first check 2 min after launch or 6 h after the saved last one; `--version` only when the binary's stamp changed; the folders holding offered tools' links and their binaries are watched (`DispatchSource`, 2 s settle), and a change reruns only `--version` so a caught-up card shows "Updated" for 3 s and goes (`RadarState.confirm`/`cards`); formulae from a tap other than Homebrew core (`BrewReceipt`) are skipped; GETs only `registry.npmjs.org`, `formulae.brew.sh`, `api.github.com` through `ReleaseFetcher`, which refuses any other redirect target and cuts answers at 2 MB; log in `~/Library/Logs/Visor/radar.log`) with `RadarCard` (the "What's new" section). Its logic is `RadarState` and `ReleaseRadar` in VisorCore.
 - `Music`: `MusicService`, `BrowserBridgeServer`, `MusicView`.
 - `Clipboard`, `Bar` (tab hidden for now), `Office` (pixel office for the Agents tab), `Plugins` (`PluginService`, `PluginRunner`, `PluginsView`).
-- `DesignSystem/`: `Tokens.swift` (`DS`: the design tokens as SwiftUI fonts, radii, fills, spacing and sizes, read from VisorCore's `DesignTokens`).
+- `DesignSystem/`: `Tokens.swift` (`DS`: the design tokens as SwiftUI fonts, radii, fills, spacing and sizes, read from VisorCore's `DesignTokens`); `SharedComponents.swift` (`CardButton`, `DismissButton`, `Badge`, `SectionHeader`, `.bannerCard`).
 - `Shared`: small views. `Support`: `Shell`, `UnixSocketListener`, `AudioOutputWatcher`, `HotKey`, `MediaKeys`.
 
 ## Data flows
@@ -112,6 +112,21 @@ Every colour, type size, radius, fill strength, spacing and fixed size comes fro
 | Size | bar 4, cardInset 10, button 18, iconLarge 20 (SF Symbol icons, not text) |
 
 Moving an old literal onto the scale: `DesignScale.snap(value, to:)` picks the nearest step, a tie goes to the smaller step (nothing grows inside a fixed-height row), and values past the ends clamp. So 10.5 pt is `sm`, radius 10 is `md`, fill .1 is `subtle`, padding 9 is `md`.
+
+### Shared components
+
+Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value is a token step except the named constants `Banner.strokeOpacity`, `CardButton.pressedOpacity`, `SectionHeader.tracking`; `DesignComponents.measurements` lists them all); SwiftUI views in `Sources/Visor/DesignSystem/SharedComponents.swift`. Use them instead of a view's own button, badge or card chrome.
+
+| Component | Use | Looks |
+|---|---|---|
+| `Button("Open") {}.buttonStyle(CardButton(.primary))` | the main action in a card | 18 pt, radius sm, base semibold, padding md, accent fill, white text |
+| `CardButton(.secondary)` | the other card actions (Later, Ignore) | same, white fill medium; both dim to .75 while held |
+| `DismissButton(help: "Close") { }` | the "x" on a card | 18 pt square, xmark at sm bold, muted |
+| `.bannerCard(tint:height:)` | a tinted card over a list (Stuck?, handoff) | cardInset on all sides, radius md, tint at fill subtle, tint stroke .35 |
+| `Badge("Stuck?", .solid(tint))`, `Badge("v2", .neutral)` | a small capsule label | sm semibold, padding sm x hair, black on tint or white fill medium |
+| `SectionHeader("Plans")` | the uppercase title over a group | sm semibold, uppercase, tracking 0.6, muted |
+
+A banner's height is `DesignComponents.Banner.height(rows:spacing:)`: fixed-height rows plus gaps inside the inset. To add a component: its measurements as token references in `DesignComponents`, each added to `measurements` (`Design components` tests fail otherwise), then the view in `SharedComponents.swift`, then a row in this table.
 
 ## Patterns
 
