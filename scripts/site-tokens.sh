@@ -47,6 +47,11 @@ block() {
       return out
     }
     function fail(msg) { printf "%s:%d: %s\n", file, NR, msg > "/dev/stderr"; bad = 1; exit 2 }
+    function emit(var, value) {
+      if (var in seen) fail("two tokens make " var)
+      seen[var] = 1
+      printf "    %s: %s;\n", var, value
+    }
     /^public enum DesignScale/ { exit }
     /^[[:space:]]*\/\// { next }
     /^public enum DesignTokens[[:space:]]*\{/ { inside = 1; next }
@@ -56,6 +61,7 @@ block() {
       if (group !~ /^(Palette|TypeScale|Radius|Fill|Space|Size)$/) fail("unknown token group " group)
       next
     }
+    /^    \}/ { group = ""; next }
     /static let/ {
       line = $0
       if (!match(line, /public static let [A-Za-z][A-Za-z0-9]*: (UInt32|Double) = [-0-9A-Fa-fx.]+[[:space:]]*$/))
@@ -65,13 +71,13 @@ block() {
       name = w[4]; sub(/:$/, "", name); type = w[5]; value = w[7]
       if (group == "Palette") {
         if (type != "UInt32" || length(value) != 8 || value !~ /^0x[0-9A-Fa-f]+$/) fail("colour must be UInt32 0xRRGGBB")
-        printf "    --v-%s: #%s;\n", kebab(name), toupper(substr(value, 3))
+        emit("--v-" kebab(name), "#" toupper(substr(value, 3)))
       } else {
         if (type != "Double" || value !~ /^[0-9]+(\.[0-9]+)?$/) fail("size must be a Double literal")
-        if (group == "Fill") printf "    --v-fill-%s: rgba(255,255,255,%s);\n", kebab(name), value
+        if (group == "Fill") emit("--v-fill-" kebab(name), "rgba(255,255,255," value ")")
         else {
           prefix = (group == "TypeScale") ? "type" : tolower(group)
-          printf "    --v-%s-%s: %spx;\n", prefix, kebab(name), value
+          emit("--v-" prefix "-" kebab(name), value "px")
         }
       }
       count++
@@ -85,17 +91,30 @@ block() {
 
 OUT="$(block)" || exit 2
 
-# The current block in HTML, markers included, or nothing.
+# Exactly one begin line, then exactly one end line after it; anything else stops
+# before a read or a write, so a lost end marker can never swallow the page.
+markers() {
+  local b e
+  b="$(grep -c 'tokens:begin \*/' "$1" || true)"; e="$(grep -c 'tokens:end \*/' "$1" || true)"
+  [[ "$b" == 0 && "$e" == 0 ]] && return 1
+  if [[ "$b" != 1 || "$e" != 1 ]] ||
+     (( $(grep -n 'tokens:begin \*/' "$1" | cut -d: -f1) > $(grep -n 'tokens:end \*/' "$1" | cut -d: -f1) )); then
+    echo "$1: needs one /* tokens:begin */ line followed by one /* tokens:end */ line (found $b begin, $e end)" >&2
+    exit 2
+  fi
+}
+
+# The current block in HTML, markers included.
 current() { awk '/\/\* tokens:begin \*\// { on = 1 } on { print } /\/\* tokens:end \*\// { if (on) exit }' "$1"; }
 
 case "$MODE" in
   print) echo "$OUT" ;;
   check)
     [[ -f "$HTML" ]] || { echo "site-tokens: no $HTML" >&2; exit 2; }
-    CUR="$(current "$HTML")"
-    if [[ -z "$CUR" ]]; then
+    if ! markers "$HTML"; then
       echo "$HTML: no tokens block (run scripts/site-tokens.sh --write)" >&2; exit 1
     fi
+    CUR="$(current "$HTML")"
     if [[ "$CUR" != "$OUT" ]]; then
       echo "$HTML: tokens block differs from $TOKENS (run scripts/site-tokens.sh --write)" >&2
       diff <(echo "$CUR") <(echo "$OUT") >&2 || true
@@ -104,7 +123,7 @@ case "$MODE" in
     ;;
   write)
     [[ -f "$HTML" ]] || { echo "site-tokens: no $HTML" >&2; exit 2; }
-    [[ -n "$(current "$HTML")" ]] || { echo "$HTML: add the /* tokens:begin */ and /* tokens:end */ lines first" >&2; exit 2; }
+    markers "$HTML" || { echo "$HTML: add the /* tokens:begin */ and /* tokens:end */ lines first" >&2; exit 2; }
     TMPF="$(mktemp)"
     BLOCK="$OUT" awk '
       /\/\* tokens:begin \*\// { print ENVIRON["BLOCK"]; skip = 1; next }

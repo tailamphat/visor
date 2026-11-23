@@ -103,20 +103,24 @@ while IFS=$'\t' read -r f n text; do
 done < "$TMP/added"
 
 # 4. The website's design tokens: the block in docs/index.html matches DesignTokens.swift,
-#    and added site lines use var(--v-*) instead of a raw hex equal to a palette token
-#    (a hex shown as text, right after ">", is content and stays).
+#    and added site lines use var(--v-*) instead of a raw 6-digit hex equal to a palette token.
+#    Exempt: a hex shown as text (right after ">"), and the hidden SVG defs (agent brand
+#    marks and .art scenes keep their own palettes; presentation attributes can't take var()).
+#    #fff/#000 shorthands and rgba() are left to the design-system items that follow.
 SITE=docs/index.html
 if [[ -f "$SITE" ]]; then
   TB="$(grep -n 'tokens:begin \*/' "$SITE" | head -1 | cut -d: -f1)"
   TE="$(grep -n 'tokens:end \*/' "$SITE" | head -1 | cut -d: -f1)"
+  DB="$(grep -n '^<svg width="0" height="0"' "$SITE" | head -1 | cut -d: -f1)"
+  DE="$(awk -v b="${DB:-0}" 'b && NR > b && /^<\/svg>/ { print NR; exit }' "$SITE")"
   if ! scripts/site-tokens.sh --check "$SITE" > "$TMP/tokens.log" 2>&1; then
-    hit "$SITE" "${TB:-1}" "$(sed -n '1s/^[^:]*: //p' "$TMP/tokens.log")"
+    hit "$SITE" "${TB:-1}" "tokens: $(head -1 "$TMP/tokens.log")"
   fi
-  scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
-  awk -F'\t' -v site="$SITE" -v b="${TB:-0}" -v e="${TE:-0}" -v pal="$TMP/palette" '
+  scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z0-9-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
+  awk -F'\t' -v site="$SITE" -v b="${TB:-0}" -v e="${TE:-0}" -v db="${DB:-0}" -v de="${DE:-0}" -v pal="$TMP/palette" '
     BEGIN { while ((getline line < pal) > 0) { split(line, p, " "); name[p[1]] = p[2] } }
-    $1 == site && ($2 < b || $2 > e) {
-      s = $3
+    $1 == site && ($2 < b || $2 > e) && ($2 < db || $2 > de) {
+      s = substr($0, length($1) + length($2) + 3)
       while (match(s, /#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]/)) {
         h = toupper(substr(s, RSTART, 7))
         before = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
