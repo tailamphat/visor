@@ -102,6 +102,33 @@ while IFS=$'\t' read -r f n text; do
   fi
 done < "$TMP/added"
 
+# 4. The website's design tokens: the block in docs/index.html matches DesignTokens.swift,
+#    and added site lines use var(--v-*) instead of a raw hex equal to a palette token
+#    (a hex shown as text, right after ">", is content and stays).
+SITE=docs/index.html
+if [[ -f "$SITE" ]]; then
+  TB="$(grep -n 'tokens:begin \*/' "$SITE" | head -1 | cut -d: -f1)"
+  TE="$(grep -n 'tokens:end \*/' "$SITE" | head -1 | cut -d: -f1)"
+  if ! scripts/site-tokens.sh --check "$SITE" > "$TMP/tokens.log" 2>&1; then
+    hit "$SITE" "${TB:-1}" "$(sed -n '1s/^[^:]*: //p' "$TMP/tokens.log")"
+  fi
+  scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
+  awk -F'\t' -v site="$SITE" -v b="${TB:-0}" -v e="${TE:-0}" -v pal="$TMP/palette" '
+    BEGIN { while ((getline line < pal) > 0) { split(line, p, " "); name[p[1]] = p[2] } }
+    $1 == site && ($2 < b || $2 > e) {
+      s = $3
+      while (match(s, /#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]/)) {
+        h = toupper(substr(s, RSTART, 7))
+        before = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
+        after = substr(s, RSTART + 7, 1)
+        if ((h in name) && after !~ /[0-9A-Fa-f]/ && before != ">")
+          printf "%s:%s: raw %s equals token %s (use var(--v-%s))\n", $1, $2, h, name[h], name[h]
+        s = substr(s, RSTART + 7)
+      }
+    }
+  ' "$TMP/added" >> "$HITS"
+fi
+
 if [[ -f "$WORDS" ]]; then
   while IFS= read -r word || [[ -n "$word" ]]; do
     word="${word%%#*}"; word="$(echo "$word" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"

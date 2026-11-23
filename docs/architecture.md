@@ -102,6 +102,7 @@ Every colour, type size, radius, fill strength, spacing and fixed size comes fro
 
 - Values: `Sources/VisorCore/DesignTokens.swift`, one `public static let name: Type = literal` per line inside `enum Palette`, `TypeScale`, `Radius`, `Fill`, `Space`, `Size` (colours as `UInt32` hex). The website's token generator reads this file as text, so keep that line shape. `DesignScale` holds the same values as tables (`typeScale`, `radius`, `fill`, `space`, `size`, `palette`, and `all`) plus `snap`.
 - SwiftUI: `Sources/Visor/DesignSystem/Tokens.swift` (`DS.font(.sm, .semibold)`, `DS.Radius.md`, `DS.Fill.subtle`, `DS.Space.sm`, `DS.Size.button`). `Theme` stays the entry point for colours and reads them from `DesignTokens.Palette`.
+- Website: `scripts/site-tokens.sh` turns the tokens into `--v-*` CSS variables (`--v-accent`, `--v-type-sm`, `--v-radius-md`, `--v-fill-subtle`, `--v-space-sm`, `--v-size-button`), kept between `/* tokens:begin */` and `/* tokens:end */` at the top of `docs/index.html`'s style; the notch mocks use `var(--v-*)`. After changing a token run `scripts/site-tokens.sh --write`; `scripts/check.sh` fails when the block is stale or an added site line uses a raw hex equal to a palette token.
 
 | Group | Steps |
 |---|---|
