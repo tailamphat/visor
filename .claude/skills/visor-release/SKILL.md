@@ -47,7 +47,9 @@ Spawn agents only for flagged surfaces, both in one message so they run in paral
 | Agent | When | Files it owns |
 |---|---|---|
 | Docs (sonnet) | features, network or storage, hooks or plugins | README.md, docs/features.md, docs/how-it-works.md, SECURITY.md (docs/plugins.md if the plugin API changed) |
-| Website (sonnet) | features | docs/index.html |
+| Website (sonnet; inherit when UI changed) | features | docs/index.html |
+
+The website agent model is inherit (not sonnet) when any feature adds or changes UI: drawing the notch UI in the site's HTML needs it. It classifies each change as new UI, changed existing UI or no UI, and updates the drawn demos to match; a new section without its drawn UI is not done.
 
 Fill the briefs in `briefs.md` with `{version}`, `{previous_minor}` and the path to `changes.md`. Skip an agent when none of its surfaces are flagged. When only fixes changed, skip both. Each agent edits in place and replies with a short summary; don't reread its files, read `git diff` instead.
 
@@ -78,6 +80,7 @@ Show one short review: a single artifact if it is long, else a message. Include:
 - `git diff --stat`
 - `git diff` of the docs and website changes
 - screenshots that may be stale
+- the website opened locally (`open docs/index.html`) and the agent's new-UI / changed-UI / no-UI list, so the user can check the drawn demos
 - preflight result
 
 Ask: go, or what to change. Apply changes and show only the new diff. Wait for go.

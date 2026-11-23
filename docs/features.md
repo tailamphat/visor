@@ -13,8 +13,8 @@ Every feature below uses the same labels, in the same order. A label is left out
 
 ## Contents
 
-- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Provider status](#provider-status)
-- [Usage](#usage): [Limits](#limits), [Pace](#pace), [Spend](#spend), [Tokens](#tokens), [Connected accounts](#connected-accounts)
+- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Provider status](#provider-status), [MCP servers](#mcp-servers)
+- [Usage](#usage): [Limits](#limits), [Pace](#pace), [Spend](#spend), [Tokens](#tokens), [Connected accounts](#connected-accounts), [Release radar](#release-radar)
 - [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Keep awake](#keep-awake)
 - [Plugins](#plugins)
 - [Closed notch signs](#closed-notch-signs)
@@ -28,11 +28,11 @@ See every running agent session and what it is doing right now.
 
 <img src="assets/agents.png" width="496" alt="The Agents tab with three sessions">
 
-- **Works with:** Claude Code, Copilot CLI, Antigravity CLI.
+- **Works with:** Claude Code, Copilot CLI, Antigravity CLI. Codex CLI, OpenCode and Gemini CLI show too, read-only.
 - **What you see:** the Agents tab lists sessions grouped by agent, two to a row, with the current activity ("Bash: npm test", "Edit: Main.swift"), and which ones are waiting for you or have finished. Each Claude Code session has a ring around its icon showing how full its context window is; it turns amber with the percent from 80%, when the session is about to compact.
 - **How to use:** click a session to bring its app forward. Connect agents with **Connect your agents** in the notch, or under Agents in the menu bar menu.
-- **Good to know:** transcripts don't say whether a session has the 200k or the 1M context window. Visor counts it as 1M once it goes past 200k, or when the `model` setting asks for `[1m]`. Sessions are saved and restored after a restart, minus agents whose process has exited.
-- **How it works:** agent hooks send events to a Unix socket owned by Visor. See [Claude Code](how-it-works.md#claude-code-hooks), [Copilot CLI](how-it-works.md#copilot-cli-hooks) and [Antigravity CLI](how-it-works.md#antigravity-cli-hooks) hooks. The context ring reads the last reply in the session's transcript.
+- **Good to know:** transcripts don't say whether a session has the 200k or the 1M context window. Visor counts it as 1M once it goes past 200k, or when the `model` setting asks for `[1m]`. Sessions are saved and restored after a restart, minus agents whose process has exited. Codex CLI, OpenCode and Gemini CLI sessions come from their own files: no hooks and no approvals. They show while the agent runs in its folder, or for 30 minutes (working) or 10 minutes (finished) after the file last changed.
+- **How it works:** agent hooks send events to a Unix socket owned by Visor. See [Claude Code](how-it-works.md#claude-code-hooks), [Copilot CLI](how-it-works.md#copilot-cli-hooks) and [Antigravity CLI](how-it-works.md#antigravity-cli-hooks) hooks. The context ring reads the last reply in the session's transcript. Codex, OpenCode and Gemini sessions are read from their files, see [Codex CLI, OpenCode and Gemini CLI](how-it-works.md#codex-cli-opencode-and-gemini-cli).
 
 ### Subagents
 
@@ -109,6 +109,16 @@ Know when the service behind an agent is having an incident.
 - **What you see:** the notch peeks once, the tool's mark gets a red (major) or amber dot, and the Usage tab says what's wrong, with a link.
 - **Good to know:** checked every five minutes, only for tools you've connected.
 
+### MCP servers
+
+See which MCP servers your agents use and whether they are failing.
+
+- **Works with:** Claude Code, Copilot CLI, Codex CLI, Gemini CLI, Antigravity CLI, OpenCode (server names); call counts come from Claude Code and Copilot CLI hooks.
+- **What you see:** one line under the sessions, for example "MCP 4 · figma failed 3x in web-shop".
+- **How to use:** click the line to open a list of every server with the agents that use it, its state and its most called tools.
+- **Good to know:** Visor reads only server names from the configs, never their values, and skips protected folders and folders outside your home.
+- **How it works:** see [MCP servers](how-it-works.md#mcp-servers).
+
 ## Usage
 
 ### Limits
@@ -160,6 +170,16 @@ Check and fix each tool's sign-in in one place.
 - **What you see:** each tool's status: connected as whom, not signed in, not installed, keychain access denied, or API key.
 - **How to use:** the gear on the Usage tab opens it. Each tool has a button to fix it (**Allow access**, **Sign in…** in Terminal, **Refresh**), a switch to hide it from the Usage tab and the notch, and a handle to drag it to a new place in Usage and the closed notch.
 - **Good to know:** VS Code keeps its Copilot sign-in encrypted, so VS Code-only users need `gh auth login`. A refused keychain prompt isn't asked again until you press Allow access.
+
+### Release radar
+
+Know when an AI tool on your Mac has a newer release.
+
+- **Works with:** Claude Code, Copilot CLI, Codex CLI, Gemini CLI, OpenCode.
+- **What you see:** a peek once per new release, and a "What's new" card with the top changes in the Usage tab until you dismiss it.
+- **How to use:** press **Update** on the card. Visor opens a Terminal window that runs the tool's own update command and shows the result.
+- **Good to know:** checked every 6 hours. Only tools installed on your Mac are checked, and the update command comes from Visor's built-in list, never from a feed.
+- **How it works:** see [Release radar](how-it-works.md#release-radar).
 
 ## Everyday
 
@@ -225,6 +245,7 @@ Put your own things in the notch with small Lua files.
 | Green check | An agent finished, or a question was answered. Open the notch for the [turn summary](#turn-summary) |
 | A percent | The most urgent usage limit |
 | A time ("42m") | A limit will run out within the hour |
+| Orange edge under the notch | A local build, not the release (the menu bar icon is orange with a dot, and the first menu line shows version, commit and worktree) |
 | Small cup | [Keep awake](#keep-awake) is holding sleep off |
 | Red or amber dot on a mark | A [provider incident](#provider-status) |
 | Two marks and "same file" | A [clash warning](#clash-warning) |

@@ -6,8 +6,8 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 
 ## Contents
 
-- [Agents](#agents): [Claude Code](#claude-code-hooks), [Copilot CLI](#copilot-cli-hooks), [Antigravity CLI](#antigravity-cli-hooks), [Approvals](#approvals)
-- [Usage](#usage): [Claude limits](#claude-limits), [Copilot](#copilot), [Antigravity](#antigravity), [OpenCode](#opencode), [Claude spend](#claude-spend), [Provider status](#provider-status)
+- [Agents](#agents): [Claude Code](#claude-code-hooks), [Copilot CLI](#copilot-cli-hooks), [Antigravity CLI](#antigravity-cli-hooks), [Codex CLI, OpenCode and Gemini CLI](#codex-cli-opencode-and-gemini-cli), [MCP servers](#mcp-servers), [Approvals](#approvals)
+- [Usage](#usage): [Claude limits](#claude-limits), [Copilot](#copilot), [Antigravity](#antigravity), [OpenCode](#opencode), [Claude spend](#claude-spend), [Provider status](#provider-status), [Release radar](#release-radar)
 - [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Browser music](#browser-music)
 - [What Visor writes](#what-visor-writes)
 
@@ -31,6 +31,18 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 
 - **Reads:** menu bar → Agents → Antigravity CLI writes the `"visor"` entry in `~/.gemini/config/hooks.json`. Antigravity's `SessionStart`, `PreInvocation`, `PreToolUse`, `PostToolUse` and `Stop` hooks feed the same socket, so its sessions show up with their project, prompt and current tool.
 - **Good to know:** `PreToolUse` returns `{"decision":"allow"}`, which defers to Antigravity's own permission rules; approvals stay in its terminal. Restart `agy` after connecting so it loads the hooks.
+
+### Codex CLI, OpenCode and Gemini CLI
+
+- **Reads:** Codex rollouts in `$CODEX_HOME/sessions/` (default `~/.codex`), OpenCode's `opencode.db` (read-only, through `sqlite3`) and Gemini CLI chats in `~/.gemini/tmp/<project>/chats/`. Nothing else under `~/.gemini` is opened.
+- **Refresh:** file watchers, at most one read a second, plus a 5 second check for new files.
+- **Good to know:** no hooks and no config edits, so no approvals. A session shows while its process runs in its folder, or for 30 minutes (working) or 10 minutes (finished) after its file changed.
+
+### MCP servers
+
+- **Reads:** the server names (never values) from each agent's config: Claude Code, Copilot CLI, Codex CLI, Gemini CLI, Antigravity CLI and OpenCode. Call counts, recent failures and top tools come from the `PostToolUse` and `PostToolUseFailure` hooks.
+- **Refresh:** configs are read off the main thread, only when the session folders or a config file change.
+- **Good to know:** size, type and count caps apply; protected folders and folders outside your home are never opened.
 
 ### Approvals
 
@@ -89,6 +101,13 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 - **Network:** the public status pages status.claude.com (Claude Code, Claude API) and githubstatus.com (Copilot).
 - **Refresh:** every five minutes, only for tools you've connected.
 
+### Release radar
+
+- **Reads:** each installed tool's own `--version` (only when its binary changes) and the latest version from its install channel's public feed.
+- **Network:** `registry.npmjs.org` (npm), `formulae.brew.sh` (Homebrew) and `api.github.com` (GitHub releases). No sign-in is sent. Every redirect target is checked, and answers are capped at 2 MB.
+- **Refresh:** every 6 hours.
+- **Good to know:** the **Update** button writes a private script that opens in Terminal and runs the tool's update command from Visor's own list. Nothing is typed into your shell and no Automation permission is needed.
+
 ## Everyday
 
 ### Clipboard
@@ -113,5 +132,5 @@ Every source below uses the same labels, left out when empty: **Reads**, **Netwo
 ## What Visor writes
 
 - A hook entry in each connected agent's settings: `~/.claude/settings.json` (with a one-time backup), `~/.copilot/hooks/visor.json`, `~/.gemini/config/hooks.json`.
-- `~/Library/Application Support/Visor/`: the hook script, sockets, `sessions.json`, `copilot-rules.json`, `clipboard.json` and `Clips/`, `tokens.json`, `Plugins/` and `PluginData/`.
+- `~/Library/Application Support/Visor/`: the hook script, sockets, `sessions.json`, `copilot-rules.json`, `clipboard.json` and `Clips/`, `tokens.json`, `release-radar.json` (debug builds: `release-radar-debug.json`), `Plugins/` and `PluginData/`.
 - Settings in Visor's own user defaults.

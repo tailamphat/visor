@@ -160,6 +160,29 @@
   .fold.dashed { height: 26px; background: none; border: 1px dashed rgba(255,255,255,.14); color: #8A8980; }
   .fold.dashed em { font-weight: 400; }
   .fold svg { width: 10px; height: 10px; flex: none; }
+  /* Tools grouped by agent: a little space before each next group. */
+  .agrid + .group { margin-top: 10px; }
+  /* MCP servers (one line under the sessions; the list opens below it). */
+  .mcpl b { font-weight: 600; }
+  .mcpl .hot { color: var(--amber); }
+  .mcpl .chev { width: 11px; height: 11px; margin-left: auto; color: #8A8980; }
+  .mcpl .chev.shut { transform: rotate(-90deg); }
+  .hl.mcp { background: #1A1A19; box-shadow: none; }
+  .hl .hr .ms { margin-left: auto; padding-left: 8px; flex: none; display: flex; align-items: center; gap: 3px; font: normal 10.5px var(--sf); color: #7EE0A0; white-space: nowrap; }
+  .hl .hr .ms svg { width: 11px; height: 11px; }
+  .hl .hr .ms svg:last-of-type { margin-right: 3px; }
+  .hl .hr .ms.warn { color: var(--amber); } .hl .hr .ms.off { color: #8A8980; }
+  .hl .hd.warn { background: var(--amber); } .hl .hd.off { background: none; box-shadow: inset 0 0 0 1.5px #8A8980; }
+  /* What's new: a card per tool with an update, above Plans & limits. */
+  .wn { padding: 6px 6px 6px 10px; margin-bottom: 6px; border-radius: 10px; background: #1A1A19; }
+  .wn-h { display: flex; align-items: center; gap: 7px; height: 22px; white-space: nowrap; }
+  .wn-h > svg { width: 14px; height: 14px; flex: none; }
+  .wn-h b { font: 600 12.5px var(--sf); }
+  .wn-v { font: 11px ui-monospace, "SF Mono", Menlo, monospace; color: #8A8980; overflow: hidden; text-overflow: ellipsis; }
+  .wn-v i { font-style: normal; font-weight: 600; color: #fff; }
+  .wn-up { margin-left: auto; flex: none; height: 22px; display: grid; place-items: center; padding: 0 10px; border-radius: 99px; background: #2C2C30; color: #fff; font: 600 11px var(--sf); }
+  .wn-x { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; color: #8A8980; font: 700 10px var(--sf); }
+  .wn ul { margin: 2px 0 0; padding: 0 0 0 22px; font-size: 11px; line-height: 16px; color: #C3C2B7; }
   /* A finished turn (TurnSummaryView): the title row, the numbers in a raised box, two pills. */
   .sum { display: grid; gap: 8px; }
   .sum-h { display: flex; align-items: center; gap: 7px; height: 16px; white-space: nowrap; }
@@ -681,6 +704,8 @@
     <symbol id="claude" viewBox="0 0 24 24"><path fill="#D97757" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></symbol>
     <symbol id="copilot" viewBox="0 0 24 24"><path fill="#A78BFA" d="M23.922 16.997C23.061 18.492 18.063 22.02 12 22.02 5.937 22.02.939 18.492.078 16.997A.641.641 0 0 1 0 16.741v-2.869a.883.883 0 0 1 .053-.22c.372-.935 1.347-2.292 2.605-2.656.167-.429.414-1.055.644-1.517a10.098 10.098 0 0 1-.052-1.086c0-1.331.282-2.499 1.132-3.368.397-.406.89-.717 1.474-.952C7.255 2.937 9.248 1.980 11.978 1.980c2.731 0 4.767.957 6.166 2.093.584.235 1.077.546 1.474.952.85.869 1.132 2.037 1.132 3.368 0 .368-.014.733-.052 1.086.23.462.477 1.088.644 1.517 1.258.364 2.233 1.721 2.605 2.656a.841.841 0 0 1 .053.22v2.869a.641.641 0 0 1-.078.256Zm-11.75-5.992h-.344a4.359 4.359 0 0 1-.355.508c-.77.947-1.918 1.492-3.508 1.492-1.725 0-2.989-.359-3.782-1.259a2.137 2.137 0 0 1-.085-.104L4 11.746v6.585c1.435.779 4.514 2.179 8 2.179 3.486 0 6.565-1.4 8-2.179v-6.585l-.098-.104s-.033.045-.085.104c-.793.9-2.057 1.259-3.782 1.259-1.59 0-2.738-.545-3.508-1.492a4.359 4.359 0 0 1-.355-.508Zm2.328 3.25c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm-5 0c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm3.313-6.185c.136 1.057.403 1.913.878 2.497.442.544 1.134.938 2.344.938 1.573 0 2.292-.337 2.657-.751.384-.435.558-1.15.558-2.361 0-1.140-.243-1.847-.705-2.319-.477-.488-1.319-.862-2.824-1.025-1.487-.161-2.192.138-2.533.529-.269.307-.437.808-.438 1.578v.021c0 .265.021.562.063.893Zm-1.626 0c.042-.331.063-.628.063-.894v-.02c-.001-.77-.169-1.271-.438-1.578-.341-.391-1.046-.69-2.533-.529-1.505.163-2.347.537-2.824 1.025-.462.472-.705 1.179-.705 2.319 0 1.211.175 1.926.558 2.361.365.414 1.084.751 2.657.751 1.21 0 1.902-.394 2.344-.938.475-.584.742-1.44.878-2.497Z"/></symbol>
     <symbol id="agy" viewBox="0 0 24 24"><path fill="#3186FF" d="M20.197 20.618C21.318 21.459 23 20.898 21.459 19.357C16.834 14.873 17.815 2.541 12.07 2.541C6.325 2.541 7.306 14.873 2.682 19.357C1 21.038 2.822 21.459 3.943 20.618C8.287 17.675 8.006 12.49 12.07 12.49C16.134 12.49 15.853 17.675 20.197 20.618Z"/></symbol>
+    <symbol id="codex" viewBox="0 0 24 24"><g fill="none" stroke="#3FB68B" stroke-width="2"><rect x="8" y="2.5" width="8" height="19" rx="4"/><rect x="8" y="2.5" width="8" height="19" rx="4" transform="rotate(60 12 12)"/><rect x="8" y="2.5" width="8" height="19" rx="4" transform="rotate(120 12 12)"/></g></symbol>
+    <symbol id="gemini" viewBox="0 0 24 24"><path fill="#C47BF2" d="M12 1.5C12.7 7.3 16.7 11.3 22.5 12 16.7 12.7 12.7 16.7 12 22.5 11.3 16.7 7.3 12.7 1.5 12 7.3 11.3 11.3 7.3 12 1.5Z"/></symbol>
     <symbol id="opencode" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M22 24H2V0h20zM17 4.8H7v14.4h10z"/></symbol>
     <symbol id="i-agents" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13 6.4 8.6 2 7l4.4-1.6zM13 11l.6 1.4L15 13l-1.4.6L13 15l-.6-1.4L11 13l1.4-.6z"/></symbol>
     <symbol id="i-usage" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></symbol>
@@ -788,7 +813,7 @@
   <p class="lede">You hand a task to Claude Code, switch to something else, and come back twenty minutes later to find it's been waiting for a yes since minute two. <b>Visor</b> fixes that. It turns the black strip at the top of your MacBook into a small control room for your AI agents: who's working, who needs you, and how much of your plan is left.</p>
   <div class="install"><code id="cmd">brew install --cask tailamphat/tap/visor</code><button class="copy" id="copy" type="button">Copy</button></div>
   <p class="small">Free and open source · macOS 14 or later · Apple Silicon and Intel · <a href="#install">Setup, step by step</a></p>
-  <div class="works">Works with<span><svg><use href="#claude"/></svg>Claude Code</span><span><svg><use href="#copilot"/></svg>Copilot CLI</span><span><svg><use href="#agy"/></svg>Antigravity</span><span><svg style="color:var(--ink)"><use href="#opencode"/></svg>OpenCode</span></div>
+  <div class="works">Works with<span><svg><use href="#claude"/></svg>Claude Code</span><span><svg><use href="#copilot"/></svg>Copilot CLI</span><span><svg><use href="#agy"/></svg>Antigravity</span><span><svg style="color:var(--ink)"><use href="#opencode"/></svg>OpenCode</span><span><svg><use href="#codex"/></svg>Codex CLI</span><span><svg><use href="#gemini"/></svg>Gemini CLI</span></div>
 </div>
 <aside class="dock" aria-label="Visor on a MacBook"><div class="dock-in">
   <div class="device"><div class="lid"><div class="art">
@@ -840,6 +865,7 @@
 
           <div class="view" data-name="usage">
             <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="ugear sym s-gear" aria-hidden="true"></span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
+            <div class="ubar"><span>WHAT'S NEW</span><span style="letter-spacing:0">2 updates</span></div><div class="wn"><div class="wn-h"><svg><use href="#claude"/></svg><b>Claude Code</b><span class="wn-v">2.1.311 → <i>2.1.312</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div></div><div class="wn"><div class="wn-h"><svg><use href="#copilot"/></svg><b>Copilot CLI</b><span class="wn-v">1.0.107 → <i>1.0.114</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div></div>
             <div class="phdr" style="margin-bottom:10px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12s ago</span></div>
             <div class="ucols">
               <div>
@@ -896,6 +922,7 @@
             <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
             <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
             <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+            <div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev shut" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           </div>
 
           <div class="view" data-name="helpers" hidden>
@@ -904,6 +931,7 @@
             <div class="hl"><div class="hh">api · 3 helpers · 2 working</div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Find where the session expires</b><span>Explore · Grep: refreshToken</span></div></div><div class="hr"><svg class="hs" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.8"/><circle cx="5" cy="5" r="4" fill="none" stroke="#3987E5" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="7.5 25.2" transform="rotate(-90 5 5)"/></svg><div><b>Write tests for the login route</b><span>general-purpose · Edit: login.test.ts</span></div></div><div class="hr"><i class="hd"></i><div><b>Map the auth routes</b><span>Explore · Done</span></div></div></div>
             <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
             <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+            <div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev shut" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           </div>
 
           <div class="view" data-name="clash" hidden>
@@ -912,6 +940,22 @@
             <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard clash" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:42</span></span><span class="a2 cw">⇄ Copilot CLI too</span><span class="a2 plain">Claude Code · Terminal</span><span class="a3">Edit: session.ts</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard clash"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">1:32</span></span><span class="a2 cw">⇄ Claude Code too</span><span class="a2 plain">Copilot CLI · VS Code</span><span class="a3">Edit: session.ts</span></span></div></div>
             <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
             <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+            <div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev shut" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </div>
+
+          <div class="view" data-name="tools" hidden>
+            <div class="group"><svg><use href="#codex"/></svg>CODEX CLI · 1<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#codex"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:07</span></span><span class="a2">Codex CLI · Terminal</span><span class="a3">Bash: go test ./...</span></span></div></div><div class="group"><svg><use href="#gemini"/></svg>GEMINI CLI · 2</div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#gemini"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">0:32</span></span><span class="a2">Gemini CLI · Ghostty</span><span class="a3">Thinking · explain the build</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#gemini"/></svg></span><span class="sdot" style="background:#8A8980"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">3m ago</span></span><span class="a2">Gemini CLI · Terminal</span><span class="a3">Finished</span></span></div></div><div class="group"><svg><use href="#opencode"/></svg>OPENCODE · 2</div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#opencode"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:07</span></span><span class="a2">OpenCode · Terminal</span><span class="a3">Read: README.md</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#opencode"/></svg></span><span class="sdot" style="background:#8A8980"></span></span><span class="at"><span class="a1"><b>infra</b><span class="atime">2m ago</span></span><span class="a2">OpenCode · Ghostty</span><span class="a3">Finished</span></span></div></div>
+          </div>
+
+          <div class="view" data-name="mcp" hidden>
+            <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div><div class="agrid"><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Thinking · Add the docs</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Thinking · Match the header</span></span></div></div><div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="hl mcp"><div class="hh">MCP servers · 4</div><div class="hr"><i class="hd warn"></i><div><b>figma</b><span>get_screenshot · get_metadata</span></div><em class="ms warn"><svg><use href="#claude"/></svg>failed 3x in web-shop</em></div><div class="hr"><i class="hd"></i><div><b>acme-docs</b><span>search · get_page</span></div><em class="ms"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>working</em></div><div class="hr"><i class="hd"></i><div><b>playwright</b><span>browser_click · browser_navigate</span></div><em class="ms"><svg><use href="#claude"/></svg>working</em></div><div class="hr"><i class="hd off"></i><div><b>octocat-tracker</b><span>not called yet</span></div><em class="ms off"><svg><use href="#codex"/></svg>configured</em></div></div>
+          </div>
+
+          <div class="view" data-name="radar" hidden>
+            <div class="ubar"><span>PLANS &amp; LIMITS</span><span class="ugear sym s-gear" aria-hidden="true"></span><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-gauge" aria-hidden="true"></span></span><span ><span class="sym s-chart" aria-hidden="true"></span></span></span></div>
+            <div class="ubar"><span>WHAT'S NEW</span><span style="letter-spacing:0">2 updates</span></div><div class="wn"><div class="wn-h"><svg><use href="#claude"/></svg><b>Claude Code</b><span class="wn-v">2.1.311 → <i>2.1.312</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div><ul><li>Faster startup</li><li>/rewind for edits</li></ul></div><div class="wn"><div class="wn-h"><svg><use href="#copilot"/></svg><b>Copilot CLI</b><span class="wn-v">1.0.107 → <i>1.0.114</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div></div>
+            <div class="phdr" style="margin-bottom:10px"><svg><use href="#claude"/></svg><b>Claude Max 5x</b><span class="note">Updated 12s ago</span></div>
+            <div class="meter"><div class="top"><span>Session (5h)</span><b>91% <small>left</small></b></div><div class="bar"><i style="width:9%"></i></div><div class="cap"><span class="ok">On pace</span> · ~70% left when it resets in 3h 40m</div></div><div class="meter"><div class="top"><span>Weekly</span><b>58% <small>left</small></b></div><div class="bar"><i style="width:42%"></i></div><div class="cap"><span class="ok">On pace</span> · ~12% left when it resets Fri 09:00</div></div>
           </div>
 
           <div class="view" data-name="office" hidden>
@@ -998,7 +1042,7 @@
         <img data-world="galaxy" src="assets/office-galaxy.png" width="436" height="298" alt="The Galaxy office: a hangar with film characters at the tables and a holo-table for breaks." hidden>
         <img data-world="starfleet" src="assets/office-starfleet.png" width="436" height="298" alt="The Starfleet office: a starship deck with film characters at the consoles and a card table for breaks." hidden>
       </div>
-      <div class="cap2"><span class="tag" style="color:#F0936C;border-color:rgba(240,147,108,.4)">Worlds new in 0.7</span><h3>Watch your agents work</h3>
+      <div class="cap2"><h3>Watch your agents work</h3>
       <p>Each session is a little person at work in a cozy night studio, a Galaxy hangar or a Starfleet deck. They walk to the terminal, the bookshelf and the web, and wait at your desk when they need you.</p>
       <span class="wdots"><span data-world="studio" class="on">Night Studio</span><span data-world="galaxy">Galaxy</span><span data-world="starfleet">Starfleet</span></span></div>
     </button>
@@ -1085,7 +1129,7 @@
 
   <section class="feat" data-panel="agents">
   <div class="f-text">
-    <h2>Every agent, in one list <span class="tag">Many sessions new in 0.7</span></h2>
+    <h2>Every agent, in one list</h2>
     <p>Three terminals, two editors, and you've lost track of who's doing what. The Agents tab lists every running session, grouped by agent, with what it's doing right now: "Bash: npm test", "Edit: README.md". Click one and the app it runs in comes forward. Restart Visor and the list is still there.</p>
     <p>Sessions sit two to a row. Each Claude Code session wears a ring around its icon that shows how full its context window is; it turns amber with the percent from 80%, so you know a session is about to compact before it does.</p>
     <p>Running a dozen? Past eight, the list shows whoever needs you first, then the busiest, then the most recent, and counts the rest by tool with Show all; idle sessions fold into one line. In the office each tool keeps up to eight seats, with the rest counted on its label.</p>
@@ -1098,6 +1142,7 @@
         <div class="agrid"><div class="acard need" title="85% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#FAB219" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="82.8 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#FAB219"></span><span class="pct">85%</span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">2:14</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Needs approval · git push origin fix/checkout</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>billing</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Bash: npm test</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#copilot"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">1:32</span></span><span class="a2">Copilot CLI · VS Code</span><span class="a3">Edit: README.md</span></span></div></div>
         <div class="fold"><b>+6 more</b><span>5 Claude Code · 1 Copilot CLI</span><em>Show all</em></div>
         <div class="fold dashed"><svg><use href="#copilot"/></svg><span>2 idle Copilot CLI sessions folded</span><em>show</em></div>
+        <div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev shut" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
 </div></div>
     </figure>
   </div>
@@ -1105,7 +1150,7 @@
 
   <section class="feat" data-panel="approval">
   <div class="f-text">
-    <h2>Say yes without leaving what you're doing <span class="tag">New card in 0.7</span></h2>
+    <h2>Say yes without leaving what you're doing</h2>
     <p>When Claude Code or Copilot CLI asks to run something, the notch opens with who's asking, in which project, and the exact command. Deny and Allow sit side by side; "Always allow", with its rule in view, is a quiet link underneath, so you choose it on purpose. With the pointer over the card, Return allows, A always allows and Esc denies. Visor only takes the keyboard while the pointer is there, so your typing never goes astray. "Always" is named after the real command, so you know exactly what you're agreeing to, and a rule for <code>ls</code> never sneaks <code>ls; rm -rf build</code> through.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code and Copilot CLI. Copilot's "Always" rules are kept per project.</div>
     <button class="peek" type="button" data-show="approval">Show an approval in the MacBook →</button>
@@ -1121,7 +1166,7 @@
 
   <section class="feat" data-panel="summary" data-play>
   <div class="f-text">
-    <h2>See what it did while you were away <span class="tag">New</span></h2>
+    <h2>See what it did while you were away</h2>
     <p>An agent finishes and the notch shows its mark with a green check. Open the notch while the check is there and you get the turn in one card: how long it took, how many files it changed, lines added and removed, how many commands it ran, and whether its tests passed or failed, read from the test run's own output. The first few files are listed by name.</p>
     <p><b>Open in Terminal</b> takes you back to the agent; <b>View diff</b> opens a <code>git diff</code> of those files, new ones included, in your text editor. Visor counts it all from the events it already gets, so there's nothing to set up, and the card never replaces a panel you already had open.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Any agent Visor hears from.</div>
@@ -1142,7 +1187,7 @@
 
   <section class="feat" data-panel="helpers">
   <div class="f-text">
-    <h2>See its helpers <span class="tag">New</span></h2>
+    <h2>See its helpers</h2>
     <p>Big jobs make Claude Code split the work: it starts subagents to search the code, write tests or review, and waits on them. Before, its card just said "Thinking" while they did all the work out of sight.</p>
     <p>Now the card says "Waiting on 2 helpers" and gets a small ⑂ button with how many it started. Click it and the list opens under the cards: each helper's task, its type and what it's doing right now, with a turning arc while it works and a green dot when it's done. Working ones come first; past six, the rest fold into "+n more", so a busy agent never stretches the panel. Finished helpers clear when you send the next prompt.</p>
     <div class="avail"><svg><use href="#claude"/></svg>Claude Code's subagents (the Task tool), foreground or background.</div>
@@ -1160,7 +1205,7 @@
 
   <section class="feat" data-panel="clash" data-play>
   <div class="f-text">
-    <h2>Two agents, one file <span class="tag">New</span></h2>
+    <h2>Two agents, one file</h2>
     <p>Run a few agents in the same project and sooner or later two of them rewrite the same file, each undoing the other. Visor notices when two sessions change the same file (edits and writes, not reads) within ten minutes.</p>
     <p>The closed notch peeks with both agents' marks around an orange ⇄ and "same file". Open it and the Agents tab names the file in a banner, and both cards get an orange outline with "⇄ Copilot CLI too", so you know whom to stop. It clears itself after ten quiet minutes, or dismiss it with ✕.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Across agents and tools: Claude Code against Copilot CLI too.</div>
@@ -1176,9 +1221,42 @@
   </div>
   </section>
 
+  <section class="feat" data-panel="tools">
+  <div class="f-text">
+    <h2>Codex, Gemini and OpenCode too <span class="tag">New in 0.9</span></h2>
+    <p>Using more than one tool? Codex CLI, Gemini CLI and OpenCode sessions now show up in the Agents tab beside the rest, with what each is doing now and which are done.</p>
+    <p>Visor reads them from the tools' own files, so there is nothing to install. That also means no approvals: those tools keep asking in their own terminal.</p>
+    <div class="avail"><svg><use href="#codex"/></svg><svg><use href="#gemini"/></svg><svg style="color:var(--ink)"><use href="#opencode"/></svg>Codex CLI, Gemini CLI and OpenCode, beside Claude Code, Copilot CLI and Antigravity.</div>
+    <button class="peek" type="button" data-show="tools">Show them in Agents →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
+        <div class="group"><svg><use href="#codex"/></svg>CODEX CLI · 1<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#codex"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:07</span></span><span class="a2">Codex CLI · Terminal</span><span class="a3">Bash: go test ./...</span></span></div></div><div class="group"><svg><use href="#gemini"/></svg>GEMINI CLI · 2</div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#gemini"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">0:32</span></span><span class="a2">Gemini CLI · Ghostty</span><span class="a3">Thinking · explain the build</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#gemini"/></svg></span><span class="sdot" style="background:#8A8980"></span></span><span class="at"><span class="a1"><b>docs</b><span class="atime">3m ago</span></span><span class="a2">Gemini CLI · Terminal</span><span class="a3">Finished</span></span></div></div><div class="group"><svg><use href="#opencode"/></svg>OPENCODE · 2</div><div class="agrid"><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#opencode"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:07</span></span><span class="a2">OpenCode · Terminal</span><span class="a3">Read: README.md</span></span></div><div class="acard"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/></svg><span class="rt"><svg><use href="#opencode"/></svg></span><span class="sdot" style="background:#8A8980"></span></span><span class="at"><span class="a1"><b>infra</b><span class="atime">2m ago</span></span><span class="a2">OpenCode · Ghostty</span><span class="a3">Finished</span></span></div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
+  <section class="feat" data-panel="mcp">
+  <div class="f-text">
+    <h2>Every MCP server, at a glance <span class="tag">New in 0.9</span></h2>
+    <p>A line under the sessions says how many MCP servers your agents use, and what went wrong: "MCP 4 · figma failed 3x in web-shop". Click it for the full list.</p>
+    <p>Each server shows which agents use it, its recent state and the tools it was called for. Visor reads the names from your agents' own config files and the counts from their hooks, so no server is ever contacted.</p>
+    <button class="peek" type="button" data-show="mcp">Show MCP servers in Agents →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-night"/></svg><div class="np" style="max-width:480px">
+        <div class="group"><svg><use href="#claude"/></svg>CLAUDE CODE · 2<span style="margin-left:auto"><span class="sw2" aria-hidden="true"><span class="on"><span class="sym s-list" aria-hidden="true"></span></span><span ><span class="sym s-game" aria-hidden="true"></span></span></span></span></div><div class="agrid"><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>api</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Terminal</span><span class="a3">Thinking · Add the docs</span></span></div><div class="acard" title="30% context"><span class="aring"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5"/><circle cx="17" cy="17" r="15.5" fill="none" stroke="#3987E5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="29.2 97.4" transform="rotate(-90 17 17)"/></svg><span class="rt"><svg><use href="#claude"/></svg></span><span class="sdot" style="background:#7EE0A0"></span></span><span class="at"><span class="a1"><b>web-shop</b><span class="atime">0:05</span></span><span class="a2">Claude Code · Ghostty</span><span class="a3">Thinking · Match the header</span></span></div></div><div class="fold mcpl"><b>MCP 4</b><span>·</span><span class="hot">figma failed 3x in web-shop</span><svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="hl mcp"><div class="hh">MCP servers · 4</div><div class="hr"><i class="hd warn"></i><div><b>figma</b><span>get_screenshot · get_metadata</span></div><em class="ms warn"><svg><use href="#claude"/></svg>failed 3x in web-shop</em></div><div class="hr"><i class="hd"></i><div><b>acme-docs</b><span>search · get_page</span></div><em class="ms"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>working</em></div><div class="hr"><i class="hd"></i><div><b>playwright</b><span>browser_click · browser_navigate</span></div><em class="ms"><svg><use href="#claude"/></svg>working</em></div><div class="hr"><i class="hd off"></i><div><b>octocat-tracker</b><span>not called yet</span></div><em class="ms off"><svg><use href="#codex"/></svg>configured</em></div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
   <section class="feat" data-panel="office">
   <div class="f-text">
-    <h2>Or watch them work <span class="tag">Worlds new in 0.7</span></h2>
+    <h2>Or watch them work</h2>
     <p>Prefer to see your agents at work? Switch the Agents tab to the <b>office</b>. Each tool gets a table and each session a little person sitting at it. They get up and walk to the terminal to run a command, the bookshelf to read, the hologram to search the web, and the break corner when a turn is done, to play darts, ping-pong, holochess or poker. When one needs you, it comes to your desk and waves, with an amber "!" or a blue "?".</p>
     <p>It's a cozy studio at night: lamps on the tables, a wooden floor, plants in the corners. The palette button opens a picker that switches it to Galaxy (a hangar with Star Wars characters) or Starfleet (a starship deck with Star Trek characters). A little bar over each head shows how full its context is, amber when it's about to compact, and whoever waits at your desk shows how long. Hover anyone for what they're doing, how long, and what you last asked; click to jump to their terminal. Add a tool and it gets its own table. It's all Core Animation, so it costs nothing while the notch is closed.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg><svg><use href="#agy"/></svg>Every agent Visor sees, in one room.</div>
@@ -1222,7 +1300,7 @@
 
   <section class="feat" data-panel="incident" data-play>
   <div class="f-text">
-    <h2>Know when it's them, not you <span class="tag">New</span></h2>
+    <h2>Know when it's them, not you</h2>
     <p>Agents slow, commands failing, and you start doubting your own setup. Visor reads the public status pages for the tools you've connected (status.claude.com for Claude Code and the Claude API, githubstatus.com for Copilot) every five minutes, off the main thread.</p>
     <p>A new incident peeks once: a red dot for a major one, amber for minor, and "Claude is having issues". While it lasts, the tool's mark in the closed notch carries a small dot, and Usage puts a line under its heading with what's wrong, since when, and a link to the status page. Planned maintenance stays quiet.</p>
     <div class="avail"><svg><use href="#claude"/></svg><svg><use href="#copilot"/></svg>Claude Code, the Claude API and Copilot. Only the tools you use.</div>
@@ -1239,9 +1317,25 @@
   </div>
   </section>
 
+  <section class="feat" data-panel="radar">
+  <div class="f-text">
+    <h2>Know when your tools have an update <span class="tag">New in 0.9</span></h2>
+    <p>Visor checks every six hours whether Claude Code, Copilot CLI, Codex CLI, Gemini CLI or OpenCode has a newer release. A peek shows once, and a What's new card with the top changes waits in Usage until you dismiss it.</p>
+    <p>Press Update and Visor runs the tool's own update command in a new Terminal window, where you see it run. Nothing changes until you press the button. Only the tools you have are checked, from their public release feeds, with no sign-in.</p>
+    <button class="peek" type="button" data-show="radar">Show What's new in Usage →</button>
+  </div>
+  <div class="f-media">
+    <figure class="dup">
+      <div class="shot"><svg class="scene" aria-hidden="true" preserveAspectRatio="xMidYMid slice" viewBox="0 0 600 300"><use href="#sc-meadow"/></svg><div class="np" style="max-width:420px">
+        <div class="ubar"><span>WHAT'S NEW</span><span style="letter-spacing:0">2 updates</span></div><div class="wn"><div class="wn-h"><svg><use href="#claude"/></svg><b>Claude Code</b><span class="wn-v">2.1.311 → <i>2.1.312</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div><ul><li>Faster startup</li><li>/rewind for edits</li></ul></div><div class="wn"><div class="wn-h"><svg><use href="#copilot"/></svg><b>Copilot CLI</b><span class="wn-v">1.0.107 → <i>1.0.114</i></span><span class="wn-up">Update</span><span class="wn-x" aria-hidden="true">✕</span></div></div>
+      </div></div>
+    </figure>
+  </div>
+  </section>
+
   <section class="feat" data-panel="tokens">
   <div class="f-text">
-    <h2>Every token, counted <span class="tag">New in 0.6</span></h2>
+    <h2>Every token, counted</h2>
     <p>How much have your agents actually read and written? Flip the switch at the top of the Usage tab to <b>Tokens</b>: every token you've used across Claude Code, Copilot CLI, Antigravity, OpenCode, Codex and Gemini CLI, by model, a little like <a href="https://github.com/junhoyeo/tokscale">tokscale</a> in your notch.</p>
     <p>The headline counts everything, and beside it the tokens without cache reads, the conversation each agent re-reads from cache on every reply: cheap, and usually most of the total. A stacked bar for each day shows which models did the work, and Overview, Models, Daily and Tools pages break it down for the last week, month or all time.</p>
     <p>Your tools clean up after themselves (Claude Code deletes transcripts after a month), so Visor keeps its own daily totals. "All time" keeps counting.</p>
@@ -1266,7 +1360,7 @@
 
   <section class="feat" data-panel="music">
   <div class="f-text">
-    <h2>Your music, a hover away <span class="tag">Any browser new in 0.6</span></h2>
+    <h2>Your music, a hover away</h2>
     <p>Whatever's playing, in Spotify, Apple Music or a YouTube tab, shows up with its artwork and the controls you'd expect. Add the <b>Visor Media</b> browser extension and that works in any browser, Firefox and Zen included: it sees every music and video tab and plays, pauses and skips exactly the one you mean.</p>
     <button class="peek" type="button" data-show="music">Show Music in the MacBook →</button>
   </div>
@@ -1318,7 +1412,7 @@
 
   <section class="feat" data-panel="plugins">
   <div class="f-text">
-    <h2>Bring your own: plugins <span class="tag">New in 0.7</span></h2>
+    <h2>Bring your own: plugins</h2>
     <p>Want the notch to watch something Visor doesn't? Write a plugin: a few lines of Lua in a folder. It gets its own section in the new <b>Plugins</b> tab, a badge on the closed notch while something needs you, and a peek when something happens. Visor draws it all, so plugins look like the rest of the notch and can't slow it down.</p>
     <p>The first one ships with Visor: <b>GitHub</b>. It watches GitHub Actions on exactly the branches your agents are working on, with nothing to set up, and lists the pull requests waiting for your review. When a build breaks, the notch shows a red badge and tells you once. It works with github.com and GitHub Enterprise through your <code>gh</code> sign-in.</p>
     <div class="avail">Lua 5.4, sandboxed: only the sites a plugin names, sign-ins only through <code>gh</code>, 1Password or the Keychain, no files, no programs. <a href="https://github.com/tailamphat/visor/blob/main/docs/plugins.md">Writing Visor plugins</a> has the whole API.</div>
@@ -1367,6 +1461,8 @@ end)</pre>
   </div>
   <div class="f-media">
     <ul class="more">
+      <li><h3>Local builds say so</h3><p>A Visor you built yourself calls itself "Visor (local build)" in About and the menu, with the commit, so you never mistake it for the release.</p></li>
+      <li><h3>Update stays readable</h3><p>While a tool updates in Terminal, its version stays in view on the radar card.</p></li>
       <li><h3>What your agent just did</h3><p>Open the notch during a finished turn's green check: how long it took, files changed, lines added and removed, commands run and whether its tests passed, with Open in Terminal and View diff.</p></li>
       <li><h3>Helpers in view</h3><p>When Claude Code starts subagents, its card says how many it waits on, and a ⑂ button lists what each one is doing.</p></li>
       <li><h3>Two agents, one file</h3><p>When two agents edit the same file within ten minutes, the notch peeks with both marks and "same file", and the Agents tab names the file and outlines both sessions.</p></li>
@@ -1461,9 +1557,10 @@ end)</pre>
 <script>
   // Panel sizes from the app (points): 460 wide, the approval card 580, Now Playing compact.
   // A finished turn is 122 pt of content (TurnSummaryView), the clash banner adds 32 + 6, an incident line 44 + 8.
-  const sizes = { closed: [300, 32], usage: [460, 350], incident: [460, 402], agents: [460, 268], clash: [460, 306], helpers: [460, 386], office: [460, 338], tokens: [460, 454], approval: [460, 218], summary: [460, 180], clipboard: [460, 232], music: [385, 136], plugins: [460, 402] };
-  // The office and a clash live in the Agents tab, Tokens and an incident in Usage.
-  const tabOf = { office: 'agents', clash: 'agents', helpers: 'agents', summary: 'agents', tokens: 'usage', incident: 'usage' };
+  const sizes = { closed: [300, 32], usage: [460, 458], incident: [460, 402], agents: [460, 304], clash: [460, 342], helpers: [460, 422], tools: [460, 308], mcp: [460, 322], radar: [460, 350], office: [460, 338], tokens: [460, 454], approval: [460, 218], summary: [460, 180], clipboard: [460, 232], music: [385, 136], plugins: [460, 402] };
+  // The office, a clash, other tools and MCP live in the Agents tab; Tokens, an incident and What's new in Usage.
+  // The MCP line adds 30 + 6 to an Agents panel, What's new about 108 to Usage.
+  const tabOf = { tools: 'agents', mcp: 'agents', radar: 'usage', office: 'agents', clash: 'agents', helpers: 'agents', summary: 'agents', tokens: 'usage', incident: 'usage' };
   // The closed notch's peeks: [width, shift]. Each side is its content plus the same inset, so a
   // lopsided peek moves the shape to keep the camera covered (NotchEars.shift).
   const peeks = { done: [290, 14], clash: [319, -2], status: [354, 58] };

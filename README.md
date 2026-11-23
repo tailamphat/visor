@@ -23,6 +23,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 - **Sessions**: every running Claude Code, Copilot CLI and Antigravity CLI session, grouped by agent, with what it's doing now ("Bash: npm test") and which are waiting for you or done. Codex CLI, OpenCode and Gemini CLI sessions show too, read from their own files (no hooks, no approvals).
   - Context ring around each Claude Code session's icon, amber with the percent from 80%.
   - Subagents: "Waiting on 3 helpers" and a list of each helper's task, type and current tool.
+- **MCP**: one line under the sessions ("MCP 4 · figma failed 3x in web-shop") opens a list of every MCP server, the agents that use it, its state and its most called tools.
 - **Approvals**: Allow / Deny / Always allow from the notch (Return / A / Esc). Claude Code and Copilot CLI.
 - **Questions**: when Claude Code asks a multiple-choice question, a blue "?" shows; click the row to jump to its terminal.
 - **Office**: the Agents tab as a room where each session is a little person at work. Worlds: Night Studio, Galaxy (Star Wars) and Starfleet (Star Trek).
@@ -53,7 +54,7 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 ## Requirements
 
 - macOS 14 or later, on a Mac with a notch.
-- At least one agent: Claude Code, Copilot CLI or Antigravity CLI (`agy`). Usage also reads OpenCode, Codex CLI and Gemini CLI.
+- At least one agent: Claude Code, Copilot CLI, Antigravity CLI (`agy`), Codex CLI, Gemini CLI or OpenCode.
 - To build from source: the Command Line Tools (Xcode not required).
 
 ## Getting started
@@ -97,7 +98,7 @@ brew uninstall --cask visor
 ## Privacy
 
 - **Stays on your Mac**: agent events (sent over a local socket), transcripts, clipboard history and music.
-- **Network**: only the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`) the Claude and GitHub status pages, and the release radar's public feeds (`registry.npmjs.org`, `formulae.brew.sh`, `api.github.com`, no sign-in).
+- **Network**: only the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`), the Claude and GitHub status pages, and the release radar's public feeds (`registry.npmjs.org`, `formulae.brew.sh`, `api.github.com`, no sign-in).
 - **Sign-ins**: read from the keychain or `gh` when needed, never stored, written or refreshed.
 - **Writes**: a hook entry in each connected agent's settings (with a backup) and `~/Library/Application Support/Visor/`. The hook always exits 0, so agents never wait on Visor.
 

@@ -28,8 +28,16 @@ Reply in at most 100 words: what you changed per file, and anything you weren't 
 ```
 You update Visor's website for release {version}. The site is one page: /Users/stevelam/workspace/visor/docs/index.html.
 
-Read {changes} first: commits since the last release. Then edit only docs/index.html, in place:
-- Add a section for each new user-facing feature, in the tab group it belongs to (Agents, Usage, Music, Clipboard, Plugins), copying the markup and tone of the sections next to it. Reuse an existing image only if it shows the feature; otherwise no image.
+Read {changes} first: commits since the last release. The site draws Visor's notch UI in HTML/CSS/SVG: every `<section class="feat">` has an `.f-text` column with a "Show ... in the MacBook" peek button and an `.f-media` figure with an HTML mock of that panel, and the MacBook demo at the top switches to that panel. Study how two existing sections and the MacBook panels are wired before editing.
+
+First classify every user-facing change, and write the list at the top of your reply:
+- NEW UI (a new panel, card, line or list): add a section with text, an `.f-media` figure drawing the real UI, a peek button and a matching MacBook panel, wired like its neighbours. New marks go in the SVG sprite as simple original shapes.
+- CHANGED EXISTING UI (something new inside a panel the site already shows): update the existing figures and MacBook panels that show that panel, so the demos match the app.
+- NO UI (behaviour only): text in an existing section or "What else is new"; no figure.
+Match the real app: use the proof screenshots under `.pm/*/evidence/` named in {changes} or the commit, viewed with the Read tool, when they exist. Fake names only.
+
+Then edit only docs/index.html, in place:
+- For new features: as classified above, in the tab group they belong to (Agents, Usage, Music, Clipboard, Plugins), copying the markup and tone of the sections next to it. A section without its drawn UI is not done.
 - Put <span class="tag">New in {version}</span> on the h2 of each new section. A feature that grew gets a short tag like "Worlds new in {version}".
 - Tags: remove plain "New" tags and "... new in 0.x" tags older than {previous_minor}; keep tags from {previous_minor}.
 - Update "What else is new" with smaller changes, and any version text that names an old version where the current one is meant.
@@ -38,5 +46,5 @@ Use `grep -n` to find sections; read only the parts you change and their neighbo
 
 Rules: no em dashes (use a hyphen or a colon); plain, short sentences in the site's voice; no employer, work or personal names; no new scripts, fonts or external links; don't touch other files; don't commit.
 
-Reply in at most 100 words: sections added, tags changed, and anything you weren't sure of.
+Reply in at most 120 words: the classification list, sections and figures added, existing demos updated, tags changed, and anything you weren't sure of.
 ```

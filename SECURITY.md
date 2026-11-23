@@ -23,8 +23,9 @@ Out of scope: problems that need an attacker who already runs code as your user,
 ## What Visor reads and sends
 
 - Agent events reach Visor only over the local sockets. Transcripts, clipboard history and music stay on your Mac.
-- Network calls go only to the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`), the Claude and GitHub status pages, the update feed, and the hosts your plugins list.
+- Network calls go only to the usage APIs of the tools you connect (`api.anthropic.com`, GitHub's Copilot API, `opencode.ai`), the Claude and GitHub status pages, the release radar's public feeds (`registry.npmjs.org`, `formulae.brew.sh`, `api.github.com`, no sign-in), the update feed, and the hosts your plugins list.
 - Sign-ins are read when needed and never written or refreshed by Visor.
+- Codex CLI, OpenCode and Gemini CLI sessions, and MCP server names (never values), are read from those tools' own files. The release radar's Update button opens a Terminal window running a private, self-removing script.
 - Visor writes a hook entry in each connected agent's settings and its own files in `~/Library/Application Support/Visor/`.
 
 Every source, endpoint and refresh interval is listed in [docs/how-it-works.md](docs/how-it-works.md).
