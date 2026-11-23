@@ -682,6 +682,13 @@ extension AppDelegate {
         launchInTerminal(update: update, toolName: tool.name, command: command, binary: tool.binary)
     }
 
+    /// The system Terminal by its fixed path, so a lookalike app with its bundle id can't take over.
+    private static func terminalURL() -> URL? {
+        let fixed = URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app")
+        if FileManager.default.fileExists(atPath: fixed.path) { return fixed }
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+    }
+
     /// `command` is always catalog text; the debug `_radar` fake passes a harmless one.
     @MainActor func launchInTerminal(update: ReleaseUpdate, toolName: String, command: String, binary: String) {
         // Fast repeat clicks would open several windows.
@@ -692,7 +699,7 @@ extension AppDelegate {
             let dir = Shell.which(binary).map { ($0 as NSString).deletingLastPathComponent }
             guard let text = TerminalCommand.script(toolName: toolName, command: command, binaryDir: dir),
                   let url = try? TerminalCommand.write(text),
-                  let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+                  let terminal = Self.terminalURL() else { return }
             NSWorkspace.shared.open([url], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {

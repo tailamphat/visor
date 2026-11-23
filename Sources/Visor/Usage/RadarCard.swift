@@ -63,7 +63,7 @@ struct RadarCard: View {
                     .font(.system(size: 11.5, weight: .medium, design: .monospaced)).lineLimit(1)
                 Spacer(minLength: 8)
                 if updating {
-                    Text("Updating in Terminal…").font(.system(size: 10)).minimumScaleFactor(0.8).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Text("Updating…").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 } else if update.command != nil {
                     Button(action: install) {
                         Text("Update").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
