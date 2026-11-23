@@ -115,7 +115,7 @@ public struct TurnStats: Equatable, Sendable, Codable {
     /// and how many more there are.
     public func shortFiles(in cwd: String, limit: Int) -> ([String], Int) {
         let base = cwd.hasSuffix("/") ? cwd : cwd + "/"
-        let short = files.prefix(limit).map { $0.hasPrefix(base) ? String($0.dropFirst(base.count)) : ($0 as NSString).lastPathComponent }
+        let short = files.prefix(limit).map { !cwd.isEmpty && $0.hasPrefix(base) ? String($0.dropFirst(base.count)) : ($0 as NSString).lastPathComponent }
         return (short, max(0, files.count - limit))
     }
 }

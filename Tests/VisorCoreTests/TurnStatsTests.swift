@@ -78,6 +78,8 @@ struct TurnStatsTests {
             turn.record(tool("PreToolUse", "Write", ["file_path": "/Users/me/web-shop/\(name)", "content": "x"]))
         }
         #expect(turn.shortFiles(in: "/Users/me/web-shop", limit: 3) == (["src/a.ts", "src/b.ts", "c.ts"], 2))
+        // No project folder: names only, never full paths.
+        #expect(turn.shortFiles(in: "", limit: 1).0 == ["a.ts"])
         #expect(turn.isEmpty == false && TurnStats().isEmpty)
     }
 
