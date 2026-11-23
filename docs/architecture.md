@@ -6,7 +6,7 @@ Visor is a menu bar app with no Dock icon that draws a black panel over the MacB
 
 | Target | Owns |
 |---|---|
-| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalCall`, `ApprovalRelease`, `TerminalAnswer`, `ApprovalLog`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), the limit handoff (`HandoffPlanner`: from current limits, pace and sessions only, whether a Claude limit runs out soon, which agents have room, and the clipboard note: project, task, files, test outcome, never commands or tool input), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), MCP health (`MCPConfig`: configured server names only, never values, from each agent's config files; `MCPStats`: calls, recent failures and top tools per server from `PostToolUse`/`PostToolUseFailure` tool names, capped; `MCPSummary`: the Agents-tab line and rows, no dates or counts), the Lua runtime (`Plugins/LuaPlugin.swift`). |
+| `Sources/VisorCore` | Pure logic, no AppKit: hook parsing (`HookMessage`), agent state (`AgentBoard`, file-read sessions in `FileAgents`), approvals (`ApprovalRequest`, `ApprovalRoute`, `ApprovalCall`, `ApprovalRelease`, `TerminalAnswer`, `ApprovalLog`), hook settings JSON (`HookSettings`), usage parsers (`AntigravityUsage`, `CopilotUsage`, `OpenCodeUsage`, `PlanLimits.swift`), spend and tokens (`TranscriptUsage`, `TokenLedger`, `Pricing`), notch sizing (`NotchEars`, `NotchQuotaSummary`), the limit handoff (`HandoffPlanner`: from current limits, pace and sessions only, whether a Claude limit runs out soon, which agents have room, and the clipboard note: project, task, files, test outcome, never commands or tool input), clipboard history (`ClipHistory`), browser media (`BrowserMedia`, `BrowserBridge`), MCP health (`MCPConfig`: configured server names only, never values, from each agent's config files; `MCPStats`: calls, recent failures and top tools per server from `PostToolUse`/`PostToolUseFailure` tool names, capped; `MCPSummary`: the Agents-tab line and rows, no dates or counts), the Lua runtime (`Plugins/LuaPlugin.swift`), design tokens (`DesignTokens`, `DesignScale`). |
 | `Sources/Visor` | The app. One folder per feature, below. |
 | `Sources/VisorBridge` | `visor-bridge`, the native messaging host browsers start for the extension. |
 | `Sources/CLua` | Vendored Lua 5.4.7 plus `clua.c`. |
@@ -20,6 +20,7 @@ App folders:
 - `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`), and the release radar: `RadarService` (every 6 h on queue `visor.radar`, first check 2 min after launch or 6 h after the saved last one; `--version` only when the binary's stamp changed; the folders holding offered tools' links and their binaries are watched (`DispatchSource`, 2 s settle), and a change reruns only `--version` so a caught-up card shows "Updated" for 3 s and goes (`RadarState.confirm`/`cards`); formulae from a tap other than Homebrew core (`BrewReceipt`) are skipped; GETs only `registry.npmjs.org`, `formulae.brew.sh`, `api.github.com` through `ReleaseFetcher`, which refuses any other redirect target and cuts answers at 2 MB; log in `~/Library/Logs/Visor/radar.log`) with `RadarCard` (the "What's new" section). Its logic is `RadarState` and `ReleaseRadar` in VisorCore.
 - `Music`: `MusicService`, `BrowserBridgeServer`, `MusicView`.
 - `Clipboard`, `Bar` (tab hidden for now), `Office` (pixel office for the Agents tab), `Plugins` (`PluginService`, `PluginRunner`, `PluginsView`).
+- `DesignSystem/`: `Tokens.swift` (`DS`: the design tokens as SwiftUI fonts, radii, fills, spacing and sizes, read from VisorCore's `DesignTokens`).
 - `Shared`: small views. `Support`: `Shell`, `UnixSocketListener`, `AudioOutputWatcher`, `HotKey`, `MediaKeys`.
 
 ## Data flows
@@ -95,6 +96,23 @@ flowchart LR
 - Closed: `CollapsedView` measures each side into `model.leftEarContent` and `model.rightEarContent`; `NotchEars.width(content:)` adds `NotchEars.inset`. `NotchLayout.showsEars` decides whether sides show at all.
 - Open: `ExpandedView.header` draws `[.agents, .usage, .music]` left and `[.clipboard, .plugins]` plus `AgentSlot` right, each slot `NotchEars.musicTab`. The body is a `switch model.tab`, with approvals, welcome, summary and limit-back taking over first.
 
+## Design system
+
+Every colour, type size, radius, fill strength, spacing and fixed size comes from one set of tokens. Office pixel art and agent brand marks (`AgentStyle`) keep their own palettes.
+
+- Values: `Sources/VisorCore/DesignTokens.swift`, one `public static let name: Type = literal` per line inside `enum Palette`, `TypeScale`, `Radius`, `Fill`, `Space`, `Size` (colours as `UInt32` hex). The website's token generator reads this file as text, so keep that line shape. `DesignScale` holds the same values as tables (`typeScale`, `radius`, `fill`, `space`, `size`, `palette`, and `all`) plus `snap`.
+- SwiftUI: `Sources/Visor/DesignSystem/Tokens.swift` (`DS.font(.sm, .semibold)`, `DS.Radius.md`, `DS.Fill.subtle`, `DS.Space.sm`, `DS.Size.button`). `Theme` stays the entry point for colours and reads them from `DesignTokens.Palette`.
+
+| Group | Steps |
+|---|---|
+| Type (pt) | xs 9, sm 10, base 11, md 12, lg 13, xl 15, display 26; weights regular, medium, semibold, bold (light only with display) |
+| Radius | xs 3, sm 5, md 9, lg 12 |
+| Fill (white opacity) | faint .05, subtle .08, medium .12, strong .16, heavy .25 |
+| Space | none 0, hair 1, xxs 2, xs 4, sm 6, md 8, lg 10, xl 12, xxl 16, xxxl 20 |
+| Size | bar 4, cardInset 10, button 18, iconLarge 20 (SF Symbol icons, not text) |
+
+Moving an old literal onto the scale: `DesignScale.snap(value, to:)` picks the nearest step, a tie goes to the smaller step (nothing grows inside a fixed-height row), and values past the ends clamp. So 10.5 pt is `sm`, radius 10 is `md`, fill .1 is `subtle`, padding 9 is `md`.
+
 ## Patterns
 
 - A service is a `@MainActor final class` holding `let model: AppModel`, with `init(model:)` and `start()`. Work runs on a private queue; results come back with `DispatchQueue.main.async { MainActor.assumeIsolated { ... } }` (`UsageService+Antigravity.swift:17`).
@@ -135,6 +153,13 @@ flowchart LR
 1. In `AppDelegate.received`, inside the `#if DEBUG` block, add `if message.event == "_name" { ...; return }` with a one-line comment showing the JSON.
 2. Read arguments from `message.payload` (the `raw` object).
 3. Add it to the CLAUDE.md list. Send it to `hook-debug.sock` only.
+
+### Add a design token
+
+1. Prefer an existing step: `DesignScale.snap` says which one an odd value belongs to.
+2. A new value: add a `public static let` line to its group in `DesignTokens.swift` and the matching `Step` in `DesignScale` (`Design tokens/sourceLinesParse` fails if they disagree); keep each scale increasing.
+3. Expose it in `DesignSystem/Tokens.swift` (or on `Theme` for a colour views use widely). Required, and only type steps are checked (a debug build asserts `DS.TypeStep` matches `DesignScale.typeScale`): radii, fills, spacing and sizes there are mapped by hand, so check the name on both sides.
+4. Update the table in "Design system" above.
 
 ### Add a setting to the menu
 

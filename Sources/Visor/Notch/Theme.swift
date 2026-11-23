@@ -1,32 +1,35 @@
 import SwiftUI
+import VisorCore
 
-/// Colours for the notch. The surface is pure black so the panel melts into the
-/// hardware notch; chart colours come from the data-viz palette's dark steps.
+/// Colours for the notch: the entry point views use. Values come from the design
+/// tokens (`DesignTokens.Palette`, see `DesignSystem/Tokens.swift`). The surface is
+/// pure black so the panel melts into the hardware notch.
 enum Theme {
+    private typealias P = DesignTokens.Palette
     /// Every progress bar and meter in the app: Usage, Agents' context, Tokens, Music, plugins.
-    static let barHeight: CGFloat = 4
+    static let barHeight = DS.Size.bar
     /// Padding inside a banner card (Stuck, handoff), the same on all four sides.
-    static let cardInset: CGFloat = 10
-    static let surface = Color.black
-    static let raised = Color(hex: 0x1A1A19)
-    static let textPrimary = Color.white
-    static let textSecondary = Color(hex: 0xC3C2B7)
-    static let textMuted = Color(hex: 0x8A8980)
+    static let cardInset = DS.Size.cardInset
+    static let surface = Color(hex: P.surface)
+    static let raised = Color(hex: P.raised)
+    static let textPrimary = Color(hex: P.textPrimary)
+    static let textSecondary = Color(hex: P.textSecondary)
+    static let textMuted = Color(hex: P.textMuted)
 
-    static let accent = Color(hex: 0x3987E5)
-    static let accentTrack = Color(hex: 0x184F95).opacity(0.45)
-    static let deemphasis = Color(hex: 0x4A4A46)
-    static let claude = Color(hex: 0xD97757)
+    static let accent = Color(hex: P.accent)
+    static let accentTrack = Color(hex: P.accentTrack).opacity(0.45)
+    static let deemphasis = Color(hex: P.deemphasis)
+    static let claude = Color(hex: P.claude)
 
-    static let good = Color(hex: 0x0CA30C)
+    static let good = Color(hex: P.good)
     /// "On pace": the good green, light enough for small text on black.
-    static let onPace = Color(hex: 0x5FC95F)
+    static let onPace = Color(hex: P.onPace)
     /// Two agents on the same file: orange, so it never reads as an approval's amber.
-    static let clash = Color(hex: 0xFF8A3D)
-    static let warning = Color(hex: 0xFAB219)
+    static let clash = Color(hex: P.clash)
+    static let warning = Color(hex: P.warning)
     /// An agent asking you something: blue, apart from an approval's amber.
-    static let question = Color(hex: 0x5AA2F0)
-    static let critical = Color(hex: 0xD03B3B)
+    static let question = Color(hex: P.question)
+    static let critical = Color(hex: P.critical)
 
     static let spring = Animation.spring(response: 0.28, dampingFraction: 0.86)
 }
