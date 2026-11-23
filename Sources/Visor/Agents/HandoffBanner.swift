@@ -34,19 +34,23 @@ struct HandoffBanner: View {
                 HStack(spacing: 8) {
                     Text(target.agent).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1).frame(width: 78, alignment: .leading)
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color.white.opacity(0.1))
-                            if let left = target.percentLeft {
+                    // No bar without a percent: an empty track would read as "nothing left".
+                    if let left = target.percentLeft {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.1))
                                 Capsule().fill(Theme.onPace).frame(width: geometry.size.width * min(1, max(0, left / 100)))
                             }
                         }
+                        .frame(height: Theme.barHeight)
+                    } else {
+                        Spacer(minLength: 0)
                     }
-                    .frame(height: Theme.barHeight)
-                    Text(target.percentLeft.map { "\(Int($0.rounded()))% left" } ?? "no recent reading")
+                    Text(HandoffInputs.label(for: target, antigravityUpdated: model.antigravityUpdated, now: now))
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(target.percentLeft == nil ? Theme.textMuted : Theme.textPrimary)
                         .lineLimit(1).fixedSize()
+                        .help(target.agent == "Antigravity" && target.percentLeft == nil ? "Open Usage to check again" : "")
                 }
                 .frame(height: Self.rowHeight)
             }

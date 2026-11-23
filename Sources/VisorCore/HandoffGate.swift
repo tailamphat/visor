@@ -63,6 +63,16 @@ public enum HandoffInputs {
         return (others, unmetered)
     }
 
+    /// What the card says for a target: its percent left, how old an Antigravity
+    /// reading is (checked only when Usage opens), or that Visor reads no limit
+    /// for it at all (Codex CLI, Gemini CLI, OpenCode without Go).
+    public static func label(for target: HandoffTarget, antigravityUpdated: Date?, now: Date) -> String {
+        if let left = target.percentLeft { return "\(Int(left.rounded()))% left" }
+        guard target.agent == "Antigravity" else { return "limit not tracked" }
+        guard let antigravityUpdated else { return "not checked yet" }
+        return "checked " + SessionText.ago(antigravityUpdated, now: now)
+    }
+
     /// When an Antigravity reading offered as room turns stale, so the card is
     /// worked out again then, even if no other reading arrives.
     public static func staleAt(antigravityUpdated: Date?, others: [NotchQuota]) -> Date? {

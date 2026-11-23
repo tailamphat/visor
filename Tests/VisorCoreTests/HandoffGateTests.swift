@@ -89,6 +89,16 @@ struct HandoffGateTests {
         #expect(inputs.unmetered == ["Codex CLI", "Gemini CLI"])
     }
 
+    @Test func agentsWithoutPercentSayWhy() {
+        let codex = HandoffTarget(agent: "Codex CLI", percentLeft: nil)
+        let antigravity = HandoffTarget(agent: "Antigravity", percentLeft: nil)
+        #expect(HandoffInputs.label(for: codex, antigravityUpdated: now - 40 * 60, now: now) == "limit not tracked")
+        #expect(HandoffInputs.label(for: antigravity, antigravityUpdated: now - 40 * 60, now: now) == "checked 40m ago")
+        #expect(HandoffInputs.label(for: antigravity, antigravityUpdated: nil, now: now) == "not checked yet")
+        #expect(HandoffInputs.label(for: HandoffTarget(agent: "Copilot CLI", percentLeft: 44.6),
+                                    antigravityUpdated: nil, now: now) == "45% left")
+    }
+
     @Test func wakesWhenAntigravityReadingGoesStale() {
         let updated = now - 5 * 60
         let antigravity = [NotchQuota(agent: "Antigravity", percentLeft: 60, label: "Pro")]
