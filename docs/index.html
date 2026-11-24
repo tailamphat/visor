@@ -211,7 +211,7 @@
     --sans: "Inter", -apple-system, "Helvetica Neue", sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --sf: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-    --claude: var(--v-claude); --copilot: #A78BFA; --agy: #3186FF; --amber: var(--v-warning); --blue: var(--v-question); --green: var(--v-good);
+    --claude: var(--v-claude); --copilot: var(--v-violet); --agy: #3186FF; --amber: var(--v-warning); --blue: var(--v-question); --green: var(--v-good);
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -880,9 +880,9 @@
   .cp-h .cam { width: 110px; height: 14px; border-radius: 7px; background: #0e0e10; }
   .cp-h svg { width: 15px; height: 15px; display: block; }
   .cp-g { font: 600 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--v-text-muted); margin-bottom: 8px; }
-  .cta h2 { color: #fff; font-size: clamp(32px, 4.6vw, 46px); margin-bottom: 10px; text-align: left; }
+  .cta h2 { color: var(--v-text-primary); font-size: clamp(32px, 4.6vw, 46px); margin-bottom: 10px; text-align: left; }
   .cta p { color: var(--v-text-secondary); margin: 0 0 20px; max-width: 480px; }
-  .cta .install { background: var(--v-raised); border-color: #262624; color: #fff; }
+  .cta .install { background: var(--v-raised); border-color: #262624; color: var(--v-text-primary); }
   .cta .copy { background: var(--v-mint); color: #0B2A17; }
   .cta .small { color: var(--v-text-muted); margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
   .cta .small a { color: var(--v-question); text-decoration: none; } .cta .small a:hover { text-decoration: underline; }
@@ -1681,6 +1681,7 @@
   <div class="f-text">
     <h2>Bring your own: plugins</h2>
     <p>Want the notch to watch something Visor doesn't? Write a plugin: a few lines of Lua in a folder. It gets its own section in the new <b>Plugins</b> tab, a badge on the closed notch while something needs you, and a peek when something happens. Visor draws it all, so plugins look like the rest of the notch and can't slow it down.</p>
+    <p>Plugins build with Visor's own pieces: banner, badge, header, primary and secondary buttons, with colours by palette name and text by type step. A plugin accent that is too dark is lightened to stay readable. See the <a href="design-system.html">design system page</a>.</p>
     <p>The first one ships with Visor: <b>GitHub</b>. It watches GitHub Actions on exactly the branches your agents are working on, with nothing to set up, and lists the pull requests waiting for your review. When a build breaks, the notch shows a red badge and tells you once. It works with github.com and GitHub Enterprise through your <code>gh</code> sign-in.</p>
     <div class="avail">Lua 5.4, sandboxed: only the sites a plugin names, sign-ins only through <code>gh</code>, 1Password or the Keychain, no files, no programs. <a href="https://github.com/tailamphat/visor/blob/main/docs/plugins.md">Writing Visor plugins</a> has the whole API.</div>
     <button class="peek" type="button" data-show="plugins">Show Plugins in the MacBook →</button>
@@ -1732,6 +1733,9 @@ end)</pre>
       <li><h3>Hand off before the limit</h3><p>When a Claude limit runs out within the hour, a card shows which agents have room and copies a handoff note for one of them.</p></li>
       <li><h3>What a session costs</h3><p>Each Claude Code card shows its cost so far at API prices, helpers included. Models without a price show tokens instead.</p></li>
       <li><h3>A context ring you can trust</h3><p>The ring now updates as soon as you send a prompt, after a compact and after a restart, and spots a 1M window from a compact that began above 200k.</p></li>
+      <li><h3>One look on every tab</h3><p>Buttons, badges, bars and text now share one design, so every tab looks like the same app.</p></li>
+      <li><h3>Readable text on colour</h3><p>Buttons and badges use white text on blue, red and green, and black on light tints, so labels are easy to read.</p></li>
+      <li><h3>A design system page</h3><p>Every colour, text step and piece Visor uses, on one interactive page: the <a href="design-system.html">design system page</a>.</p></li>
       <li><h3>Hello at every launch</h3><p>The intro now plays each time Visor starts. After the first welcome, it's a short hello: "Hi, I'm Visor" and the version under it. It closes by itself after three seconds, or on a click.</p></li>
       <li><h3>Approvals stay put, and leave a log</h3><p>An approval card stays until its own call is done, even while the agent's subagents keep working. Each answer is logged to <code>~/Library/Logs/Visor/approvals.log</code>: agent, project folder, tool and outcome, never the command.</p></li>
       <li><h3>Local builds say so</h3><p>A Visor you built yourself calls itself "Visor (local build)" in About and the menu, with the commit, so you never mistake it for the release.</p></li>

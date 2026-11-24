@@ -49,11 +49,12 @@ Short list below; [docs/features.md](docs/features.md) has the full details of e
 - **Clipboard**: everything you copy, newest first. ⌘⇧V opens it from anywhere; search, pin, paste. Secrets from password managers are never kept, and history stays on this Mac.
 - **Music**: what Spotify, Apple Music or a browser tab is playing, with artwork, progress and controls. Any browser with the **Visor Media** extension.
 - **Keep awake**: the cup in the Agents tab keeps your Mac from sleeping. On, Auto (only while an agent works) or Off.
+- **One look**: every tab uses one design system, and text on coloured buttons and badges stays readable. See the [design system page](docs/design-system.html).
 - **Hello**: the notch says hi at every launch: a full welcome the first time, then a short "Hi, I'm Visor" with the version that closes after 3 seconds.
 
 ### Plugins
 
-- **Plugins**: small Lua files that add a section, a badge or a peek to the notch. Three examples ship in [`Plugins/`](Plugins): **github** (failed Actions runs and PRs waiting for your review), **focus** (a focus timer) and **hello**. See [Writing Visor plugins](docs/plugins.md).
+- **Plugins**: small Lua files that add a section, a badge or a peek to the notch. Plugins can build a section from Visor's own banners, badges, headers and buttons, so they look like part of Visor. Three examples ship in [`Plugins/`](Plugins): **github** (failed Actions runs and PRs waiting for your review), **focus** (a focus timer) and **hello**. See [Writing Visor plugins](docs/plugins.md).
 
 ## Requirements
 

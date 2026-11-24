@@ -260,6 +260,7 @@ Put your own things in the notch with small Lua files.
 - **What you see:** a section in the Plugins tab, a badge on the closed notch, or a peek when something happens.
 - **How to use:** add a plugin folder to `~/Library/Application Support/Visor/Plugins/` (menu bar menu: **Plugins Folder**). Changes reload automatically.
 - **Good to know:** three examples ship in [`Plugins/`](../Plugins): **github** (failed Actions runs on the branches your agents are on, and PRs waiting for your review), **focus** (a focus timer with a week of focus time) and **hello**. Plugins run sandboxed and never see your secrets.
+- **Build with Visor's pieces:** a plugin can lay out its section with banners, badges, headers and primary or secondary buttons, picking colours and text sizes by name. They look like Visor's own tabs. A plugin accent too dark to read on the notch is lightened until it does. See the [design system page](design-system.html) ([online](https://tailamphat.github.io/visor/design-system.html)).
 - **How it works:** [Writing Visor plugins](plugins.md).
 
 ## Closed notch signs
