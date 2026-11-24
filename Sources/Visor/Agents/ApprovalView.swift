@@ -10,9 +10,9 @@ struct LimitBackView: View {
             HStack(spacing: 7) {
                 AgentIcon(agent: back.agent, size: 22)
                 Text("\(back.agent == "Claude Code" ? "Claude" : back.agent) limit is back")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    .font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text("just now").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                Text("just now").font(DS.font(.base)).foregroundStyle(Theme.textMuted)
             }
             LimitMeter(title: back.title, used: 100 - back.percentLeft, caption: caption)
         }
@@ -48,34 +48,34 @@ struct ApprovalView: View {
             HStack(spacing: 7) {
                 AgentIcon(agent: agent, size: 22)
                 Text(agent)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A))
+                    .font(DS.font(.lg, .semibold))
+                    .foregroundStyle(AgentStyle.name(agent))
                 Text(Self.place(session: session, project: request.project))
-                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    .font(DS.font(.md)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()
                 if model.approvals.count > 1 {
-                    Text("+\(model.approvals.count - 1) more").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                    Text("+\(model.approvals.count - 1) more").font(DS.font(.base)).foregroundStyle(Theme.textMuted)
                 }
             }
             // What it wants, and the task it's working on.
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("wants to \(request.action)")
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    .font(DS.font(.xl, .semibold)).foregroundStyle(Theme.textPrimary)
                 if let task = session?.task {
-                    Text("· \(task)").font(.system(size: 11)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    Text("· \(task)").font(DS.font(.base)).foregroundStyle(Theme.textMuted).lineLimit(1)
                         .help(task)
                 }
             }
             (Text(request.tool == "Bash" ? "$ " : "").foregroundColor(Theme.textMuted) + Text(request.preview))
-                .font(.system(size: 12, design: .monospaced))
+                .font(DS.font(.md, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(3)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.07)))
-                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(DS.Fill.subtle))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).strokeBorder(DS.Fill.subtle, lineWidth: 1))
             // Deny and Allow, each as wide as its label, together in the centre.
             HStack(spacing: 8) {
                 Button { model.decide?(request, .deny) } label: {
@@ -93,13 +93,13 @@ struct ApprovalView: View {
             if let always = request.alwaysAllowLabel {
                 Button { model.decide?(request, .allowAlways) } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 10, weight: .semibold))
+                        Image(systemName: "arrow.triangle.2.circlepath").font(DS.font(.sm, .semibold))
                         Text("Always allow")
-                        Text(always).font(.system(size: 11, design: .monospaced)).foregroundStyle(Color(hex: 0x8FB89C)).lineLimit(1)
+                        Text(always).font(DS.font(.base, design: .monospaced)).foregroundStyle(DS.Palette.mint).lineLimit(1)
                         KeyCap(key: "A")
                     }
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(Color(hex: 0xB9D9C3))
+                    .font(DS.font(.base, .medium))
+                    .foregroundStyle(DS.Palette.alwaysText)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

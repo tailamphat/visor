@@ -24,21 +24,21 @@ struct HandoffBanner: View {
                 AgentMark(agent: "Claude Code", size: 13)
                 (Text(title(now: now)).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
                     + Text(project.map { " · \($0)" } ?? "").foregroundColor(Theme.textMuted))
-                    .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+                    .font(DS.font(.base)).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 6)
                 Text("resets " + SessionText.reset(handoff.resetsAt, now: now))
-                    .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
+                    .font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
             }
             .frame(height: 16)
             ForEach(handoff.targets.prefix(Self.maxTargets), id: \.agent) { target in
                 HStack(spacing: 8) {
-                    Text(target.agent).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+                    Text(target.agent).font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1).frame(width: 78, alignment: .leading)
                     // No bar without a percent: an empty track would read as "nothing left".
                     if let left = target.percentLeft {
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.white.opacity(0.1))
+                                Capsule().fill(DS.Fill.subtle)
                                 Capsule().fill(Theme.onPace).frame(width: geometry.size.width * min(1, max(0, left / 100)))
                             }
                         }
@@ -47,7 +47,7 @@ struct HandoffBanner: View {
                         Spacer(minLength: 0)
                     }
                     Text(HandoffInputs.label(for: target, antigravityUpdated: model.antigravityUpdated, now: now))
-                        .font(.system(size: 10.5, design: .monospaced))
+                        .font(DS.font(.sm, design: .monospaced))
                         .foregroundStyle(target.percentLeft == nil ? Theme.textMuted : Theme.textPrimary)
                         .lineLimit(1).fixedSize()
                         .help(target.agent == "Antigravity" && target.percentLeft == nil ? "Open Usage to check again" : "")

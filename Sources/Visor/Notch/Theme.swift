@@ -30,6 +30,10 @@ enum Theme {
     /// An agent asking you something: blue, apart from an approval's amber.
     static let question = Color(hex: P.question)
     static let critical = Color(hex: P.critical)
+    /// Stuck warnings: coral, apart from the approval amber, the clash orange and the question blue.
+    static let stuck = Color(hex: P.stuck)
+    /// The keep-awake cup: its own amber, so the closed notch shows approval amber only for an approval.
+    static let awake = Color(hex: P.awake)
 
     static let spring = Animation.spring(response: 0.28, dampingFraction: 0.86)
 }
@@ -83,6 +87,10 @@ enum AgentStyle {
         case "Gemini CLI": return NSColor(hex: 0xE879F9)
         default: return NSColor(hex: 0xD97757)
         }
+    }
+    /// The agent's name on the approval card: a light tint of its brand colour.
+    static func name(_ agent: String) -> Color {
+        agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A)
     }
     /// The tile behind the mark in lists.
     static let tile = Color.white.opacity(0.08)

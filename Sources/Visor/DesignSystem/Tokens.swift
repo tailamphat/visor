@@ -85,7 +85,5 @@ enum DS {
         static let allowText = Color(hex: DesignTokens.Palette.allowText)
         static let alwaysText = Color(hex: DesignTokens.Palette.alwaysText)
         static let denyText = Color(hex: DesignTokens.Palette.denyText)
-        /// Until DS6 moves `Theme.stuck` (declared in AgentsView.swift) onto it.
-        static let stuck = Color(hex: DesignTokens.Palette.stuck)
     }
 }

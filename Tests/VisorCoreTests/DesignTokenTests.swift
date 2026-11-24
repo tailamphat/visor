@@ -124,6 +124,14 @@ struct DesignTokenTests {
         #expect(P.stuck == 0xFF6B6B)
     }
 
+    /// The keep-awake cup has its own amber: the closed notch shows the approval
+    /// amber only for an approval.
+    @Test func paletteHasAwakeApartFromWarning() {
+        let awake = DesignScale.palette.first { $0.name == "awake" }
+        #expect(awake?.value == Double(0xFFC46B))
+        #expect(awake?.value != Double(DesignTokens.Palette.warning))
+    }
+
     /// The site generator (DS3) reads `DesignTokens.swift` as text: one
     /// `static let name: Type = literal` per value, inside `enum Group`.
     @Test func sourceLinesParse() throws {

@@ -22,12 +22,12 @@ struct MCPLine: View {
                 }
                 Spacer(minLength: 6)
                 Image(systemName: model.mcpOpen ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                    .font(DS.font(.xs, .semibold)).foregroundStyle(Theme.textMuted)
             }
-            .font(.system(size: 11))
+            .font(DS.font(.base))
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(DS.Fill.faint))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -42,41 +42,39 @@ struct MCPList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("MCP servers · \(summary.count)")
-                .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-                .foregroundStyle(Theme.textMuted)
+            SectionHeader("MCP servers · \(summary.count)")
                 .frame(height: MCPSummary.headerHeight)
             ForEach(summary.rows, id: \.server) { row in
                 HStack(spacing: 9) {
                     dot(row.state)
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(row.server).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        Text(row.server).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                         Text(row.tools.isEmpty ? "not called yet" : row.tools.joined(separator: " · "))
-                            .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.tail)
+                            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.tail)
                     }
                     Spacer(minLength: 6)
                     HStack(spacing: 3) {
                         ForEach(row.agents, id: \.self) { AgentMark(agent: $0, size: 11) }
                     }
-                    Text(row.stateText).font(.system(size: 10.5)).foregroundStyle(color(row.state)).lineLimit(1).fixedSize()
+                    Text(row.stateText).font(DS.font(.sm)).foregroundStyle(color(row.state)).lineLimit(1).fixedSize()
                 }
                 .frame(height: MCPSummary.rowHeight)
                 .help("\(row.server): \(row.stateText). Used by \(row.agents.joined(separator: ", ")).")
             }
             if summary.more > 0 {
-                Text("+\(summary.more) more").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                Text("+\(summary.more) more").font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
                     .frame(height: MCPSummary.moreHeight)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
     }
 
     private func color(_ state: MCPServerHealth.State) -> Color {
         switch state {
-        case .working: return ConsentButton.mint
+        case .working: return DS.Palette.mint
         case .failing: return Theme.warning
         case .configured: return Theme.textMuted
         }

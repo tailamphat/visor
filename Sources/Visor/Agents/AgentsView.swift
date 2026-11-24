@@ -1,6 +1,8 @@
 import SwiftUI
 import VisorCore
 
+private typealias Spec = DesignComponents
+
 struct AgentsView: View {
     let model: AppModel
 
@@ -38,9 +40,7 @@ struct AgentsView: View {
                     ForEach(groups, id: \.agent) { group in
                         HStack(spacing: 6) {
                             AgentMark(agent: group.agent, size: 11)
-                            Text("\(group.agent) · \(group.sessions.count)")
-                                .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-                                .foregroundStyle(Theme.textMuted)
+                            SectionHeader("\(group.agent) · \(group.sessions.count)")
                             if group.agent == groups.first?.agent {
                                 Spacer(minLength: 8)
                                 AwakeCup(model: model).padding(.trailing, 6)
@@ -89,9 +89,7 @@ struct AgentsView: View {
         let waiting = model.board.sessions.filter { $0.state.attention != nil }.count
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Text("\(model.board.sessions.count) agents" + (waiting > 0 ? " · \(waiting) need\(waiting == 1 ? "s" : "") you" : ""))
-                    .font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-                    .foregroundStyle(Theme.textMuted)
+                SectionHeader("\(model.board.sessions.count) agents" + (waiting > 0 ? " · \(waiting) need\(waiting == 1 ? "s" : "") you" : ""))
                 Spacer(minLength: 8)
                 AwakeCup(model: model).padding(.trailing, 6)
                                 AgentsViewSwitch(model: model)
@@ -125,12 +123,12 @@ struct AgentsView: View {
     private func foldRow<Label: View>(_ label: Label, height: CGFloat = 26, dashed: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
-                .font(.system(size: 11))
+                .font(DS.font(.base))
                 .padding(.horizontal, 10)
                 .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(dashed ? Color.clear : Color.white.opacity(0.05)))
-                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(dashed ? Color.white.opacity(0.12) : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(dashed ? Color.clear : DS.Fill.faint))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .strokeBorder(dashed ? DS.Fill.medium : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -178,17 +176,17 @@ struct AgentsViewSwitch: View {
             option("gamecontroller.fill", office: true, help: "Show as an office")
         }
         .padding(1)
-        .background(Capsule().fill(Color.white.opacity(0.08)))
+        .background(Capsule().fill(DS.Fill.subtle))
     }
 
     private func option(_ symbol: String, office: Bool, help: String) -> some View {
         let on = model.agentsOffice == office
         return Button { model.agentsOffice = office } label: {
             Image(systemName: symbol)
-                .font(.system(size: 9, weight: .semibold))
+                .font(DS.font(.xs, .semibold))
                 .foregroundStyle(on ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: 24, height: 15)
-                .background(Capsule().fill(on ? Color.white.opacity(0.16) : .clear))
+                .background(Capsule().fill(on ? DS.Fill.strong : .clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -199,9 +197,9 @@ struct AgentsViewSwitch: View {
 /// The orange ⇄ that marks two agents on the same file.
 struct ClashBadge: View {
     var body: some View {
-        Text("⇄").font(.system(size: 9.5, weight: .heavy)).foregroundStyle(Color(hex: 0x2A1200))
+        Text("⇄").font(DS.font(.xs, .heavy)).foregroundStyle(Theme.surface)
             .frame(width: 15, height: 15)
-            .background(RoundedRectangle(cornerRadius: 4.5, style: .continuous).fill(Theme.clash))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous).fill(Theme.clash))
     }
 }
 
@@ -215,20 +213,17 @@ struct ClashBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             ClashBadge()
-            (Text("Both are editing ") + Text(shortPath).font(.system(size: 11, design: .monospaced)).foregroundColor(Theme.textPrimary))
-                .font(.system(size: 11.5)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+            (Text("Both are editing ") + Text(shortPath).font(DS.font(.base, design: .monospaced)).foregroundColor(Theme.textPrimary))
+                .font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 6)
-            Button(action: dismiss) {
-                Image(systemName: "xmark").font(.system(size: 9.5, weight: .bold)).foregroundStyle(Theme.textMuted)
-                    .frame(width: 18, height: 18).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Dismiss")
+            DismissButton(action: dismiss)
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.clash.opacity(0.1)))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.clash.opacity(0.35), lineWidth: 1))
+        // The banner card's chrome; not `.bannerCard`, whose inset on all sides would overflow this one-line 32 pt row.
+        .background(RoundedRectangle(cornerRadius: CGFloat(Spec.Banner.radius), style: .continuous).fill(Theme.clash.opacity(Spec.Banner.fill)))
+        .overlay(RoundedRectangle(cornerRadius: CGFloat(Spec.Banner.radius), style: .continuous)
+            .strokeBorder(Theme.clash.opacity(Spec.Banner.strokeOpacity), lineWidth: 1))
         .help("\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
     }
 
@@ -241,11 +236,6 @@ struct ClashBanner: View {
         }
         return (clash.path as NSString).lastPathComponent
     }
-}
-
-extension Theme {
-    /// Stuck warnings: coral, apart from the approval amber, the clash orange and the question blue.
-    static let stuck = Color(hex: 0xFF6B6B)
 }
 
 /// Over the Agents list while an agent keeps failing or repeating the same call:
@@ -265,18 +255,18 @@ struct StuckBanner: View {
                 AgentMark(agent: stuck.agent, size: 13)
                 (Text(stuck.agent).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
                     + Text(session.map { " · \($0.project)" } ?? "").foregroundColor(Theme.textMuted))
-                    .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+                    .font(DS.font(.base)).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 6)
                 Text(SessionText.elapsed(since: stuck.since, now: model.agentsNow))
-                    .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                    .font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textMuted)
             }
             .frame(height: 16)
-            (Text(stuck.label).font(.system(size: 11, design: .monospaced)).foregroundColor(Theme.textPrimary)
+            (Text(stuck.label).font(DS.font(.base, design: .monospaced)).foregroundColor(Theme.textPrimary)
                 + Text(" " + stuck.long).foregroundColor(Theme.textSecondary))
-                .font(.system(size: 11.5)).lineLimit(1).truncationMode(.middle)
+                .font(DS.font(.base)).lineLimit(1).truncationMode(.middle)
                 .frame(height: 15)
             HStack(spacing: 6) {
-                Text(stuck.error ?? "").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textMuted)
+                Text(stuck.error ?? "").font(DS.font(.sm, design: .monospaced)).foregroundStyle(Theme.textMuted)
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
                 Button("Ignore") { model.ignoreStuck?(stuck) }.buttonStyle(CardButton(.secondary))
@@ -301,10 +291,10 @@ struct AgentClock: View {
     var body: some View {
         if session.isActive {
             Text(SessionText.elapsed(since: session.since, now: model.agentsNow))
-                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                .font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textMuted)
         } else {
             Text(SessionText.ago(session.since, now: model.agentsNow))
-                .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
+                .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
         }
     }
 }
@@ -327,26 +317,26 @@ struct AgentCard: View {
             ringTile
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(session.project).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    Text(session.project).font(DS.font(.md, .semibold)).foregroundStyle(Theme.textPrimary)
                         .lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 4)
                     time
                 }
                 if let clashWith {
                     Text("⇄ \(clashWith) too")
-                        .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.clash).lineLimit(1)
+                        .font(DS.font(.sm, .medium)).foregroundStyle(Theme.clash).lineLimit(1)
                 } else if let stuck {
                     Text("↻ \(stuck.short)")
-                        .font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.stuck).lineLimit(1)
+                        .font(DS.font(.sm, .medium)).foregroundStyle(Theme.stuck).lineLimit(1)
                         .frame(height: 13)
                 } else {
                     HStack(spacing: 4) {
                         Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
-                            .font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
                         Spacer(minLength: 0)
                         // On this line, not beside the clock: there it squeezed the project name.
                         if let cost = session.cost?.label {
-                            Text(cost).font(.system(size: 10).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                            Text(cost).font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                                 .lineLimit(1).fixedSize()
                         }
                         if let model, !session.helpers.isEmpty {
@@ -355,23 +345,27 @@ struct AgentCard: View {
                     }
                     .frame(height: 13)
                 }
-                Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(detail).font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
         }
         .padding(.horizontal, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: NotchEars.agentCard)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .strokeBorder(needsYou ? Theme.warning.opacity(0.35) : clashWith != nil ? Theme.clash.opacity(0.45)
-                          : stuck != nil ? Theme.stuck.opacity(0.6) : .clear, lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+            .strokeBorder(outline.map { $0.opacity(Spec.Banner.strokeOpacity) } ?? .clear, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         .onTapGesture { focus?(session) }
         .help(help)
     }
 
     private var needsYou: Bool {
         session.state.attention != nil
+    }
+
+    /// The tint of the card's outline: approval amber, clash orange or stuck coral, at one strength.
+    private var outline: Color? {
+        needsYou ? Theme.warning : clashWith != nil ? Theme.clash : stuck != nil ? Theme.stuck : nil
     }
 
     private var help: String {
@@ -393,7 +387,7 @@ struct AgentCard: View {
         let percent = session.contextPercent
         let high = SessionText.contextHigh(percent)
         return ZStack {
-            Circle().stroke(Color.white.opacity(0.1), lineWidth: 2.5)
+            Circle().stroke(DS.Fill.subtle, lineWidth: 2.5)
             if let percent {
                 Circle().trim(from: 0, to: max(0.02, min(1, percent / 100)))
                     .stroke(high ? Theme.warning : Theme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
@@ -414,9 +408,9 @@ struct AgentCard: View {
         .overlay(alignment: .bottom) {
             if high, let percent {
                 Text("\(Int(percent))%")
-                    .font(.system(size: 8.5, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.warning)
+                    .font(DS.font(.xs, .semibold).monospacedDigit()).foregroundStyle(Theme.warning)
                     .padding(.horizontal, 3)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Theme.raised))
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.xs).fill(Theme.raised))
                     .offset(y: 7)
             }
         }
@@ -429,7 +423,7 @@ struct AgentCard: View {
 
     private var dotColor: Color {
         switch session.state {
-        case .working: return ConsentButton.mint
+        case .working: return DS.Palette.mint
         case .needsApproval: return Theme.warning
         case .asking, .needsInput: return Theme.question
         case .done, .idle: return Theme.textMuted

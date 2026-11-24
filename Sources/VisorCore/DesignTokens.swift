@@ -32,6 +32,8 @@ public enum DesignTokens {
         public static let critical: UInt32 = 0xD03B3B
         /// Stuck warnings: coral, apart from amber, the clash orange and the question blue.
         public static let stuck: UInt32 = 0xFF6B6B
+        /// Keep-awake cup: apart from an approval's amber.
+        public static let awake: UInt32 = 0xFFC46B
         /// Approval buttons: Allow fill and Always tint.
         public static let mint: UInt32 = 0x7EE0A0
         /// Approval buttons: Deny tint.
@@ -140,7 +142,7 @@ public enum DesignScale {
             ("textSecondary", p.textSecondary), ("textMuted", p.textMuted), ("accent", p.accent),
             ("accentTrack", p.accentTrack), ("deemphasis", p.deemphasis), ("claude", p.claude),
             ("good", p.good), ("onPace", p.onPace), ("clash", p.clash), ("warning", p.warning),
-            ("question", p.question), ("critical", p.critical), ("stuck", p.stuck), ("mint", p.mint),
+            ("question", p.question), ("critical", p.critical), ("stuck", p.stuck), ("awake", p.awake), ("mint", p.mint),
             ("rose", p.rose), ("allowText", p.allowText), ("alwaysText", p.alwaysText), ("denyText", p.denyText),
         ]
         return colours.map { Step($0.0, Double($0.1)) }

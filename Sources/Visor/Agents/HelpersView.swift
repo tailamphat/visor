@@ -13,12 +13,12 @@ struct HelpersButton: View {
         let count = session.helpers.count
         Button { model.helpersOpen = open ? nil : session.id } label: {
             HStack(spacing: 1) {
-                Image(systemName: "arrow.triangle.branch").font(.system(size: 9.5, weight: .semibold))
-                Text(count > 9 ? "9+" : "\(count)").font(.system(size: 8.5, weight: .bold).monospacedDigit())
+                Image(systemName: "arrow.triangle.branch").font(DS.font(.xs, .semibold))
+                Text(count > 9 ? "9+" : "\(count)").font(DS.font(.xs, .bold).monospacedDigit())
             }
-            .foregroundStyle(open ? Color.white : Theme.textSecondary)
+            .foregroundStyle(open ? Theme.textPrimary : Theme.textSecondary)
             .padding(.horizontal, 5).frame(height: 17)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(open ? Theme.accent : Color.white.opacity(0.08)))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous).fill(open ? Theme.accent : DS.Fill.subtle))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -48,14 +48,14 @@ struct HelpersList: View {
             ForEach(shown.rows) { helper in
                 HStack(spacing: 9) {
                     if helper.done {
-                        Circle().fill(ConsentButton.mint).frame(width: 9, height: 9)
+                        Circle().fill(DS.Palette.mint).frame(width: 9, height: 9)
                     } else {
                         HelperSpinner().frame(width: 10, height: 10)
                     }
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(helper.task).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        Text(helper.task).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                         Text([helper.type, helper.done ? "Done" : helper.activity ?? "Thinking"].joined(separator: " · "))
-                            .font(.system(size: 10.5)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
+                            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
                     }
                     Spacer(minLength: 0)
                 }
@@ -70,13 +70,12 @@ struct HelpersList: View {
         }
         .padding(6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(hex: 0x0B0B0D)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).strokeBorder(DS.Fill.subtle, lineWidth: 1))
     }
 
     private func header(_ text: String) -> some View {
-        Text(text).font(.system(size: 9.5, weight: .semibold)).textCase(.uppercase).tracking(0.6)
-            .foregroundStyle(Theme.textMuted).lineLimit(1)
+        SectionHeader(text)
             .padding(.horizontal, 6).frame(height: Self.lineHeight, alignment: .center)
     }
 }
@@ -89,7 +88,7 @@ struct HelperSpinner: NSViewRepresentable {
         view.wantsLayer = true
         let track = CAShapeLayer(), arc = CAShapeLayer()
         let rect = CGRect(x: 1, y: 1, width: 8, height: 8)
-        for (layer, color, end) in [(track, NSColor.white.withAlphaComponent(0.15), 1.0), (arc, NSColor(hex: 0x3987E5), 0.3)] {
+        for (layer, color, end) in [(track, NSColor(DS.Fill.strong), 1.0), (arc, NSColor(Theme.accent), 0.3)] {
             layer.frame = CGRect(x: 0, y: 0, width: 10, height: 10)
             layer.path = CGPath(ellipseIn: rect, transform: nil)
             layer.fillColor = nil

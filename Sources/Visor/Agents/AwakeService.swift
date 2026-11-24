@@ -83,20 +83,22 @@ struct AwakeCup: View {
         Button { model.awakeMode = mode.next } label: {
             HStack(spacing: 2) {
                 Image(systemName: mode == .on ? "cup.and.saucer.fill" : "cup.and.saucer")
-                    .font(.system(size: 10.5, weight: .semibold))
-                if mode == .auto { Text("auto").font(.system(size: 8.5, weight: .semibold)) }
+                    .font(DS.font(.sm, .semibold))
+                if mode == .auto { Text("auto").font(DS.font(.xs, .semibold)) }
             }
             .foregroundStyle(mode == .off ? Theme.textMuted : AwakeCup.amber)
             .padding(.horizontal, 6).frame(height: 20)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(mode == .on ? AwakeCup.amber.opacity(0.16) : mode == .auto ? AwakeCup.amber.opacity(0.07) : .clear))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .fill(mode == .on ? AwakeCup.amber.opacity(DS.Fill.Opacity.strong)
+                      : mode == .auto ? AwakeCup.amber.opacity(DS.Fill.Opacity.subtle) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(Self.help(mode, holding: model.keepingAwake))
     }
 
-    static let amber = Color(hex: 0xFFC46B)
+    /// The cup's own amber, never an approval's (the closed notch shows it too).
+    static let amber = Theme.awake
 
     static func help(_ mode: KeepAwake.Mode, holding: Bool) -> String {
         switch mode {

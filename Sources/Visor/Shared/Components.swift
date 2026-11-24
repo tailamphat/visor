@@ -28,29 +28,29 @@ struct ConsentButton: ButtonStyle {
     enum Kind { case deny, secondary, allow }
     var kind: Kind
 
-    static let mint = Color(hex: 0x7EE0A0)
-    static let rose = Color(hex: 0xFF8F86)
+    static let mint = DS.Palette.mint
+    static let rose = DS.Palette.rose
 
     /// Soft mint: a solid mint Allow, a mint-tinted Always, a rose-tinted Deny.
     private var text: Color {
         switch kind {
-        case .allow: return Color(hex: 0x06260F)
-        case .secondary: return Color(hex: 0xC9F3D6)
-        case .deny: return Color(hex: 0xFF9D95)
+        case .allow: return DS.Palette.allowText
+        case .secondary: return DS.Palette.alwaysText
+        case .deny: return DS.Palette.denyText
         }
     }
     private var fill: Color {
         switch kind {
         case .allow: return Self.mint
-        case .secondary: return Self.mint.opacity(0.12)
-        case .deny: return Self.rose.opacity(0.12)
+        case .secondary: return Self.mint.opacity(DS.Fill.Opacity.medium)
+        case .deny: return Self.rose.opacity(DS.Fill.Opacity.medium)
         }
     }
     private var stroke: Color {
         switch kind {
         case .allow: return .clear
-        case .secondary: return Self.mint.opacity(0.25)
-        case .deny: return Self.rose.opacity(0.25)
+        case .secondary: return Self.mint.opacity(DS.Fill.Opacity.heavy)
+        case .deny: return Self.rose.opacity(DS.Fill.Opacity.heavy)
         }
     }
 
@@ -58,7 +58,7 @@ struct ConsentButton: ButtonStyle {
         let pressed = configuration.isPressed
         configuration.label
             .labelStyle(ConsentLabel())
-            .font(.system(size: 12.5, weight: .semibold))
+            .font(DS.font(.md, .semibold))
             .foregroundStyle(text)
             .padding(.horizontal, 16)
             .frame(height: 34)
@@ -102,7 +102,7 @@ struct KeyCap: View {
 struct ConsentLabel: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 6) {
-            configuration.icon.font(.system(size: 11, weight: .bold))
+            configuration.icon.font(DS.font(.base, .bold))
             configuration.title
         }
     }

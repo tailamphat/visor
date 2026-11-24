@@ -23,7 +23,7 @@ enum PluginStyle {
         case .warning: return Theme.warning
         case .critical: return Theme.critical
         case .question: return Theme.question
-        case .stuck: return DS.Palette.stuck
+        case .stuck: return Theme.stuck
         case .clash: return Theme.clash
         case .claude: return Theme.claude
         case .onPace: return Theme.onPace
