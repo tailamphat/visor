@@ -356,6 +356,8 @@
   .rule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 16px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--rule); }
   .rule > h3 { grid-column: 1 / -1; }
   .rule > p { grid-column: 1 / -1; font-size: 14px; }
+  .chk { font: 600 11px var(--sans); color: var(--ink-3); border: 1px solid currentColor; border-radius: 99px; padding: 0 7px; vertical-align: middle; margin-left: 6px; white-space: nowrap; }
+  .chk.on { color: var(--link); }
   .verdict { display: grid; gap: 6px; align-content: start; min-width: 0; }
   .verdict > b { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .05em; }
   .verdict.dont > b { color: var(--link); } .verdict.do > b { color: var(--ink-2); }
@@ -607,11 +609,11 @@
     </section>
 
     <section id="rules">
-      <div class="group-title"><h2>Rules</h2><span>enforced by scripts/check.sh</span></div>
+      <div class="group-title"><h2>Rules</h2><span>each says whether scripts/check.sh checks it</span></div>
       <div class="rules">
         <div class="rule">
-          <h3>Pick from the system, never type a value</h3>
-          <p>No literal colour, text size, radius or fill in an app view. <code>scripts/check.sh</code> fails on one (rule 5, patterns in <code>scripts/design-literals.txt</code>), with no allowlist. Office pixel art and agent brand marks keep their own palettes.</p>
+          <h3>Pick from the system, never type a value <span class="chk on">checked</span></h3>
+          <p>No literal colour, text size, radius or fill in an app view. <code>scripts/check.sh</code> fails on one (rule 5, patterns in <code>scripts/design-literals.txt</code>); there is no allowlist of lines, only Office pixel art and agent brand marks are skipped. Spacing and padding numbers are not checked: use <code>DS.Space</code> anyway.</p>
           <div class="verdict dont"><b>Don't</b><pre><code>Text(title)
     .font(.system(size: 10.5, weight: .semibold))
     .foregroundStyle(Color(hex: 0x3987E5))
@@ -624,26 +626,26 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
     .fill(DS.Fill.subtle)</code></pre></div>
         </div>
         <div class="rule">
-          <h3>Use the shared component, not your own chrome</h3>
-          <p>A button, badge, banner or section title in a card is the shared one, so every tab looks the same.</p>
+          <h3>Use the shared component, not your own chrome <span class="chk">not checked</span></h3>
+          <p>A button, badge, banner or section title in a card is the shared one, so every tab looks the same. No script catches a hand-made one built from tokens: review does.</p>
           <div class="verdict dont"><b>Don't</b><div class="tile"><div class="row"><button class="wrong-btn">Open</button><span class="muted">hand-made: 20 pt, radius 7, 11.5 pt, its own blue</span></div></div></div>
           <div class="verdict do"><b>Do</b><div class="tile"><div class="row"><button class="v-btn primary">Open</button><span class="muted">CardButton(.primary)</span></div></div></div>
         </div>
         <div class="rule">
-          <h3>The website uses the variables</h3>
+          <h3>The website uses the variables <span class="chk on">checked</span></h3>
           <p>Site and document CSS use <code>var(--v-*)</code>; an added raw hex equal to a palette token fails <code>scripts/check.sh</code> (rule 4). After changing a token or a component measure, run <code>scripts/site-tokens.sh --write</code> and <code>scripts/site-tokens.sh --write docs/design-system.html</code>.</p>
           <div class="verdict dont"><b>Don't</b><pre><code>.chip { background: &#35;3987E5; }</code></pre></div>
           <div class="verdict do"><b>Do</b><pre><code>.chip { background: var(--v-accent); }</code></pre></div>
         </div>
         <div class="rule">
-          <h3>Plugins pick by name</h3>
-          <p>Plugins use palette names and type steps, never a hex or points. A name Visor doesn't know is ignored and the piece keeps its default look, so a typo never breaks a view.</p>
+          <h3>Plugins pick by name <span class="chk">not checked</span></h3>
+          <p>Plugins use palette names and type steps, never a hex or points. Nothing checks a plugin's source: a name Visor doesn't know is ignored and the piece keeps its default look, so a typo never breaks a view.</p>
           <div class="verdict dont"><b>Don't</b><pre><code>ui.text { "Deploys", color = "&#35;3987E5", size = 13.5 }</code></pre></div>
           <div class="verdict do"><b>Do</b><pre><code>ui.text { "Deploys", color = "accent", size = "lg", weight = "semibold" }</code></pre></div>
         </div>
         <div class="rule">
-          <h3>Adding a value</h3>
-          <p>A new token: one <code>public static let name: Type = literal</code> line in its group of <code>DesignTokens.swift</code> (the generator reads the file as text), plus <code>DesignScale.all</code>. A component measure: <code>DesignComponents.swift</code> and its <code>measurements</code> list (a test checks each sits on its scale). Then regenerate both pages. Anything beside the camera stays balanced: the same inset left and right.</p>
+          <h3>Adding a value <span class="chk">tests and check.sh catch parts</span></h3>
+          <p>A new token: one <code>public static let name: Type = literal</code> line in its group of <code>DesignTokens.swift</code> (the generator reads the file as text), plus <code>DesignScale.all</code>. A component measure: <code>DesignComponents.swift</code> and its <code>measurements</code> list (a test checks each sits on its scale). Then regenerate both pages (<code>scripts/check.sh</code> fails while one is stale). Anything beside the camera stays balanced: the same inset left and right (not checked by a script).</p>
         </div>
       </div>
     </section>
@@ -696,7 +698,7 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   // Copy with a select-text fallback (some viewers refuse the clipboard).
   function copy(textValue, el) {
     const done = () => { if (!el) return; el.classList.add("copied"); setTimeout(() => el.classList.remove("copied"), 1200); };
-    const fallback = () => { const r = document.createRange(); const node = el && el.querySelector("code, pre") || el; if (!node) return; r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    const fallback = () => { const r = document.createRange(); const node = el && (el.querySelector("[data-copy-text]") || el.querySelector("pre, code")) || el; if (!node) return; r.selectNodeContents(node); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(textValue).then(done, fallback); else fallback();
   }
 
@@ -783,7 +785,7 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   $("#swatches").innerHTML = palette.map(p => {
     const plug = plugBy[kebab(p.name)];
     return `<button class="swatch" data-token="${p.v}" data-copy="var(${p.v})" title="Copy var(${p.v})"><span class="chip"><i style="background:var(${p.v})"></i></span>` +
-      `<span class="meta"><b>${p.name}</b><code>${swiftColour(p.name)}</code><code>var(${p.v})</code><code>${p.value}</code>${plug ? `<span class="plug">plugins: "${plug}"</span>` : ""}</span></button>`;
+      `<span class="meta"><b>${p.name}</b><code>${swiftColour(p.name)}</code><code data-copy-text>var(${p.v})</code><code>${p.value}</code>${plug ? `<span class="plug">plugins: "${plug}"</span>` : ""}</span></button>`;
   }).join("");
   $("#swatches").addEventListener("click", e => { const s = e.target.closest(".swatch"); if (s) copy(s.dataset.copy, s); });
 
@@ -792,7 +794,7 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   $("#weights").insertAdjacentHTML("beforeend", Object.keys(WEIGHTS).map(w => `<button class="seg" data-w="${w}" aria-pressed="${w === state.weight}">${w}</button>`).join(""));
   function renderType() {
     $("#typescale").innerHTML = typeSteps.map(t => {
-      const w = t.name === "display" && state.weight === "regular" ? 300 : WEIGHTS[state.weight];
+      const w = WEIGHTS[state.weight];
       return `<button class="type-row" data-token="${t.v}" data-step="${t.name}" aria-pressed="${t.name === state.step}"><span class="label">${t.name} ${t.n}</span>` +
         `<span class="sample" style="font-size:var(${t.v});font-weight:${w}">Claude Code finished web-shop in 4m</span></button>`;
     }).join("");

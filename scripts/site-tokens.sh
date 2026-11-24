@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do
     --write) MODE=write ;;
     --tokens) shift; TOKENS="${1:?--tokens needs a file}" ;;
     --parts) shift; PARTS="${1:?--parts needs a file}" ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     -*) echo "site-tokens: unknown option $1" >&2; exit 2 ;;
     *) HTML="$1" ;;
   esac
@@ -133,13 +133,25 @@ measures() {
     /^public enum DesignComponents[[:space:]]*\{/ { inside = 1; next }
     /^public enum PluginPieces[[:space:]]*\{/ { inside = 1; group = "PluginPieces"; flat = 1; next }
     /^public enum PluginColor[^{]*\{/ { colors = 1; next }
-    colors && /^\}/ { colors = 0; next }
+    # PluginColor: its declared cases (`case a, b`), then one switch arm per case
+    # (`case .a: return p.palette`); any other case line, or a case without an arm, fails.
+    colors && /^\}/ {
+      colors = 0
+      for (d in declared) if (!(d in armed)) fail("PluginColor case " d " has no `case ." d ": return p.<palette>` line")
+      next
+    }
+    colors && /^[[:space:]]*case [A-Za-z]+([[:space:]]*,[[:space:]]*[A-Za-z]+)*[[:space:]]*$/ {
+      line = $0; sub(/^[[:space:]]*case[[:space:]]+/, "", line); gsub(/[[:space:]]/, "", line)
+      nd = split(line, ds, ","); for (k = 1; k <= nd; k++) declared[ds[k]] = 1
+      next
+    }
     colors && /^[[:space:]]*case \.[A-Za-z]+: return p\.[A-Za-z]+[[:space:]]*$/ {
-      split($0, w, /[[:space:].:]+/)
-      for (k = 1; k <= length(w); k++) if (w[k] == "case") { name = w[k + 1]; pal = w[k + 4] }
+      line = $0; sub(/^[[:space:]]*case \./, "", line); split(line, w, /[: ]+/)
+      name = w[1]; pal = w[3]; sub(/^p\./, "", pal); armed[name] = 1
       emit("PluginColor", "--v-c-plugin-color-" kebab(name), "var(--v-" kebab(pal) ")")
       next
     }
+    colors && /^[[:space:]]*case / { fail("PluginColor case line not in the shape `case a, b` or `case .a: return p.palette`") }
     !inside { next }
     /^\}/ { inside = 0; group = ""; flat = 0; next }
     infunc {
@@ -240,15 +252,19 @@ case "$MODE" in
     [[ -f "$HTML" ]] || { echo "site-tokens: no $HTML" >&2; exit 2; }
     markers "$HTML" tokens || { echo "$HTML: add the /* tokens:begin */ and /* tokens:end */ lines first" >&2; exit 2; }
     markers "$HTML" components || true; markers "$HTML" measures || true
+    # Build every block before touching the page, so a block that fails leaves the page as it was.
+    TMPF="$(mktemp)"; NEXT="$(mktemp)"
+    trap 'rm -f "$TMPF" "$NEXT"' EXIT
+    cat "$HTML" > "$TMPF"
     for NAME in $(blocks "$HTML"); do
       NEW="$(fresh "$HTML" "$NAME")" || exit 2
-      TMPF="$(mktemp)"
       BLOCK="$NEW" awk -v n="$NAME" '
         $0 ~ ("/\\* " n ":begin \\*/") { print ENVIRON["BLOCK"]; skip = 1; next }
         skip && $0 ~ ("/\\* " n ":end \\*/") { skip = 0; next }
         !skip { print }
-      ' "$HTML" > "$TMPF"
-      cat "$TMPF" > "$HTML"; rm -f "$TMPF"
+      ' "$TMPF" > "$NEXT" || exit 2
+      cat "$NEXT" > "$TMPF"
     done
+    cat "$TMPF" > "$HTML"
     ;;
 esac
