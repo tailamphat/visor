@@ -103,10 +103,11 @@ while IFS=$'\t' read -r f n text; do
 done < "$TMP/added"
 
 # 4. The website's design tokens: the block in docs/index.html matches DesignTokens.swift,
-#    and added site lines use var(--v-*) instead of a raw 6-digit hex equal to a palette token.
+#    and added site lines use var(--v-*) instead of a raw hex equal to a palette token
+#    (6 digits, or 3 doubled: #fff is #FFFFFF).
 #    Exempt: a hex shown as text (right after ">"), and the hidden SVG defs (agent brand
 #    marks and .art scenes keep their own palettes; presentation attributes can't take var()).
-#    #fff/#000 shorthands and rgba() are left to the design-system items that follow.
+#    rgba() is not checked here; the notch mocks use var(--v-fill-*) or color-mix() of a var.
 SITE=docs/index.html
 if [[ -f "$SITE" ]]; then
   TB="$(grep -n 'tokens:begin \*/' "$SITE" | head -1 | cut -d: -f1)"
@@ -121,13 +122,16 @@ if [[ -f "$SITE" ]]; then
     BEGIN { while ((getline line < pal) > 0) { split(line, p, " "); name[p[1]] = p[2] } }
     $1 == site && ($2 < b || $2 > e) && ($2 < db || $2 > de) {
       s = substr($0, length($1) + length($2) + 3)
-      while (match(s, /#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]/)) {
-        h = toupper(substr(s, RSTART, 7))
+      # A run of hex digits after "#": 6 as written, 3 doubled (#fff is #FFFFFF), any other length skipped.
+      while (match(s, /#[0-9A-Fa-f]+/)) {
+        run = toupper(substr(s, RSTART + 1, RLENGTH - 1))
         before = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
-        after = substr(s, RSTART + 7, 1)
-        if ((h in name) && after !~ /[0-9A-Fa-f]/ && before != ">")
-          printf "%s:%s: raw %s equals token %s (use var(--v-%s))\n", $1, $2, h, name[h], name[h]
-        s = substr(s, RSTART + 7)
+        h = ""
+        if (length(run) == 6) h = "#" run
+        else if (length(run) == 3) h = "#" substr(run, 1, 1) substr(run, 1, 1) substr(run, 2, 1) substr(run, 2, 1) substr(run, 3, 1) substr(run, 3, 1)
+        if (h != "" && (h in name) && before != ">")
+          printf "%s:%s: raw %s equals token %s (use var(--v-%s))\n", $1, $2, (length(run) == 3 ? "#" run " (" h ")" : h), name[h], name[h]
+        s = substr(s, RSTART + RLENGTH)
       }
     }
   ' "$TMP/added" >> "$HITS"
