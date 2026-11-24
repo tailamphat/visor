@@ -3,6 +3,31 @@
     <channel>
         <title>Visor</title>
         <item>
+            <title>0.11.0</title>
+            <pubDate>Tue, 24 Nov 2026 11:06:18 +0700</pubDate>
+            <link>https://tailamphat.github.io/visor/</link>
+            <sparkle:version>254</sparkle:version>
+            <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
+            <description><![CDATA[<h3>New</h3>
+<ul>
+<li>Each Claude Code session card shows what the session has cost so far at API prices, and it updates as the session works.</li>
+<li>Visor warns when an agent keeps failing or repeating the same call: one peek in the closed notch and a Stuck? card with Ignore and Open. It clears by itself once the agent recovers, you send a new prompt, or the agent stops.</li>
+<li>When a Claude limit is about to run out, a card in the Agents tab names the agents that still have room and copies a handoff note (project, task, files touched, last test run) for one of them. The note is kept out of clipboard history, and the card goes by itself after the reset.</li>
+<li>A consistent look across every tab: the same buttons, cards, badges, headers, text sizes and corners everywhere, from one design system.</li>
+<li>Text on coloured buttons and badges is always easy to read: white on blue, red and green, black on the light colours.</li>
+<li>Plugins can build with Visor's own pieces: banner cards, badges, section headers, primary and secondary buttons, colours by name and text sizes by step, so a plugin looks like Visor's own tabs. A plugin colour too dark for the notch is lightened.</li>
+<li>A new design system page shows every colour, size and shared piece, live, with the code for apps and plugins.</li>
+</ul>
+<h3>Fixes</h3>
+<ul>
+<li>The context ring now updates after each prompt and after a compact, and no longer shows an old value after Visor restarts.</li>
+<li>A plugin with a malformed colour can no longer crash Visor.</li>
+<li>The Stuck and handoff cards have even padding on all sides, and an agent with no limit reading says why instead of showing an empty bar.</li>
+</ul>]]></description>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.11.0/Visor-0.11.0.zip" length="8908838" type="application/octet-stream" sparkle:edSignature="emxwYge/56hhpy7+DNW/qipGw643LNUduW3JzBeoen/DVYCBxYfW1ngE1omSAQW6+YWTZQSZbmS3EEgJv+u2CA=="/>
+        </item>
+        <item>
             <title>0.10.0</title>
             <pubDate>Mon, 23 Nov 2026 13:45:53 +0700</pubDate>
             <link>https://tailamphat.github.io/visor/</link>
@@ -33,23 +58,6 @@
 </ul>]]></description>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.9.1/Visor-0.9.1.zip" length="8211121" type="application/octet-stream" sparkle:edSignature="zZRhGZmJOMZQfMnRumsp1D6iYAtLdPD2bE4Nm/JgojZQqyhnMnrk6bwgf3VUFtUkrhDjWuBzIMzZ6X1MribACA=="/>
-        </item>
-        <item>
-            <title>0.9.0</title>
-            <pubDate>Mon, 23 Nov 2026 09:45:28 +0700</pubDate>
-            <link>https://tailamphat.github.io/visor/</link>
-            <sparkle:version>219</sparkle:version>
-            <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
-            <description><![CDATA[<h3>New</h3>
-<ul>
-<li>Codex CLI, Gemini CLI and OpenCode sessions show in the Agents tab next to Claude Code, Copilot CLI and Antigravity, read from their own files with no setup.</li>
-<li>Release radar: a short peek when a tool you use ships a new version, and a "What's new" card in Usage with its top changes until you dismiss it. Checked every 6 hours.</li>
-<li>Update on a release card runs that tool's own update command in a new Terminal window.</li>
-<li>MCP health: one line under your sessions says how many MCP servers your agents use and which one is failing ("figma failed 3x in web-shop"). Click it for every server, what calls it and its most-used tools.</li>
-<li>Builds you make yourself show an orange line under the notch and an orange menu bar icon, so you can tell them from the release.</li>
-</ul>]]></description>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/tailamphat/visor/releases/download/v0.9.0/Visor-0.9.0.zip" length="8161873" type="application/octet-stream" sparkle:edSignature="ZBVeucmKT5fAF9PCcKiGiwceA/UudW3Iuq1HbrsO4ftqJH3NX1wANqf1kRGMPCC+epDuUAou/TOIKSEg9Cr3CA=="/>
         </item>
     </channel>
 </rss>
