@@ -119,6 +119,7 @@ scripts/test.sh              # unit tests (use this, not swift test)
 - [docs/architecture.md](docs/architecture.md): module map, data flows and recipes for adding features.
 - [CLAUDE.md](CLAUDE.md): project rules, toolchain notes, releasing and testing without a mouse.
 - [docs/plugins.md](docs/plugins.md): writing plugins.
+- [docs/design-system.html](docs/design-system.html): the design system, live: colours, type, spacing and shared components with their SwiftUI and plugin code ([online](https://tailamphat.github.io/visor/design-system.html)).
 
 ## License
 

@@ -274,6 +274,8 @@ A view holds at most 300 pieces, 8 levels deep. Past the panel's height the Plug
 
 Plugins use Visor's own design system: the same components and the same named colours and text sizes as Visor's tabs, so a plugin looks like part of Visor. Pick everything by name. A name Visor doesn't know (or a hex value, a number of points) is ignored and the piece keeps its default look, so a typo never breaks a view.
 
+The [design system page](design-system.html) ([online](https://tailamphat.github.io/visor/design-system.html)) shows every colour, text step and component live, with the `visor.ui` code next to each.
+
 **Colours.** `color = "<name>"` works anywhere `state` does (`ui.text`, `ui.stat`, `ui.meter`, a chip, a bar) and wins over it for the colour; `tint = "<name>"` colours a banner or a badge. Names are case-insensitive.
 
 | Name | Colour | Use it for |

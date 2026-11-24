@@ -102,25 +102,38 @@ while IFS=$'\t' read -r f n text; do
   fi
 done < "$TMP/added"
 
-# 4. The website's design tokens: the block in docs/index.html matches DesignTokens.swift,
-#    and added site lines use var(--v-*) instead of a raw hex equal to a palette token
-#    (6 digits, or 3 doubled: #fff is #FFFFFF).
-#    Exempt: a hex shown as text (right after ">"), and the hidden SVG defs (agent brand
-#    marks and .art scenes keep their own palettes; presentation attributes can't take var()).
-#    rgba() is not checked here; the notch mocks use var(--v-fill-*) or color-mix() of a var.
-SITE=docs/index.html
-if [[ -f "$SITE" ]]; then
-  TB="$(grep -n 'tokens:begin \*/' "$SITE" | head -1 | cut -d: -f1)"
-  TE="$(grep -n 'tokens:end \*/' "$SITE" | head -1 | cut -d: -f1)"
-  DB="$(grep -n '^<svg width="0" height="0"' "$SITE" | head -1 | cut -d: -f1)"
+# 4. The website's design tokens: the generated blocks in docs/index.html and the design system
+#    document (docs/design-system.html) match DesignTokens.swift, DesignComponents.swift and
+#    index.html's component classes (scripts/site-tokens.sh --check); the document must carry all
+#    three blocks. Added lines on both pages use var(--v-*) instead of a raw hex equal to a palette
+#    token (6 digits, or 3 doubled: #fff is #FFFFFF).
+#    Exempt: the generated blocks, a hex shown as text (right after ">"), and index.html's hidden
+#    SVG defs (agent brand marks and .art scenes keep their own palettes; presentation attributes
+#    can't take var()). rgba() is not checked here; the notch mocks use var(--v-fill-*) or color-mix().
+scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z0-9-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
+for SITE in docs/index.html docs/design-system.html; do
+  [[ -f "$SITE" ]] || continue
+  line() { grep -n "$1" "$SITE" | head -1 | cut -d: -f1; }
+  TB="$(line 'tokens:begin \*/')"; TE="$(line 'tokens:end \*/')"
+  CB=0; CE=0  # index.html's component classes are hand-written there, so they are checked
+  [[ "$SITE" == docs/index.html ]] || { CB="$(line 'components:begin \*/')"; CE="$(line 'components:end \*/')"; }
+  MB="$(line 'measures:begin \*/')"; ME="$(line 'measures:end \*/')"
+  DB="$(line '^<svg width="0" height="0"')"
   DE="$(awk -v b="${DB:-0}" 'b && NR > b && /^<\/svg>/ { print NR; exit }' "$SITE")"
   if ! scripts/site-tokens.sh --check "$SITE" > "$TMP/tokens.log" 2>&1; then
-    hit "$SITE" "${TB:-1}" "tokens: $(head -1 "$TMP/tokens.log")"
+    grep -v '^[<>0-9-]' "$TMP/tokens.log" | while IFS= read -r msg; do hit "$SITE" "${TB:-1}" "site-tokens: $msg"; done
   fi
-  scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z0-9-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
-  awk -F'\t' -v site="$SITE" -v b="${TB:-0}" -v e="${TE:-0}" -v db="${DB:-0}" -v de="${DE:-0}" -v pal="$TMP/palette" '
-    BEGIN { while ((getline line < pal) > 0) { split(line, p, " "); name[p[1]] = p[2] } }
-    $1 == site && ($2 < b || $2 > e) && ($2 < db || $2 > de) {
+  if [[ "$SITE" == docs/design-system.html ]]; then
+    for NAME in tokens components measures; do
+      grep -q "$NAME:begin \*/" "$SITE" && grep -q "$NAME:end \*/" "$SITE" ||
+        hit "$SITE" 1 "needs the generated $NAME block (/* $NAME:begin */ ... /* $NAME:end */, then scripts/site-tokens.sh --write $SITE)"
+    done
+  fi
+  awk -F'\t' -v site="$SITE" -v pal="$TMP/palette" \
+      -v r="${TB:-0} ${TE:-0} ${CB:-0} ${CE:-0} ${MB:-0} ${ME:-0} ${DB:-0} ${DE:-0}" '
+    BEGIN { while ((getline line < pal) > 0) { split(line, p, " "); name[p[1]] = p[2] } n = split(r, b, " ") }
+    function exempt(l,   k) { for (k = 1; k < n; k += 2) if (b[k] && l >= b[k] && l <= b[k + 1]) return 1; return 0 }
+    $1 == site && !exempt($2) {
       s = substr($0, length($1) + length($2) + 3)
       # A run of hex digits after "#": 6 as written, 3 doubled (#fff is #FFFFFF), any other length skipped.
       while (match(s, /#[0-9A-Fa-f]+/)) {
@@ -135,7 +148,7 @@ if [[ -f "$SITE" ]]; then
       }
     }
   ' "$TMP/added" >> "$HITS"
-fi
+done
 
 # 5. The design system: no literal colour, type size, radius or fill in any app view. Unlike
 #    the rules above this scans the whole of Sources/Visor (Plugins included), not only added
