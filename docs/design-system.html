@@ -963,13 +963,16 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   renderType(); renderFills(); renderMeter(); applyTint(); renderAllCode();
 
   // Self-check: everything in the generated blocks is drawn.
+  // The on-colours (--v-on-<fill>: var(...)) are drawn in the contrast table, not as swatches: count only the rest.
+  // (--v-on-pace is the onPace colour itself, so the value decides.)
+  const shownTokens = tokens.filter(t => !(t.v.startsWith("--v-on-") && t.value.startsWith("var(")));
   const drawnTokens = new Set($$("[data-token]").map(e => e.dataset.token)).size;
   const drawnMeasures = $$("[data-measure]").length;
-  const ok = drawnTokens === tokens.length && drawnMeasures === measures.length && tokens.length > 0 && measures.length > 0;
-  document.documentElement.dataset.rendered = `${drawnTokens}/${tokens.length} tokens, ${drawnMeasures}/${measures.length} measures`;
+  const ok = drawnTokens === shownTokens.length && drawnMeasures === measures.length && tokens.length > 0 && measures.length > 0;
+  document.documentElement.dataset.rendered = `${drawnTokens}/${shownTokens.length} tokens, ${drawnMeasures}/${measures.length} measures`;
   document.documentElement.dataset.ok = ok;
   $("#facts").innerHTML = `<span>${palette.length} colours</span><span>${typeSteps.length} type steps</span><span>${radii.length} radii</span><span>${fills.length} fills</span><span>${spaces.length} spaces</span><span>${sizes.length} sizes</span><span>${measures.length} component measures</span>` +
-    (ok ? "" : `<span class="warn">Drew ${drawnTokens} of ${tokens.length} tokens and ${drawnMeasures} of ${measures.length} measures: the generated blocks changed shape.</span>`);
+    (ok ? "" : `<span class="warn">Drew ${drawnTokens} of ${shownTokens.length} tokens and ${drawnMeasures} of ${measures.length} measures: the generated blocks changed shape.</span>`);
 })();
 </script>
 </body>
