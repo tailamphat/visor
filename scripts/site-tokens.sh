@@ -54,8 +54,8 @@ END='  /* tokens:end */'
 # WCAG 2 relative luminance of "RRGGBB" and the on-colour (DesignContrast.on), for awk.
 WCAG_AWK='
     # How a colour is drawn as a solid fill (DesignContrast.solid): white text on the fill darkened
-    # by the smallest 0.5% step that reaches 4.5:1 (at most 27%); black text on the light fills
-    # (warning, awake, mint, onPace, stuck) and past 27%. The Design contrast tests hold this to Swift.
+    # by the smallest 0.5% step that reaches 4.5:1 (at most 16%); black text on the light fills
+    # (warning, awake, mint, onPace, stuck) and past 16%. The Design contrast tests hold this to Swift.
     function byte(h, i) { return (index("0123456789ABCDEF", substr(h, i, 1)) - 1) * 16 + index("0123456789ABCDEF", substr(h, i + 1, 1)) - 1 }
     function chan(v,   c) { c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ^ 2.4 }
     function lum(r, g, b) { return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b) }
@@ -64,7 +64,7 @@ WCAG_AWK='
     function solid(name, h,   r, g, b, k, a, dr, dg, db, l) {
       r = byte(h, 1); g = byte(h, 3); b = byte(h, 5)
       if (name !~ /^(warning|awake|mint|onPace|stuck)$/) {
-        for (k = 0; k * 0.005 <= 0.27 + 1e-9; k++) {
+        for (k = 0; k * 0.005 <= 0.16 + 1e-9; k++) {
           a = k * 0.005
           dr = k ? int(r * (1 - a) + 0.5) : r; dg = k ? int(g * (1 - a) + 0.5) : g; db = k ? int(b * (1 - a) + 0.5) : b
           l = lum(dr, dg, db)

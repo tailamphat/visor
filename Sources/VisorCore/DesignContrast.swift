@@ -65,10 +65,11 @@ public enum DesignContrast {
     /// yellow, mint, the light green, and the stuck coral, which darkened would
     /// read as critical's red).
     public static let blackTextFills: Set<UInt32> = [P.warning, P.awake, P.mint, P.onPace, P.stuck]
-    /// The most a fill is darkened for white text; past it, black text. The
-    /// blues, violet, reds and greens of the palette need at most 25.5%; the
-    /// oranges and the rose need 30% or more and would read as brown.
-    public static let maxDarkening = 0.27
+    /// The most a fill is darkened for white text; past it, black text. Only
+    /// the colours that stay close to themselves pass: accent (11.5%),
+    /// critical (6.5%), good (15.5%). Claude's orange (19%) turns brown and
+    /// question's light blue (25.5%) and violet (24.5%) lose their colour.
+    public static let maxDarkening = 0.16
     /// Darkening steps of 0.5%.
     public static let darkeningStep = 0.005
 

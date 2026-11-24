@@ -293,7 +293,7 @@ The [design system page](design-system.html) ([online](https://tailamphat.github
 
 Visor's approval colours aren't offered: in Visor they mean "allow" and "deny".
 
-**Readable on every tint.** Visor picks the text colour on a solid tint itself. A primary button and a solid badge draw white text, with the tint darkened just enough to read (your blue accent comes out a shade deeper, same hue). Light tints (amber `warning`, light green `onPace`, coral `stuck`, and a light accent such as teal or orange, which would turn muddy if darkened) keep their colour and get black text instead. There is no option to set it, so a plugin can't put white text on a light tint. Every named colour reads as text on the notch and inside a banner of any tint.
+**Readable on every tint.** Visor picks the text colour on a solid tint itself. A primary button and a solid badge draw white text, with the tint darkened just enough to read (your blue accent comes out a shade deeper, same hue). Tints that would change colour if darkened that far (amber `warning`, light green `onPace`, coral `stuck`, orange `clash` and `claude`, the light blue `question`, and a light accent such as teal) keep their colour and get black text instead. There is no option to set it, so a plugin can't put white text on a light tint. Every named colour reads as text on the notch and inside a banner of any tint.
 
 **Text.** `ui.text` styles sit on Visor's type scale; `size` and `weight` pick another step:
 

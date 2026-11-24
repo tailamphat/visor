@@ -98,9 +98,9 @@
     --v-on-deemphasis: var(--v-text-primary);
     --v-solid-deemphasis: var(--v-deemphasis);
     --v-held-deemphasis: #383835;
-    --v-on-claude: var(--v-text-primary);
-    --v-solid-claude: #B06046;
-    --v-held-claude: #844835;
+    --v-on-claude: var(--v-surface);
+    --v-solid-claude: var(--v-claude);
+    --v-held-claude: #E39981;
     --v-on-good: var(--v-text-primary);
     --v-solid-good: #0A8A0A;
     --v-held-good: #086808;
@@ -113,9 +113,9 @@
     --v-on-warning: var(--v-surface);
     --v-solid-warning: var(--v-warning);
     --v-held-warning: #FBC553;
-    --v-on-question: var(--v-text-primary);
-    --v-solid-question: #4379B3;
-    --v-held-question: #325B86;
+    --v-on-question: var(--v-surface);
+    --v-solid-question: var(--v-question);
+    --v-held-question: #83B9F4;
     --v-on-critical: var(--v-text-primary);
     --v-solid-critical: #D14545;
     --v-held-critical: #9D3434;
@@ -149,9 +149,9 @@
     --v-on-intro-spark: var(--v-surface);
     --v-solid-intro-spark: var(--v-intro-spark);
     --v-held-intro-spark: #DBECFF;
-    --v-on-violet: var(--v-text-primary);
-    --v-solid-violet: #7E69BD;
-    --v-held-violet: #5F4F8E;
+    --v-on-violet: var(--v-surface);
+    --v-solid-violet: var(--v-violet);
+    --v-held-violet: #BDA8FB;
     --v-on-local-build: var(--v-surface);
     --v-solid-local-build: var(--v-local-build);
     --v-held-local-build: #FFA953;
@@ -313,13 +313,13 @@
     --v-k-awake: var(--v-solid-awake) var(--v-on-awake) 13.36;
     --v-k-good: var(--v-solid-good) var(--v-on-good) 4.51;
     --v-k-clash: var(--v-solid-clash) var(--v-on-clash) 8.95;
-    --v-k-question: var(--v-solid-question) var(--v-on-question) 4.54;
+    --v-k-question: var(--v-solid-question) var(--v-on-question) 7.86;
     --v-k-critical: var(--v-solid-critical) var(--v-on-critical) 4.52;
     --v-k-stuck: var(--v-solid-stuck) var(--v-on-stuck) 7.57;
-    --v-k-claude: var(--v-solid-claude) var(--v-on-claude) 4.56;
+    --v-k-claude: var(--v-solid-claude) var(--v-on-claude) 6.73;
     --v-k-local-build: var(--v-solid-local-build) var(--v-on-local-build) 9.02;
     --v-k-on-pace: var(--v-solid-on-pace) var(--v-on-on-pace) 10.01;
-    --v-k-violet: var(--v-solid-violet) var(--v-on-violet) 4.52;
+    --v-k-violet: var(--v-solid-violet) var(--v-on-violet) 7.72;
     --v-k-mint: var(--v-solid-mint) var(--v-on-mint) 13.06;
     --v-k-rose: var(--v-solid-rose) var(--v-on-rose) 9.53;
     --v-k-text-primary: var(--v-solid-text-primary) var(--v-on-text-primary) 21.00;
@@ -730,7 +730,7 @@
     <!-- Guidance -->
     <section id="contrast">
       <div class="group-title"><h2>Contrast</h2><span>WCAG AA</span></div>
-      <p>A solid fill (CardButton primary, the solid Badge, PillButton, and <code>visor.ui</code> buttons and badges) takes <b>white text</b>, the fill darkened just enough to reach 4.5:1 and keep its hue (<code>DesignContrast.solid</code>). Black text only on the light fills (warning, awake, mint, onPace, stuck) and where white would need the fill more than 27% darker, which would read as another colour (the oranges and rose turn brown). The components choose; no caller passes a text colour. Text needs <b>4.5:1</b>, large text (<code>xl</code> and up) and icons <b>3:1</b>; the <code>Design contrast</code> tests check every pair the components can produce. A plugin's accent too dark for the notch is lightened at load.</p>
+      <p>A solid fill (CardButton primary, the solid Badge, PillButton, and <code>visor.ui</code> buttons and badges) takes <b>white text</b>, the fill darkened just enough to reach 4.5:1 and keep its hue (<code>DesignContrast.solid</code>). Black text only on the light fills (warning, awake, mint, onPace, stuck) and where white would need the fill more than 16% darker, which would read as another colour (claude's orange turns brown, question's light blue turns steel). So white goes on accent, critical and good; the other tints keep their colour with black text. The components choose; no caller passes a text colour. Text needs <b>4.5:1</b>, large text (<code>xl</code> and up) and icons <b>3:1</b>; the <code>Design contrast</code> tests check every pair the components can produce. A plugin's accent too dark for the notch is lightened at load.</p>
       <div class="scroll"><table id="contrast-table"><thead><tr><th>Colour</th><th>Solid fill</th><th>Text</th><th>Sample</th><th>Ratio</th><th>Text 4.5:1</th></tr></thead><tbody></tbody></table></div>
     </section>
 

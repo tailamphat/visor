@@ -57,12 +57,13 @@ struct DesignContrastTests {
     }
 
     /// White text on mid-tones, the fill darkened just enough; black only on
-    /// the light fills, and where white would need a fill more than 27% darker.
+    /// the light fills, and where white would need a fill more than 16% darker.
     @Test func solidPrefersWhiteText() {
-        let white: [UInt32] = [P.accent, P.critical, P.good, P.claude, P.violet, P.question, P.textMuted,
+        let white: [UInt32] = [P.accent, P.critical, P.good, P.textMuted,
                                P.surface, P.raised, P.deemphasis, P.accentTrack]
         for hex in white { #expect(C.solid(hex).on == P.textPrimary, "\(String(format: "%06X", hex))") }
         let black: [UInt32] = [P.warning, P.awake, P.mint, P.onPace, P.stuck, P.clash, P.localBuild, P.rose,
+                               P.claude, P.violet, P.question,
                                P.textPrimary, P.textSecondary]
         for hex in black {
             #expect(C.solid(hex).on == P.surface, "\(String(format: "%06X", hex))")
@@ -76,7 +77,7 @@ struct DesignContrastTests {
         #expect(C.solid(P.good).fill == 0x0A8A0A)
     }
 
-    /// The darkening is the smallest 0.5% step that reaches 4.5:1 and never more than 27%.
+    /// The darkening is the smallest 0.5% step that reaches 4.5:1 and never more than 16%.
     @Test func darkeningIsTheSmallestStep() {
         for hex in hexGrid {
             let solid = C.solid(hex)
