@@ -1,10 +1,12 @@
 import SwiftUI
 import VisorCore
 
-/// A solid fill's text colour and held colour (`DesignContrast.on` and
-/// `.pressed`), resolved from its sRGB value once per colour and kept, so a
+/// A colour drawn as a solid fill (`DesignContrast.solid`): the fill itself
+/// (darkened just enough for white text where needed), its text colour and its
+/// held colour, resolved from its sRGB value once per colour and kept, so a
 /// button's body never converts colours again.
 struct SolidFill {
+    let fill: Color
     let on: Color
     let pressed: Color
 
@@ -22,16 +24,20 @@ struct SolidFill {
             func byte(_ c: CGFloat) -> UInt32 { UInt32((min(max(c * alpha, 0), 1) * 255).rounded()) }
             hex = byte(rgb.redComponent) << 16 | byte(rgb.greenComponent) << 8 | byte(rgb.blueComponent)
         }
-        let solid = SolidFill(on: Color(hex: DesignContrast.on(hex)), pressed: Color(hex: DesignContrast.pressed(hex)))
+        let spec = DesignContrast.solid(hex)
+        let solid = SolidFill(fill: Color(hex: spec.fill), on: Color(hex: spec.on), pressed: Color(hex: DesignContrast.pressed(spec)))
         cache[fill] = solid
         return solid
     }
 }
 
 extension Color {
-    /// The text and icon colour for this fill: black on a light fill, white on a dark one.
+    /// This colour as a solid button or badge fill: darkened just enough for
+    /// white text where it needs it, else as it is.
+    var solidFill: Color { SolidFill.of(self).fill }
+    /// The text and icon colour on `solidFill`: white, or black on a light fill.
     var onColour: Color { SolidFill.of(self).on }
-    /// This fill while its button is held: moved away from its text colour.
+    /// `solidFill` while its button is held: moved away from its text colour.
     var pressedFill: Color { SolidFill.of(self).pressed }
 }
 

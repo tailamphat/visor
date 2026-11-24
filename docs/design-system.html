@@ -75,32 +75,86 @@
     --v-size-button: 18px;
     --v-size-icon-large: 20px;
     --v-on-surface: var(--v-text-primary);
+    --v-solid-surface: var(--v-surface);
+    --v-held-surface: #000000;
     --v-on-raised: var(--v-text-primary);
+    --v-solid-raised: var(--v-raised);
+    --v-held-raised: #141413;
     --v-on-text-primary: var(--v-surface);
+    --v-solid-text-primary: var(--v-text-primary);
+    --v-held-text-primary: #FFFFFF;
     --v-on-text-secondary: var(--v-surface);
-    --v-on-text-muted: var(--v-surface);
-    --v-on-accent: var(--v-surface);
+    --v-solid-text-secondary: var(--v-text-secondary);
+    --v-held-text-secondary: #D2D1C9;
+    --v-on-text-muted: var(--v-text-primary);
+    --v-solid-text-muted: #77776F;
+    --v-held-text-muted: #595953;
+    --v-on-accent: var(--v-text-primary);
+    --v-solid-accent: #3277CB;
+    --v-held-accent: #265998;
     --v-on-accent-track: var(--v-text-primary);
+    --v-solid-accent-track: var(--v-accent-track);
+    --v-held-accent-track: #123B70;
     --v-on-deemphasis: var(--v-text-primary);
-    --v-on-claude: var(--v-surface);
-    --v-on-good: var(--v-surface);
+    --v-solid-deemphasis: var(--v-deemphasis);
+    --v-held-deemphasis: #383835;
+    --v-on-claude: var(--v-text-primary);
+    --v-solid-claude: #B06046;
+    --v-held-claude: #844835;
+    --v-on-good: var(--v-text-primary);
+    --v-solid-good: #0A8A0A;
+    --v-held-good: #086808;
     --v-on-on-pace: var(--v-surface);
+    --v-solid-on-pace: var(--v-on-pace);
+    --v-held-on-pace: #87D787;
     --v-on-clash: var(--v-surface);
+    --v-solid-clash: var(--v-clash);
+    --v-held-clash: #FFA76E;
     --v-on-warning: var(--v-surface);
-    --v-on-question: var(--v-surface);
-    --v-on-critical: var(--v-surface);
+    --v-solid-warning: var(--v-warning);
+    --v-held-warning: #FBC553;
+    --v-on-question: var(--v-text-primary);
+    --v-solid-question: #4379B3;
+    --v-held-question: #325B86;
+    --v-on-critical: var(--v-text-primary);
+    --v-solid-critical: #D14545;
+    --v-held-critical: #9D3434;
     --v-on-stuck: var(--v-surface);
+    --v-solid-stuck: var(--v-stuck);
+    --v-held-stuck: #FF9090;
     --v-on-awake: var(--v-surface);
+    --v-solid-awake: var(--v-awake);
+    --v-held-awake: #FFD390;
     --v-on-mint: var(--v-surface);
+    --v-solid-mint: var(--v-mint);
+    --v-held-mint: #9EE8B8;
     --v-on-rose: var(--v-surface);
+    --v-solid-rose: var(--v-rose);
+    --v-held-rose: #FFABA4;
     --v-on-allow-text: var(--v-text-primary);
+    --v-solid-allow-text: var(--v-allow-text);
+    --v-held-allow-text: #051D0B;
     --v-on-always-text: var(--v-surface);
+    --v-solid-always-text: var(--v-always-text);
+    --v-held-always-text: #D7F6E0;
     --v-on-deny-text: var(--v-surface);
+    --v-solid-deny-text: var(--v-deny-text);
+    --v-held-deny-text: #FFB6B0;
     --v-on-intro-glow: var(--v-surface);
+    --v-solid-intro-glow: var(--v-intro-glow);
+    --v-held-intro-glow: #B0C7FF;
     --v-on-intro-sky: var(--v-surface);
+    --v-solid-intro-sky: var(--v-intro-sky);
+    --v-held-intro-sky: #A9D6FF;
     --v-on-intro-spark: var(--v-surface);
-    --v-on-violet: var(--v-surface);
+    --v-solid-intro-spark: var(--v-intro-spark);
+    --v-held-intro-spark: #DBECFF;
+    --v-on-violet: var(--v-text-primary);
+    --v-solid-violet: #7E69BD;
+    --v-held-violet: #5F4F8E;
     --v-on-local-build: var(--v-surface);
+    --v-solid-local-build: var(--v-local-build);
+    --v-held-local-build: #FFA953;
   }
   /* tokens:end */
 
@@ -110,18 +164,18 @@
      components' own constants: 1px strokes, the banner's 8% fill (Fill.subtle) and 35% stroke, the
      header's .6px tracking, .75 while held, 99px for a capsule. Each component starts on the accent and
      takes its own tint from a .tint-* class on it (never from a card around it), or an inline --tint.
-     Text on a solid tint is the tint's on-colour (--on-tint, from the generated --v-on-* tokens:
-     DesignContrast.on), so a light tint never carries white text; an inline --tint sets --on-tint too. */
+     A solid tint (primary button, solid badge) is drawn as DesignContrast.solid: --solid-tint (the tint,
+     darkened just enough for white text where needed), its text --on-tint (white, black on a light tint)
+     and --held-tint, from the generated --v-solid-*, --v-on-*, --v-held-* tokens; an inline --tint sets all four. */
   /* CardButton: secondary on a white fill, .primary on the tint (Visor's accent unless set) in its on-colour. */
-  .v-btn, .v-card, .v-badge { --tint: var(--v-accent); --on-tint: var(--v-on-accent); }
+  .v-btn, .v-card, .v-badge { --tint: var(--v-accent); --solid-tint: var(--v-solid-accent); --on-tint: var(--v-on-accent); --held-tint: var(--v-held-accent); }
   .v-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box; height: var(--v-size-button);
     padding: 0 var(--v-space-md); border: 0; border-radius: var(--v-radius-sm); background: var(--v-fill-medium); color: var(--v-text-primary);
     font: 600 var(--v-type-base)/1 var(--sf); white-space: nowrap; cursor: pointer; }
-  .v-btn.primary { background: var(--tint); color: var(--on-tint); }
-  /* Held: the secondary dims to .75; the primary's fill moves away from its text (DesignContrast.pressed:
-     25% toward white under black text; the site's tints all take black text). */
+  .v-btn.primary { background: var(--solid-tint); color: var(--on-tint); }
+  /* Held: the secondary dims to .75; the primary's fill moves away from its text (DesignContrast.pressed). */
   .v-btn:active { opacity: .75; }
-  .v-btn.primary:active { opacity: 1; background: color-mix(in srgb, var(--tint) 75%, var(--v-text-primary)); }
+  .v-btn.primary:active { opacity: 1; background: var(--held-tint); }
   /* bannerCard: the same inset on all four sides, the tint at a subtle fill inside a tint stroke. */
   .v-card { box-sizing: border-box; padding: var(--v-size-card-inset); border-radius: var(--v-radius-md);
     background: color-mix(in srgb, var(--tint) 8%, transparent);
@@ -131,18 +185,18 @@
   /* Badge: neutral on a white fill, .solid on the tint in its on-colour. */
   .v-badge { display: inline-block; flex: none; padding: var(--v-space-hair) var(--v-space-sm); border-radius: 99px; background: var(--v-fill-medium);
     color: var(--v-text-primary); font: 600 var(--v-type-sm) var(--sf); white-space: nowrap; }
-  .v-badge.solid { background: var(--tint); color: var(--on-tint); }
+  .v-badge.solid { background: var(--solid-tint); color: var(--on-tint); }
   /* SectionHeader: an uppercase muted title over a group of rows. */
   .v-header { font: 600 var(--v-type-sm) var(--sf); letter-spacing: .6px; text-transform: uppercase; color: var(--v-text-muted); white-space: nowrap; }
   /* DismissButton: the x that dismisses a card. */
   .v-dismiss { display: grid; place-items: center; flex: none; width: var(--v-size-button); height: var(--v-size-button); padding: 0; border: 0;
     background: none; color: var(--v-text-muted); font: 700 var(--v-type-sm) var(--sf); }
   /* Tints, after the components so a class on the component wins over its accent. */
-  .tint-accent { --tint: var(--v-accent); --on-tint: var(--v-on-accent); }
-  .tint-stuck { --tint: var(--v-stuck); --on-tint: var(--v-on-stuck); }
-  .tint-warning { --tint: var(--v-warning); --on-tint: var(--v-on-warning); }
-  .tint-critical { --tint: var(--v-critical); --on-tint: var(--v-on-critical); }
-  .tint-clash { --tint: var(--v-clash); --on-tint: var(--v-on-clash); }
+  .tint-accent { --tint: var(--v-accent); --solid-tint: var(--v-solid-accent); --on-tint: var(--v-on-accent); --held-tint: var(--v-held-accent); }
+  .tint-stuck { --tint: var(--v-stuck); --solid-tint: var(--v-solid-stuck); --on-tint: var(--v-on-stuck); --held-tint: var(--v-held-stuck); }
+  .tint-warning { --tint: var(--v-warning); --solid-tint: var(--v-solid-warning); --on-tint: var(--v-on-warning); --held-tint: var(--v-held-warning); }
+  .tint-critical { --tint: var(--v-critical); --solid-tint: var(--v-solid-critical); --on-tint: var(--v-on-critical); --held-tint: var(--v-held-critical); }
+  .tint-clash { --tint: var(--v-clash); --solid-tint: var(--v-solid-clash); --on-tint: var(--v-on-clash); --held-tint: var(--v-held-clash); }
   /* components:end */
 
   /* measures:begin */
@@ -250,27 +304,27 @@
   /* The contrast pairing table (fill, its on-colour, the ratio), generated by scripts/site-tokens.sh from
      Sources/VisorCore/DesignContrast.swift and the palette. Do not edit here. Text needs 4.5:1, large text and icons 3:1. */
   :root {
-    --v-k-surface: var(--v-surface) var(--v-on-surface) 21.00;
-    --v-k-raised: var(--v-raised) var(--v-on-raised) 17.42;
-    --v-k-deemphasis: var(--v-deemphasis) var(--v-on-deemphasis) 8.90;
-    --v-k-accent-track: var(--v-accent-track) var(--v-on-accent-track) 8.10;
-    --v-k-accent: var(--v-accent) var(--v-on-accent) 5.77;
-    --v-k-warning: var(--v-warning) var(--v-on-warning) 11.45;
-    --v-k-awake: var(--v-awake) var(--v-on-awake) 13.36;
-    --v-k-good: var(--v-good) var(--v-on-good) 6.26;
-    --v-k-clash: var(--v-clash) var(--v-on-clash) 8.95;
-    --v-k-question: var(--v-question) var(--v-on-question) 7.86;
-    --v-k-critical: var(--v-critical) var(--v-on-critical) 5.25;
-    --v-k-stuck: var(--v-stuck) var(--v-on-stuck) 7.57;
-    --v-k-claude: var(--v-claude) var(--v-on-claude) 6.73;
-    --v-k-local-build: var(--v-local-build) var(--v-on-local-build) 9.02;
-    --v-k-on-pace: var(--v-on-pace) var(--v-on-on-pace) 10.01;
-    --v-k-violet: var(--v-violet) var(--v-on-violet) 7.72;
-    --v-k-mint: var(--v-mint) var(--v-on-mint) 13.06;
-    --v-k-rose: var(--v-rose) var(--v-on-rose) 9.53;
-    --v-k-text-primary: var(--v-text-primary) var(--v-on-text-primary) 21.00;
-    --v-k-text-secondary: var(--v-text-secondary) var(--v-on-text-secondary) 11.72;
-    --v-k-text-muted: var(--v-text-muted) var(--v-on-text-muted) 5.97;
+    --v-k-surface: var(--v-solid-surface) var(--v-on-surface) 21.00;
+    --v-k-raised: var(--v-solid-raised) var(--v-on-raised) 17.42;
+    --v-k-deemphasis: var(--v-solid-deemphasis) var(--v-on-deemphasis) 8.90;
+    --v-k-accent-track: var(--v-solid-accent-track) var(--v-on-accent-track) 8.10;
+    --v-k-accent: var(--v-solid-accent) var(--v-on-accent) 4.53;
+    --v-k-warning: var(--v-solid-warning) var(--v-on-warning) 11.45;
+    --v-k-awake: var(--v-solid-awake) var(--v-on-awake) 13.36;
+    --v-k-good: var(--v-solid-good) var(--v-on-good) 4.51;
+    --v-k-clash: var(--v-solid-clash) var(--v-on-clash) 8.95;
+    --v-k-question: var(--v-solid-question) var(--v-on-question) 4.54;
+    --v-k-critical: var(--v-solid-critical) var(--v-on-critical) 4.52;
+    --v-k-stuck: var(--v-solid-stuck) var(--v-on-stuck) 7.57;
+    --v-k-claude: var(--v-solid-claude) var(--v-on-claude) 4.56;
+    --v-k-local-build: var(--v-solid-local-build) var(--v-on-local-build) 9.02;
+    --v-k-on-pace: var(--v-solid-on-pace) var(--v-on-on-pace) 10.01;
+    --v-k-violet: var(--v-solid-violet) var(--v-on-violet) 4.52;
+    --v-k-mint: var(--v-solid-mint) var(--v-on-mint) 13.06;
+    --v-k-rose: var(--v-solid-rose) var(--v-on-rose) 9.53;
+    --v-k-text-primary: var(--v-solid-text-primary) var(--v-on-text-primary) 21.00;
+    --v-k-text-secondary: var(--v-solid-text-secondary) var(--v-on-text-secondary) 11.72;
+    --v-k-text-muted: var(--v-solid-text-muted) var(--v-on-text-muted) 4.51;
   }
   /* contrast:end */
 </style>
@@ -382,7 +436,7 @@
   .row { display: flex; align-items: center; gap: var(--v-space-sm); min-width: 0; }
   .row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .is-held { opacity: var(--v-c-card-button-pressed-opacity); }
-  .v-btn.primary.is-held { opacity: 1; background: color-mix(in srgb, var(--tint) calc(var(--v-c-card-button-pressed-opacity) * 100%), var(--v-text-primary)); }
+  .v-btn.primary.is-held { opacity: 1; background: var(--held-tint); }
   .is-hover { cursor: pointer; }
   .restore { font: 600 var(--v-type-base) var(--sf); color: var(--v-text-muted); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
   .card-stack { display: grid; gap: var(--v-space-xxs); }
@@ -676,8 +730,8 @@
     <!-- Guidance -->
     <section id="contrast">
       <div class="group-title"><h2>Contrast</h2><span>WCAG AA</span></div>
-      <p>Every fill has an on-colour: black or white, whichever reads better (<code>DesignContrast.on</code>). CardButton primary, the solid Badge and PillButton draw their text in it themselves, and so do <code>visor.ui</code> buttons and badges, so a light tint never carries white text. Text needs <b>4.5:1</b>, large text (<code>xl</code> and up) and icons <b>3:1</b>; the <code>Design contrast</code> tests check every pair the components can produce. A plugin's accent too dark for the notch is lightened at load.</p>
-      <div class="scroll"><table id="contrast-table"><thead><tr><th>Fill</th><th>On-colour</th><th>Sample</th><th>Ratio</th><th>Text 4.5:1</th></tr></thead><tbody></tbody></table></div>
+      <p>A solid fill (CardButton primary, the solid Badge, PillButton, and <code>visor.ui</code> buttons and badges) takes <b>white text</b>, the fill darkened just enough to reach 4.5:1 and keep its hue (<code>DesignContrast.solid</code>). Black text only on the light fills (warning, awake, mint, onPace, stuck) and where white would need the fill more than 27% darker, which would read as another colour (the oranges and rose turn brown). The components choose; no caller passes a text colour. Text needs <b>4.5:1</b>, large text (<code>xl</code> and up) and icons <b>3:1</b>; the <code>Design contrast</code> tests check every pair the components can produce. A plugin's accent too dark for the notch is lightened at load.</p>
+      <div class="scroll"><table id="contrast-table"><thead><tr><th>Colour</th><th>Solid fill</th><th>Text</th><th>Sample</th><th>Ratio</th><th>Text 4.5:1</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="rules">
@@ -757,7 +811,10 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   }
   const byVar = Object.fromEntries(tokens.map(t => [t.v, t.value]));
   const of = (prefix) => tokens.filter(t => t.v.startsWith(prefix)).map(t => ({ ...t, name: camel(t.v.slice(prefix.length)), n: parseFloat(t.value) }));
-  const palette = tokens.filter(t => t.value.startsWith("#")).map(t => ({ ...t, name: camel(t.v.slice(4)) }));
+  // Each colour's solid fill, text and held fill (--v-solid-*, --v-on-*, --v-held-*) are drawn in the
+  // contrast table, not as swatches. (--v-on-pace is the onPace colour itself, so its value decides.)
+  const derived = t => /^--v-(solid|held)-/.test(t.v) || (t.v.startsWith("--v-on-") && t.value.startsWith("var("));
+  const palette = tokens.filter(t => t.value.startsWith("#") && !derived(t)).map(t => ({ ...t, name: camel(t.v.slice(4)) }));
   const typeSteps = of("--v-type-"), radii = of("--v-radius-"), spaces = of("--v-space-"), sizes = of("--v-size-");
   const fills = of("--v-fill-").map(f => ({ ...f, n: parseFloat(f.value.split(",")[3]) }));
   const measure = (g, n) => { const m = measures.find(x => x.group === g && x.name === n); return m ? m.value : ""; };
@@ -930,9 +987,11 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   $("#measure-table tbody").innerHTML = rows;
 
   // The contrast pairing table, from the generated contrast block: fill, on-colour, ratio.
-  $("#contrast-table tbody").innerHTML = [...part("contrast").matchAll(/^\s*--v-k-([a-z0-9-]+):\s*var\((--v-[a-z0-9-]+)\)\s+var\((--v-on-[a-z0-9-]+)\)\s+([0-9.]+);/gm)].map(m => {
+  $("#contrast-table tbody").innerHTML = [...part("contrast").matchAll(/^\s*--v-k-([a-z0-9-]+):\s*var\((--v-solid-[a-z0-9-]+)\)\s+var\((--v-on-[a-z0-9-]+)\)\s+([0-9.]+);/gm)].map(m => {
     const on = byVar[m[3]] === "var(--v-surface)" ? "black" : "white", ratio = parseFloat(m[4]);
-    return `<tr><td><span class="sw-dot" style="background:var(${m[2]})"></span><code>${camel(m[1])}</code></td><td>${on}</td>`
+    const solid = byVar[m[2]] || "", same = solid.startsWith("var(");
+    return `<tr><td><span class="sw-dot" style="background:var(--v-${m[1]})"></span><code>${camel(m[1])}</code></td>`
+      + `<td><span class="sw-dot" style="background:var(${m[2]})"></span>${same ? "as it is" : "darkened " + esc(solid)}</td><td>${on}</td>`
       + `<td><span class="k-sample" style="background:var(${m[2]});color:var(${m[3]})">Open</span></td><td>${ratio.toFixed(2)}:1</td><td>${ratio >= 4.5 ? "pass" : "fail"}</td></tr>`;
   }).join("");
 
@@ -941,7 +1000,7 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   $("#tints").outerHTML = tints.map(t => `<button class="tint" data-tint="${t.name}" style="--sw:var(--v-${t.pal})" aria-pressed="${t.name === state.tint}" title="${t.name}" aria-label="${t.name}"></button>`).join("");
   function applyTint() {
     const t = tints.find(x => x.name === state.tint) || tints[0];
-    $$(".tintable").forEach(el => { el.style.setProperty("--tint", `var(--v-${t.pal})`); el.style.setProperty("--on-tint", `var(--v-on-${t.pal})`); });
+    $$(".tintable").forEach(el => { for (const k of ["", "solid-", "on-", "held-"]) el.style.setProperty(k ? `--${k}tint` : "--tint", `var(--v-${k}${t.pal})`); });
     $$(".space-row i").forEach(el => el.style.setProperty("--tint", `var(--v-${t.pal})`));
   }
   $(".tints").addEventListener("click", e => {
@@ -963,9 +1022,8 @@ RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
   renderType(); renderFills(); renderMeter(); applyTint(); renderAllCode();
 
   // Self-check: everything in the generated blocks is drawn.
-  // The on-colours (--v-on-<fill>: var(...)) are drawn in the contrast table, not as swatches: count only the rest.
-  // (--v-on-pace is the onPace colour itself, so the value decides.)
-  const shownTokens = tokens.filter(t => !(t.v.startsWith("--v-on-") && t.value.startsWith("var(")));
+  // The derived solid, text and held colours are drawn in the contrast table: count only the rest.
+  const shownTokens = tokens.filter(t => !derived(t));
   const drawnTokens = new Set($$("[data-token]").map(e => e.dataset.token)).size;
   const drawnMeasures = $$("[data-measure]").length;
   const ok = drawnTokens === shownTokens.length && drawnMeasures === measures.length && tokens.length > 0 && measures.length > 0;

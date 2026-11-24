@@ -121,7 +121,7 @@ struct PillButton: ButtonStyle {
             .foregroundStyle(fill.onColour)
             .padding(.horizontal, 14)
             .frame(height: 28)
-            .background(Capsule().fill(configuration.isPressed ? fill.pressedFill : fill))
+            .background(Capsule().fill(configuration.isPressed ? fill.pressedFill : fill.solidFill))
             .contentShape(Capsule())
     }
 }

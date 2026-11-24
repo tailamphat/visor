@@ -8,8 +8,9 @@
 # Blocks, each between /* NAME:begin */ and /* NAME:end */ lines in HTML's style:
 #   tokens      required. A :root block of --v-* variables from every `public static let name: Type = literal`
 #               inside `public enum DesignTokens` (Sources/VisorCore/DesignTokens.swift). Each colour also gets
-#               --v-on-<name>: its on-colour, var(--v-surface) or var(--v-text-primary), whichever has the higher WCAG contrast
-#               (DesignContrast.on in Sources/VisorCore/DesignContrast.swift).
+#               --v-solid-<name> (the colour as a solid button or badge fill, darkened for white text where needed),
+#               --v-on-<name> (its text colour, var(--v-text-primary) or var(--v-surface)) and --v-held-<name> (held),
+#               as DesignContrast.solid in Sources/VisorCore/DesignContrast.swift.
 #   components  if present. The shared component classes (.v-btn, .v-card, ...) copied from
 #               docs/index.html's components block, which is hand-written there (index.html is the source).
 #   measures    if present. A :root block of --v-c-<component>-<name> variables from every
@@ -18,7 +19,7 @@
 #               Also plugin pieces (`enum PluginPieces`, --v-c-plugin-pieces-*) and the colour names plugins
 #               may use (`enum PluginColor`, --v-c-plugin-color-<name>: var(--v-<palette>)) from
 #               Sources/VisorCore/Plugins/PluginDesign.swift.
-#   contrast    if present. A :root block of --v-k-<fill>: <on-colour var> <ratio>, one per row of the pairing
+#   contrast    if present. A :root block of --v-k-<fill>: <solid fill var> <on-colour var> <ratio>, one per row of the pairing
 #               table (`Fill(name: "x", hex: P.y)` lines in Sources/VisorCore/DesignContrast.swift).
 # HTML defaults to docs/index.html. Exits 2 on a line it can't read, so a new shape fails instead of vanishing.
 set -euo pipefail
@@ -52,15 +53,31 @@ END='  /* tokens:end */'
 
 # WCAG 2 relative luminance of "RRGGBB" and the on-colour (DesignContrast.on), for awk.
 WCAG_AWK='
-    function chan(h,   v, c) {
-      v = (index("0123456789ABCDEF", substr(h, 1, 1)) - 1) * 16 + index("0123456789ABCDEF", substr(h, 2, 1)) - 1
-      c = v / 255
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ^ 2.4
+    # How a colour is drawn as a solid fill (DesignContrast.solid): white text on the fill darkened
+    # by the smallest 0.5% step that reaches 4.5:1 (at most 27%); black text on the light fills
+    # (warning, awake, mint, onPace, stuck) and past 27%. The Design contrast tests hold this to Swift.
+    function byte(h, i) { return (index("0123456789ABCDEF", substr(h, i, 1)) - 1) * 16 + index("0123456789ABCDEF", substr(h, i + 1, 1)) - 1 }
+    function chan(v,   c) { c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ^ 2.4 }
+    function lum(r, g, b) { return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b) }
+    function hex2(r, g, b) { return sprintf("%02X%02X%02X", r, g, b) }
+    # Sets S_FILL (hex), S_SAME (1 when not darkened), S_WHITE (1 for white text), S_RATIO.
+    function solid(name, h,   r, g, b, k, a, dr, dg, db, l) {
+      r = byte(h, 1); g = byte(h, 3); b = byte(h, 5)
+      if (name !~ /^(warning|awake|mint|onPace|stuck)$/) {
+        for (k = 0; k * 0.005 <= 0.27 + 1e-9; k++) {
+          a = k * 0.005
+          dr = k ? int(r * (1 - a) + 0.5) : r; dg = k ? int(g * (1 - a) + 0.5) : g; db = k ? int(b * (1 - a) + 0.5) : b
+          l = lum(dr, dg, db)
+          if (1.05 / (l + 0.05) >= 4.5) { S_FILL = hex2(dr, dg, db); S_SAME = (k == 0); S_WHITE = 1; S_RATIO = 1.05 / (l + 0.05); return }
+        }
+      }
+      S_FILL = h; S_SAME = 1; S_WHITE = 0; S_RATIO = (lum(r, g, b) + 0.05) / 0.05
     }
-    function luminance(h) { return 0.2126 * chan(substr(h, 1, 2)) + 0.7152 * chan(substr(h, 3, 2)) + 0.0722 * chan(substr(h, 5, 2)) }
-    function blackwins(h,   l) { l = luminance(h); return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) }
-    function oncolour(h) { return blackwins(h) ? "var(--v-surface)" : "var(--v-text-primary)" }
-    function onratio(h,   l) { l = luminance(h); return blackwins(h) ? (l + 0.05) / 0.05 : 1.05 / (l + 0.05) }
+    # The held fill: 25% (1 - CardButton.pressedOpacity) toward white under black text, toward black under white.
+    function held(h,   r, g, b, t) {
+      r = byte(h, 1); g = byte(h, 3); b = byte(h, 5); t = S_WHITE ? 0 : 255
+      return hex2(int(t * 0.25 + r * 0.75 + 0.5), int(t * 0.25 + g * 0.75 + 0.5), int(t * 0.25 + b * 0.75 + 0.5))
+    }
 '
 
 block() {
@@ -102,7 +119,10 @@ block() {
       if (group == "Palette") {
         if (type != "UInt32" || length(value) != 8 || value !~ /^0x[0-9A-Fa-f]+$/) fail("colour must be UInt32 0xRRGGBB")
         emit("--v-" kebab(name), "#" toupper(substr(value, 3)))
-        ons++; onvar[ons] = "--v-on-" kebab(name); onval[ons] = oncolour(toupper(substr(value, 3)))
+        solid(name, toupper(substr(value, 3)))
+        ons++; onvar[ons] = "--v-on-" kebab(name); onval[ons] = S_WHITE ? "var(--v-text-primary)" : "var(--v-surface)"
+        ons++; onvar[ons] = "--v-solid-" kebab(name); onval[ons] = S_SAME ? "var(--v-" kebab(name) ")" : "#" S_FILL
+        ons++; onvar[ons] = "--v-held-" kebab(name); onval[ons] = "#" held(S_FILL)
       } else {
         if (type != "Double" || value !~ /^[0-9]+(\.[0-9]+)?$/) fail("size must be a Double literal")
         if (group == "Fill") emit("--v-fill-" kebab(name), "rgba(255,255,255," value ")")
@@ -242,7 +262,8 @@ contrast() {
         if (!(pal in hex)) fail("no palette colour " pal)
         if (("--v-k-" kebab(name)) in seen) fail("two rows make --v-k-" kebab(name))
         seen["--v-k-" kebab(name)] = 1
-        printf "    --v-k-%s: var(--v-%s) var(--v-on-%s) %.2f;\n", kebab(name), kebab(pal), kebab(pal), onratio(hex[pal])
+        solid(pal, hex[pal])
+        printf "    --v-k-%s: var(--v-solid-%s) var(--v-on-%s) %.2f;\n", kebab(name), kebab(pal), kebab(pal), S_RATIO
         count++
       }
     }

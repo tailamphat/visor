@@ -72,32 +72,86 @@
     --v-size-button: 18px;
     --v-size-icon-large: 20px;
     --v-on-surface: var(--v-text-primary);
+    --v-solid-surface: var(--v-surface);
+    --v-held-surface: #000000;
     --v-on-raised: var(--v-text-primary);
+    --v-solid-raised: var(--v-raised);
+    --v-held-raised: #141413;
     --v-on-text-primary: var(--v-surface);
+    --v-solid-text-primary: var(--v-text-primary);
+    --v-held-text-primary: #FFFFFF;
     --v-on-text-secondary: var(--v-surface);
-    --v-on-text-muted: var(--v-surface);
-    --v-on-accent: var(--v-surface);
+    --v-solid-text-secondary: var(--v-text-secondary);
+    --v-held-text-secondary: #D2D1C9;
+    --v-on-text-muted: var(--v-text-primary);
+    --v-solid-text-muted: #77776F;
+    --v-held-text-muted: #595953;
+    --v-on-accent: var(--v-text-primary);
+    --v-solid-accent: #3277CB;
+    --v-held-accent: #265998;
     --v-on-accent-track: var(--v-text-primary);
+    --v-solid-accent-track: var(--v-accent-track);
+    --v-held-accent-track: #123B70;
     --v-on-deemphasis: var(--v-text-primary);
-    --v-on-claude: var(--v-surface);
-    --v-on-good: var(--v-surface);
+    --v-solid-deemphasis: var(--v-deemphasis);
+    --v-held-deemphasis: #383835;
+    --v-on-claude: var(--v-text-primary);
+    --v-solid-claude: #B06046;
+    --v-held-claude: #844835;
+    --v-on-good: var(--v-text-primary);
+    --v-solid-good: #0A8A0A;
+    --v-held-good: #086808;
     --v-on-on-pace: var(--v-surface);
+    --v-solid-on-pace: var(--v-on-pace);
+    --v-held-on-pace: #87D787;
     --v-on-clash: var(--v-surface);
+    --v-solid-clash: var(--v-clash);
+    --v-held-clash: #FFA76E;
     --v-on-warning: var(--v-surface);
-    --v-on-question: var(--v-surface);
-    --v-on-critical: var(--v-surface);
+    --v-solid-warning: var(--v-warning);
+    --v-held-warning: #FBC553;
+    --v-on-question: var(--v-text-primary);
+    --v-solid-question: #4379B3;
+    --v-held-question: #325B86;
+    --v-on-critical: var(--v-text-primary);
+    --v-solid-critical: #D14545;
+    --v-held-critical: #9D3434;
     --v-on-stuck: var(--v-surface);
+    --v-solid-stuck: var(--v-stuck);
+    --v-held-stuck: #FF9090;
     --v-on-awake: var(--v-surface);
+    --v-solid-awake: var(--v-awake);
+    --v-held-awake: #FFD390;
     --v-on-mint: var(--v-surface);
+    --v-solid-mint: var(--v-mint);
+    --v-held-mint: #9EE8B8;
     --v-on-rose: var(--v-surface);
+    --v-solid-rose: var(--v-rose);
+    --v-held-rose: #FFABA4;
     --v-on-allow-text: var(--v-text-primary);
+    --v-solid-allow-text: var(--v-allow-text);
+    --v-held-allow-text: #051D0B;
     --v-on-always-text: var(--v-surface);
+    --v-solid-always-text: var(--v-always-text);
+    --v-held-always-text: #D7F6E0;
     --v-on-deny-text: var(--v-surface);
+    --v-solid-deny-text: var(--v-deny-text);
+    --v-held-deny-text: #FFB6B0;
     --v-on-intro-glow: var(--v-surface);
+    --v-solid-intro-glow: var(--v-intro-glow);
+    --v-held-intro-glow: #B0C7FF;
     --v-on-intro-sky: var(--v-surface);
+    --v-solid-intro-sky: var(--v-intro-sky);
+    --v-held-intro-sky: #A9D6FF;
     --v-on-intro-spark: var(--v-surface);
-    --v-on-violet: var(--v-surface);
+    --v-solid-intro-spark: var(--v-intro-spark);
+    --v-held-intro-spark: #DBECFF;
+    --v-on-violet: var(--v-text-primary);
+    --v-solid-violet: #7E69BD;
+    --v-held-violet: #5F4F8E;
     --v-on-local-build: var(--v-surface);
+    --v-solid-local-build: var(--v-local-build);
+    --v-held-local-build: #FFA953;
   }
   /* tokens:end */
 
@@ -107,18 +161,18 @@
      components' own constants: 1px strokes, the banner's 8% fill (Fill.subtle) and 35% stroke, the
      header's .6px tracking, .75 while held, 99px for a capsule. Each component starts on the accent and
      takes its own tint from a .tint-* class on it (never from a card around it), or an inline --tint.
-     Text on a solid tint is the tint's on-colour (--on-tint, from the generated --v-on-* tokens:
-     DesignContrast.on), so a light tint never carries white text; an inline --tint sets --on-tint too. */
+     A solid tint (primary button, solid badge) is drawn as DesignContrast.solid: --solid-tint (the tint,
+     darkened just enough for white text where needed), its text --on-tint (white, black on a light tint)
+     and --held-tint, from the generated --v-solid-*, --v-on-*, --v-held-* tokens; an inline --tint sets all four. */
   /* CardButton: secondary on a white fill, .primary on the tint (Visor's accent unless set) in its on-colour. */
-  .v-btn, .v-card, .v-badge { --tint: var(--v-accent); --on-tint: var(--v-on-accent); }
+  .v-btn, .v-card, .v-badge { --tint: var(--v-accent); --solid-tint: var(--v-solid-accent); --on-tint: var(--v-on-accent); --held-tint: var(--v-held-accent); }
   .v-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box; height: var(--v-size-button);
     padding: 0 var(--v-space-md); border: 0; border-radius: var(--v-radius-sm); background: var(--v-fill-medium); color: var(--v-text-primary);
     font: 600 var(--v-type-base)/1 var(--sf); white-space: nowrap; cursor: pointer; }
-  .v-btn.primary { background: var(--tint); color: var(--on-tint); }
-  /* Held: the secondary dims to .75; the primary's fill moves away from its text (DesignContrast.pressed:
-     25% toward white under black text; the site's tints all take black text). */
+  .v-btn.primary { background: var(--solid-tint); color: var(--on-tint); }
+  /* Held: the secondary dims to .75; the primary's fill moves away from its text (DesignContrast.pressed). */
   .v-btn:active { opacity: .75; }
-  .v-btn.primary:active { opacity: 1; background: color-mix(in srgb, var(--tint) 75%, var(--v-text-primary)); }
+  .v-btn.primary:active { opacity: 1; background: var(--held-tint); }
   /* bannerCard: the same inset on all four sides, the tint at a subtle fill inside a tint stroke. */
   .v-card { box-sizing: border-box; padding: var(--v-size-card-inset); border-radius: var(--v-radius-md);
     background: color-mix(in srgb, var(--tint) 8%, transparent);
@@ -128,18 +182,18 @@
   /* Badge: neutral on a white fill, .solid on the tint in its on-colour. */
   .v-badge { display: inline-block; flex: none; padding: var(--v-space-hair) var(--v-space-sm); border-radius: 99px; background: var(--v-fill-medium);
     color: var(--v-text-primary); font: 600 var(--v-type-sm) var(--sf); white-space: nowrap; }
-  .v-badge.solid { background: var(--tint); color: var(--on-tint); }
+  .v-badge.solid { background: var(--solid-tint); color: var(--on-tint); }
   /* SectionHeader: an uppercase muted title over a group of rows. */
   .v-header { font: 600 var(--v-type-sm) var(--sf); letter-spacing: .6px; text-transform: uppercase; color: var(--v-text-muted); white-space: nowrap; }
   /* DismissButton: the x that dismisses a card. */
   .v-dismiss { display: grid; place-items: center; flex: none; width: var(--v-size-button); height: var(--v-size-button); padding: 0; border: 0;
     background: none; color: var(--v-text-muted); font: 700 var(--v-type-sm) var(--sf); }
   /* Tints, after the components so a class on the component wins over its accent. */
-  .tint-accent { --tint: var(--v-accent); --on-tint: var(--v-on-accent); }
-  .tint-stuck { --tint: var(--v-stuck); --on-tint: var(--v-on-stuck); }
-  .tint-warning { --tint: var(--v-warning); --on-tint: var(--v-on-warning); }
-  .tint-critical { --tint: var(--v-critical); --on-tint: var(--v-on-critical); }
-  .tint-clash { --tint: var(--v-clash); --on-tint: var(--v-on-clash); }
+  .tint-accent { --tint: var(--v-accent); --solid-tint: var(--v-solid-accent); --on-tint: var(--v-on-accent); --held-tint: var(--v-held-accent); }
+  .tint-stuck { --tint: var(--v-stuck); --solid-tint: var(--v-solid-stuck); --on-tint: var(--v-on-stuck); --held-tint: var(--v-held-stuck); }
+  .tint-warning { --tint: var(--v-warning); --solid-tint: var(--v-solid-warning); --on-tint: var(--v-on-warning); --held-tint: var(--v-held-warning); }
+  .tint-critical { --tint: var(--v-critical); --solid-tint: var(--v-solid-critical); --on-tint: var(--v-on-critical); --held-tint: var(--v-held-critical); }
+  .tint-clash { --tint: var(--v-clash); --solid-tint: var(--v-solid-clash); --on-tint: var(--v-on-clash); --held-tint: var(--v-held-clash); }
   /* components:end */
 
   /* An issue of a small magazine: art up top, a dated byline, a warm headline,
@@ -1164,7 +1218,7 @@
           </div>
 
           <div class="view" data-name="plugins" hidden>
-            <div class="pg-scroll"><div class="pg-block"><div class="pg-head"><span class="sym s-timer" aria-hidden="true"></span><b>Focus</b><span class="when">10 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-cols"><div class="pg-stack"><div class="pg-stat"><b>25:00</b><span>ready</span></div><div class="pg-cap">35 min of focus today</div></div><div class="pg-stack"><div class="pg-bars"><div class="pg-barrow"><i style="height:24px"></i><i style="height:44px"></i><i style="height:12px"></i><i class="z"></i><i style="height:37px"></i><i style="height:29px"></i><i style="height:17px"></i></div><div class="pg-blabels"><span>Fri</span><span>Today</span></div></div><div class="pg-cap">5.6 h this week</div></div></div><div class="pg-cols pg-ctl"><div><span class="pg-pick"><span class="on">25</span><span>50</span><span>90</span></span></div><div class="pg-btns"><span class="v-btn">Reset</span><span class="v-btn primary" style="--tint:#2DD4BF;--on-tint:var(--v-surface)">Start</span></div></div></div><div class="pg-block"><div class="pg-head"><span class="sym s-branch" aria-hidden="true"></span><b>GitHub</b><span class="when">9 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-sec v-header">ACTIONS</div><div class="pg-row"><i style="background:var(--v-critical)"></i><span class="t">octocat/api · feat/billing · test</span><span class="d">failure · 2m</span></div><div class="pg-row"><i style="background:var(--v-good)"></i><span class="t">octocat/web-shop · main · build</span><span class="d">success · 18m</span></div><div class="pg-sec v-header">REVIEW REQUESTED</div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">#482 Add Stripe webhooks</span><span class="d">octocat/visor · 1h</span></div></div><div class="pg-block"><div class="pg-head"><span class="sym s-wave" aria-hidden="true"></span><b>Hello</b><span class="when">10 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-sec v-header">YOUR AGENTS ARE WORKING IN</div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">octocat/visor</span><span class="d">main</span></div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">octocat/web-shop</span><span class="d">fix/checkout</span></div></div></div>
+            <div class="pg-scroll"><div class="pg-block"><div class="pg-head"><span class="sym s-timer" aria-hidden="true"></span><b>Focus</b><span class="when">10 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-cols"><div class="pg-stack"><div class="pg-stat"><b>25:00</b><span>ready</span></div><div class="pg-cap">35 min of focus today</div></div><div class="pg-stack"><div class="pg-bars"><div class="pg-barrow"><i style="height:24px"></i><i style="height:44px"></i><i style="height:12px"></i><i class="z"></i><i style="height:37px"></i><i style="height:29px"></i><i style="height:17px"></i></div><div class="pg-blabels"><span>Fri</span><span>Today</span></div></div><div class="pg-cap">5.6 h this week</div></div></div><div class="pg-cols pg-ctl"><div><span class="pg-pick"><span class="on">25</span><span>50</span><span>90</span></span></div><div class="pg-btns"><span class="v-btn">Reset</span><span class="v-btn primary" style="--tint:#2DD4BF;--solid-tint:#2DD4BF;--on-tint:var(--v-surface);--held-tint:#62DFCF">Start</span></div></div></div><div class="pg-block"><div class="pg-head"><span class="sym s-branch" aria-hidden="true"></span><b>GitHub</b><span class="when">9 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-sec v-header">ACTIONS</div><div class="pg-row"><i style="background:var(--v-critical)"></i><span class="t">octocat/api · feat/billing · test</span><span class="d">failure · 2m</span></div><div class="pg-row"><i style="background:var(--v-good)"></i><span class="t">octocat/web-shop · main · build</span><span class="d">success · 18m</span></div><div class="pg-sec v-header">REVIEW REQUESTED</div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">#482 Add Stripe webhooks</span><span class="d">octocat/visor · 1h</span></div></div><div class="pg-block"><div class="pg-head"><span class="sym s-wave" aria-hidden="true"></span><b>Hello</b><span class="when">10 secs ago</span><span class="sym s-ellipsis dots" aria-hidden="true"></span></div><div class="pg-sec v-header">YOUR AGENTS ARE WORKING IN</div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">octocat/visor</span><span class="d">main</span></div><div class="pg-row"><i style="background:var(--v-accent)"></i><span class="t">octocat/web-shop</span><span class="d">fix/checkout</span></div></div></div>
             <div class="pg-foot"><span>Plugins folder</span><span>How to write one</span><span>Reload</span></div>
           </div>
 

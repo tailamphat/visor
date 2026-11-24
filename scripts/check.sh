@@ -110,7 +110,9 @@ done < "$TMP/added"
 #    Exempt: the generated blocks, a hex shown as text (right after ">"), and index.html's hidden
 #    SVG defs (agent brand marks and .art scenes keep their own palettes; presentation attributes
 #    can't take var()). rgba() is not checked here; the notch mocks use var(--v-fill-*) or color-mix().
-scripts/site-tokens.sh 2>/dev/null | sed -n 's/^ *--v-\([a-z0-9-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
+# Palette colours only: the derived --v-solid-*/--v-held-* fills are not names to suggest.
+scripts/site-tokens.sh 2>/dev/null | grep -v -- '--v-\(on\|solid\|held\)-' |
+  sed -n 's/^ *--v-\([a-z0-9-]*\): \(#[0-9A-F]\{6\}\);$/\2 \1/p' > "$TMP/palette"
 for SITE in docs/index.html docs/design-system.html; do
   [[ -f "$SITE" ]] || continue
   line() { grep -n "$1" "$SITE" | head -1 | cut -d: -f1; }

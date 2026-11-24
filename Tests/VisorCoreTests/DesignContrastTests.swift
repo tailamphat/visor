@@ -16,7 +16,9 @@ struct DesignContrastTests {
     /// `--v-on-accent: var(--v-surface);` in the tokens block.
     static let siteOnColour = try! NSRegularExpression(pattern: #"--v-on-([a-z0-9-]+): var\(--v-(surface|text-primary)\);"#)
     /// `--v-k-accent: var(--v-accent) var(--v-on-accent) 5.77;` in the contrast block.
-    static let pageContrastRow = try! NSRegularExpression(pattern: #"--v-k-([a-z0-9-]+): var\(--v-[a-z0-9-]+\) var\(--v-on-[a-z0-9-]+\) ([0-9.]+);"#)
+    static let pageContrastRow = try! NSRegularExpression(pattern: #"--v-k-([a-z0-9-]+): var\(--v-solid-[a-z0-9-]+\) var\(--v-on-[a-z0-9-]+\) ([0-9.]+);"#)
+    /// `--v-solid-accent: #3277CB;` (darkened) or `var(--v-warning)` (as it is), and `--v-held-accent: #26598F;`.
+    static let siteSolid = try! NSRegularExpression(pattern: #"--v-(solid|held)-([a-z0-9-]+): (?:#([0-9A-F]{6})|var\(--v-([a-z0-9-]+)\));"#)
 
     /// WCAG 2 relative luminance and contrast ratio.
     @Test func luminanceMatchesWCAG() {
@@ -54,19 +56,41 @@ struct DesignContrastTests {
         }
     }
 
-    /// Light fills get dark text, dark fills light text: the better of the two.
-    @Test func onColourIsTheBetterOfBlackAndWhite() {
-        for fill in C.fills {
-            let other = fill.on == P.surface ? P.textPrimary : P.surface
-            #expect(C.ratio(fill.on, fill.hex) >= C.ratio(other, fill.hex), "\(fill.name)")
+    /// White text on mid-tones, the fill darkened just enough; black only on
+    /// the light fills, and where white would need a fill more than 27% darker.
+    @Test func solidPrefersWhiteText() {
+        let white: [UInt32] = [P.accent, P.critical, P.good, P.claude, P.violet, P.question, P.textMuted,
+                               P.surface, P.raised, P.deemphasis, P.accentTrack]
+        for hex in white { #expect(C.solid(hex).on == P.textPrimary, "\(String(format: "%06X", hex))") }
+        let black: [UInt32] = [P.warning, P.awake, P.mint, P.onPace, P.stuck, P.clash, P.localBuild, P.rose,
+                               P.textPrimary, P.textSecondary]
+        for hex in black {
+            #expect(C.solid(hex).on == P.surface, "\(String(format: "%06X", hex))")
+            #expect(C.solid(hex).fill == hex, "a black-text fill is never darkened")
         }
-        for light in [P.accent, P.warning, P.critical, P.stuck, P.mint] { #expect(C.on(light) == P.surface) }
-        for dark in [P.surface, P.raised, P.deemphasis, P.accentTrack] { #expect(C.on(dark) == P.textPrimary) }
+        // Already white-readable fills stay as they are.
+        for hex in [P.surface, P.raised, P.deemphasis, P.accentTrack] { #expect(C.solid(hex).fill == hex) }
+        // The blue keeps its hue, just darker; the exact smallest step.
+        #expect(C.solid(P.accent).fill == 0x3277CB)
+        #expect(C.solid(P.critical).fill == 0xD14545)
+        #expect(C.solid(P.good).fill == 0x0A8A0A)
     }
 
-    /// Any hex (a plugin's accent) gets text that reads at 4.5:1 or better.
+    /// The darkening is the smallest 0.5% step that reaches 4.5:1 and never more than 27%.
+    @Test func darkeningIsTheSmallestStep() {
+        for hex in hexGrid {
+            let solid = C.solid(hex)
+            guard solid.on == P.textPrimary, solid.fill != hex else { continue }
+            #expect(C.ratio(P.textPrimary, solid.fill) >= 4.5)
+            #expect(solid.darkened <= C.maxDarkening + 1e-9)
+            let lighter = C.composite(P.surface, opacity: solid.darkened - C.darkeningStep, over: hex)
+            #expect(C.ratio(P.textPrimary, lighter) < 4.5, "\(String(format: "%06X", hex))")
+        }
+    }
+
+    /// Any hex (a plugin's accent) gets text that reads at 4.5:1 or better on its solid fill.
     @Test func anyHexGetsAtLeastAAText() {
-        let worst = hexGrid.map { C.ratio(C.on($0), $0) }.min() ?? 0
+        let worst = hexGrid.map { hex -> Double in let s = C.solid(hex); return C.ratio(s.on, s.fill) }.min() ?? 0
         #expect(worst >= 4.5)
     }
 
@@ -83,7 +107,8 @@ struct DesignContrastTests {
     /// Holding a button moves its fill away from its text: the ratio never drops.
     @Test func heldFillKeepsTheContrast() {
         for hex in hexGrid {
-            #expect(C.ratio(C.on(hex), C.pressed(hex)) >= C.ratio(C.on(hex), hex) - 1e-9, "\(String(format: "%06X", hex))")
+            let solid = C.solid(hex)
+            #expect(C.ratio(solid.on, C.pressed(solid)) >= C.ratio(solid.on, solid.fill) - 1e-9, "\(String(format: "%06X", hex))")
         }
         #expect(C.pairs.contains { $0.name.contains("held") })
         #expect(C.pairs.contains { $0.name.contains("on the accentTrack") })
@@ -133,11 +158,27 @@ struct DesignContrastTests {
             guard let n = Range(m.range(at: 1), in: text), let h = Range(m.range(at: 2), in: text) else { continue }
             found[String(text[n])] = text[h] == "surface" ? P.surface : P.textPrimary
         }
-        for step in DesignScale.palette {
-            let kebab = step.name.reduce(into: "") { out, c in out += c.isUppercase ? "-" + c.lowercased() : String(c) }
-            let expected = C.on(UInt32(step.value))
-            #expect(found[kebab] == expected, "--v-on-\(kebab)")
+        var palette: [String: UInt32] = [:]
+        for step in DesignScale.palette { palette[Self.kebab(step.name)] = UInt32(step.value) }
+        var solids: [String: UInt32] = [:], held: [String: UInt32] = [:]
+        for m in Self.siteSolid.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let k = Range(m.range(at: 1), in: text), let n = Range(m.range(at: 2), in: text) else { continue }
+            var value: UInt32?
+            if let h = Range(m.range(at: 3), in: text) { value = UInt32(text[h], radix: 16) }
+            if let v = Range(m.range(at: 4), in: text) { value = palette[String(text[v])] }
+            if text[k] == "solid" { solids[String(text[n])] = value } else { held[String(text[n])] = value }
         }
+        for step in DesignScale.palette {
+            let kebab = Self.kebab(step.name)
+            let solid = C.solid(UInt32(step.value))
+            #expect(found[kebab] == solid.on, "--v-on-\(kebab)")
+            #expect(solids[kebab] == solid.fill, "--v-solid-\(kebab)")
+            #expect(held[kebab] == C.pressed(solid), "--v-held-\(kebab)")
+        }
+    }
+
+    private static func kebab(_ name: String) -> String {
+        name.reduce(into: "") { out, c in out += c.isUppercase ? "-" + c.lowercased() : String(c) }
     }
 
     /// The design system page's Contrast table (its generated contrast block) has
@@ -155,7 +196,7 @@ struct DesignContrastTests {
         for fill in C.fills {
             let kebab = fill.name.reduce(into: "") { out, c in out += c.isUppercase ? "-" + c.lowercased() : String(c) }
             let ratio = try #require(rows[kebab], "no row for \(fill.name)")
-            #expect(abs(ratio - C.ratio(fill.on, fill.hex)) < 0.006, "\(fill.name)")
+            #expect(abs(ratio - C.ratio(fill.on, fill.solid)) < 0.006, "\(fill.name)")
         }
     }
 }

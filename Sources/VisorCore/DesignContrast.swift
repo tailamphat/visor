@@ -1,9 +1,12 @@
 import Foundation
 
 /// The contrast contract: every text and icon colour drawn on a fill reads at
-/// WCAG 2's minimum ratio. Each fill has an on-colour (black or white, whichever
-/// reads better), and the shared components draw their text in it, so no view
-/// and no plugin can put white text on a light tint.
+/// WCAG 2's minimum ratio. A solid fill (a primary button, a solid badge) takes
+/// white text, the fill darkened just enough to reach 4.5:1; black text only on
+/// the light fills (`blackTextFills`) and where white would need the fill more
+/// than `maxDarkening` darker (it would read as another colour, orange as brown).
+/// The shared components draw with `solid(_:)`, so no view and no plugin can
+/// put white text on a light tint.
 ///
 /// `fills` is the pairing table; `pairs` lists every text-on-fill pair the shared
 /// components can produce, and a test fails on any pair under its minimum.
@@ -58,16 +61,49 @@ public enum DesignContrast {
 
     // MARK: - The pairing table
 
-    /// The text and icon colour for a solid fill: black (surface) or white
-    /// (textPrimary), whichever has the higher ratio. Always at least 4.58:1.
-    public static func on(_ fill: UInt32) -> UInt32 {
-        ratio(P.surface, fill) >= ratio(P.textPrimary, fill) ? P.surface : P.textPrimary
+    /// The light fills: always black text, never darkened (amber, the cup's
+    /// yellow, mint, the light green, and the stuck coral, which darkened would
+    /// read as critical's red).
+    public static let blackTextFills: Set<UInt32> = [P.warning, P.awake, P.mint, P.onPace, P.stuck]
+    /// The most a fill is darkened for white text; past it, black text. The
+    /// blues, violet, reds and greens of the palette need at most 25.5%; the
+    /// oranges and the rose need 30% or more and would read as brown.
+    public static let maxDarkening = 0.27
+    /// Darkening steps of 0.5%.
+    public static let darkeningStep = 0.005
+
+    /// How a colour is drawn as a solid fill: the fill (darkened `darkened`
+    /// toward black when white text needs it) and the text colour on it.
+    public struct Solid: Sendable, Equatable {
+        public let fill: UInt32
+        public let on: UInt32
+        public let darkened: Double
     }
+
+    /// White text where the fill can carry it (darkened by the smallest step
+    /// that reaches 4.5:1, at most 25%), else black text on the fill as it is.
+    public static func solid(_ hex: UInt32) -> Solid {
+        let black = Solid(fill: hex, on: P.surface, darkened: 0)
+        if blackTextFills.contains(hex) { return black }
+        var step = 0
+        while Double(step) * darkeningStep <= maxDarkening + 1e-9 {
+            let amount = Double(step) * darkeningStep
+            let fill = step == 0 ? hex : composite(P.surface, opacity: amount, over: hex)
+            if ratio(P.textPrimary, fill) >= Use.text.minimum { return Solid(fill: fill, on: P.textPrimary, darkened: amount) }
+            step += 1
+        }
+        return black
+    }
+
+    /// The text and icon colour on `fill` drawn as a solid (`solid(fill).on`).
+    public static func on(_ fill: UInt32) -> UInt32 { solid(fill).on }
 
     public struct Fill: Sendable {
         public let name: String
         public let hex: UInt32
-        public var on: UInt32 { DesignContrast.on(hex) }
+        public var on: UInt32 { DesignContrast.solid(hex).on }
+        /// The fill as drawn solid (darkened for white text where needed).
+        public var solid: UInt32 { DesignContrast.solid(hex).fill }
     }
 
     /// Every colour the design system offers as a solid fill, and so every
@@ -89,12 +125,12 @@ public enum DesignContrast {
         !["surface", "raised", "deemphasis", "accentTrack"].contains($0.name)
     }
 
-    /// A held button's fill: the fill moved away from its on-colour by
+    /// A held button's fill: the solid fill moved away from its text by
     /// `1 - CardButton.pressedOpacity` (lighter under black text, darker under
     /// white), so holding it never lowers the text's contrast.
-    public static func pressed(_ fill: UInt32) -> UInt32 {
-        let away = on(fill) == P.surface ? P.textPrimary : P.surface
-        return composite(away, opacity: 1 - DesignComponents.CardButton.pressedOpacity, over: fill)
+    public static func pressed(_ solid: Solid) -> UInt32 {
+        let away = solid.on == P.surface ? P.textPrimary : P.surface
+        return composite(away, opacity: 1 - DesignComponents.CardButton.pressedOpacity, over: solid.fill)
     }
 
     /// `Theme.accentTrack`: the accent track colour at this strength, behind Usage meters.
@@ -155,12 +191,13 @@ public enum DesignContrast {
 
         // Solid fills: the main button, the solid badge, the pill button.
         for tint in solidTints {
-            add("CardButton.primary on \(tint.name)", tint.on, tint.hex, use(forType: D.CardButton.type))
-            add("CardButton.primary held on \(tint.name)", tint.on, pressed(tint.hex), use(forType: D.CardButton.type))
-            add("PillButton held on \(tint.name)", tint.on, pressed(tint.hex), use(forType: T.TypeScale.md))
-            add("Badge.solid on \(tint.name)", tint.on, tint.hex, use(forType: D.Badge.type))
+            let s = solid(tint.hex)
+            add("CardButton.primary on \(tint.name)", s.on, s.fill, use(forType: D.CardButton.type))
+            add("CardButton.primary held on \(tint.name)", s.on, pressed(s), use(forType: D.CardButton.type))
+            add("PillButton held on \(tint.name)", s.on, pressed(s), use(forType: T.TypeScale.md))
+            add("Badge.solid on \(tint.name)", s.on, s.fill, use(forType: D.Badge.type))
         }
-        add("PillButton on accent", on(P.accent), P.accent, use(forType: T.TypeScale.md))
+        add("PillButton on accent", solid(P.accent).on, solid(P.accent).fill, use(forType: T.TypeScale.md))
 
         // Banners: the tint faintly over black, in every tint a view or plugin picks.
         var bannerTints: [(name: String, hex: UInt32)] = solidTints.map { ($0.name, $0.hex) }
