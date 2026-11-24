@@ -118,7 +118,7 @@ Moving an old literal onto the scale: `DesignScale.snap(value, to:)` picks the n
 
 ### Shared components
 
-Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value is a token step except the named constants `Banner.strokeOpacity`, `CardButton.pressedOpacity`, `SectionHeader.tracking`, the music `Backdrop` strengths, `Artwork.iconRatio`, `Banner.compactHeight`, `KeyCap.opacity`, `Popover.fill` and the `Shadow` values; `DesignComponents.measurements` lists them all); SwiftUI views in `Sources/Visor/DesignSystem/SharedComponents.swift`. Use them instead of a view's own button, badge or card chrome.
+Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value is a token step except the named constants `Banner.strokeOpacity`, `CardButton.pressedOpacity`, `SectionHeader.tracking`, the music `Backdrop` strengths, `Artwork.iconRatio`, `Banner.compactHeight`, `KeyCap.opacity`, `Popover.fill`, the `Shadow` values and the intro's `IntroLight` strengths and corners; `DesignComponents.measurements` lists them all); SwiftUI views in `Sources/Visor/DesignSystem/SharedComponents.swift`. Use them instead of a view's own button, badge or card chrome.
 
 | Component | Use | Looks |
 |---|---|---|
@@ -135,7 +135,7 @@ Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value 
 
 A banner's height is `DesignComponents.Banner.height(rows:spacing:)`: fixed-height rows plus gaps inside the inset. To add a component: its measurements as token references in `DesignComponents`, each added to `measurements` (`Design components` tests fail otherwise), then the view in `SharedComponents.swift`, then a row in this table.
 
-Enforced everywhere: `scripts/check.sh` and `DesignAdoptionTests` scan every Swift file under `Sources/Visor` (Plugins included) for literal colours, type sizes, radii and fills, with one shared pattern list, `scripts/design-literals.txt`. There is no allowlist of lines; only whole paths are skipped, each with its reason: the design system itself, `Notch/Theme.swift` (the colour entry point; its only literal hexes are the brand marks in `AgentStyle`, tested), `Shared/AgentMark.swift` (brand marks) and the Office pixel-art files. A value the scale lacks becomes a token or a component measurement, never a literal. The intro's light uses the palette tokens `introGlow`, `introSky`, `introSpark` and `violet` (also the Bar's Shortcuts tile).
+Enforced everywhere: `scripts/check.sh` and `DesignAdoptionTests` scan every Swift file under `Sources/Visor` (Plugins included) for literal colours, type sizes, radii and fills (SwiftUI and AppKit/Core Animation spellings; spacing is not checked), with one shared pattern list, `scripts/design-literals.txt`. There is no allowlist of lines; only whole paths are skipped, each with its reason: the design system itself, `Notch/Theme.swift` (the colour entry point; its only literal hexes are the brand marks in `AgentStyle`, tested), `Shared/AgentMark.swift` (brand marks) and the Office pixel-art files (`Office/OfficeArt.swift` holds the room's palette and room-scale label sizes; the office's status bubbles, context bars and hover card take Theme and DS). A value the scale lacks becomes a token or a component measurement, never a literal. The intro's light uses the palette tokens `introGlow`, `introSky`, `introSpark` and `violet` (also the Bar's Shortcuts tile).
 
 ## Patterns
 

@@ -206,12 +206,12 @@ final class OfficeLayerView: NSView {
         layer?.addSublayer(body)
         // A soft shadow at the feet, under the sprite.
         person.shade.frame = CGRect(x: body.bounds.midX - 8, y: -2.5, width: 16, height: 5)
-        person.shade.cornerRadius = 2.5
-        person.shade.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+        person.shade.cornerRadius = OfficeArt.shadeRadius
+        person.shade.backgroundColor = NSColor.black.withAlphaComponent(OfficeArt.shadeStrength).cgColor
         if person.look.figure != nil {
             // Film characters keep their costume, so a ring at their feet says whose session it is.
             let color = AgentStyle.mark(person.agent.agent)
-            person.shade.backgroundColor = color.withAlphaComponent(0.3).cgColor
+            person.shade.backgroundColor = color.withAlphaComponent(OfficeArt.shadeStrength).cgColor
             person.shade.borderColor = color.cgColor
             person.shade.borderWidth = 1
         }
@@ -225,7 +225,7 @@ final class OfficeLayerView: NSView {
         layer?.addSublayer(person.screen)
 
         person.bubble.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
-        person.bubble.cornerRadius = 4
+        person.bubble.cornerRadius = OfficeArt.bubbleRadius
         person.bubble.borderColor = NSColor.black.cgColor
         person.glyph.frame = CGRect(x: 0, y: 1, width: 14, height: 12)
         person.glyph.alignmentMode = .center
@@ -234,11 +234,11 @@ final class OfficeLayerView: NSView {
         body.addSublayer(person.bubble)
 
         person.tag.string = person.agent.project
-        person.tag.font = NSFont.systemFont(ofSize: 8, weight: .semibold)
-        person.tag.fontSize = 8
+        person.tag.font = NSFont.systemFont(ofSize: OfficeArt.tagSize, weight: .semibold)
+        person.tag.fontSize = OfficeArt.tagSize
         person.tag.alignmentMode = .center
         person.tag.truncationMode = .end
-        person.tag.foregroundColor = NSColor(hex: 0xE9E6F5).cgColor
+        person.tag.foregroundColor = OfficeArt.tagInk.cgColor
         person.tag.shadowColor = NSColor.black.cgColor
         person.tag.shadowOpacity = 1
         person.tag.shadowRadius = 1.5
@@ -247,10 +247,10 @@ final class OfficeLayerView: NSView {
         person.tag.frame = CGRect(x: body.bounds.midX - 40, y: -11, width: 80, height: 10)
         body.addSublayer(person.tag)
 
-        person.clock.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)
-        person.clock.fontSize = 8
+        person.clock.font = NSFont.monospacedDigitSystemFont(ofSize: OfficeArt.tagSize, weight: .semibold)
+        person.clock.fontSize = OfficeArt.tagSize
         person.clock.alignmentMode = .center
-        person.clock.foregroundColor = NSColor(hex: 0xFAB219).cgColor
+        person.clock.foregroundColor = NSColor(Theme.warning).cgColor
         person.clock.shadowColor = NSColor.black.cgColor
         person.clock.shadowOpacity = 1
         person.clock.shadowRadius = 1.5
@@ -259,8 +259,8 @@ final class OfficeLayerView: NSView {
         person.clock.frame = CGRect(x: body.bounds.midX - 40, y: -21, width: 80, height: 10)
         body.addSublayer(person.clock)
 
-        person.health.backgroundColor = NSColor(hex: 0x141018).cgColor
-        person.health.cornerRadius = 1
+        person.health.backgroundColor = OfficeArt.healthTrack.cgColor
+        person.health.cornerRadius = OfficeArt.healthRadius
         person.healthFill.anchorPoint = .zero
         person.health.addSublayer(person.healthFill)
         body.addSublayer(person.health)
@@ -312,12 +312,12 @@ final class OfficeLayerView: NSView {
         let tag = person.moreHelpers
         if more > 0 {
             if tag.superlayer == nil {
-                tag.font = NSFont.systemFont(ofSize: 7.5, weight: .bold)
-                tag.fontSize = 7.5
+                tag.font = NSFont.systemFont(ofSize: OfficeArt.helperTagSize, weight: .bold)
+                tag.fontSize = OfficeArt.helperTagSize
                 tag.alignmentMode = .center
-                tag.foregroundColor = NSColor(hex: 0xF2B49C).cgColor
-                tag.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
-                tag.cornerRadius = 4
+                tag.foregroundColor = OfficeArt.helperInk.cgColor
+                tag.backgroundColor = NSColor.black.withAlphaComponent(OfficeArt.helperTagBacking).cgColor
+                tag.cornerRadius = OfficeArt.helperTagRadius
                 tag.contentsScale = window?.backingScaleFactor ?? 2
                 body.addSublayer(tag)
             }
@@ -332,8 +332,8 @@ final class OfficeLayerView: NSView {
     private func leave(_ layer: CALayer, from person: Person) {
         let body = person.body
         let paper = CALayer()
-        paper.backgroundColor = NSColor(hex: 0xF2EBD6).cgColor
-        paper.cornerRadius = 1
+        paper.backgroundColor = OfficeArt.paper.cgColor
+        paper.cornerRadius = OfficeArt.paperRadius
         paper.bounds = CGRect(x: 0, y: 0, width: 4 * s / 2, height: 3 * s / 2)
         paper.position = CGPoint(x: layer.frame.midX, y: layer.frame.midY)
         paper.zPosition = 2
@@ -446,11 +446,11 @@ final class OfficeLayerView: NSView {
         bubble.removeAllAnimations()
         let style: (text: String, fill: NSColor?, ink: NSColor)?
         switch agent.activity {
-        case .approval: style = ("!", NSColor(hex: 0xFAB219), .black)
-        case .question: style = ("?", NSColor(hex: 0x5AA2F0), .white)
-        case .done: style = ("✓", NSColor(hex: 0x3FBF5F), .white)
-        case .thinking: style = ("…", NSColor(hex: 0x2A2838), NSColor(hex: 0xC9C5E0))
-        case .idle: style = ("zZ", nil, NSColor(hex: 0xA9A4C8))
+        case .approval: style = ("!", NSColor(Theme.warning), .black)
+        case .question: style = ("?", NSColor(Theme.question), .white)
+        case .done: style = ("✓", OfficeArt.doneFill, .white)
+        case .thinking: style = ("…", OfficeArt.thinkingFill, OfficeArt.thinkingInk)
+        case .idle: style = ("zZ", nil, OfficeArt.idleInk)
         default: style = nil
         }
         guard let style else { bubble.isHidden = true; return }
@@ -467,7 +467,7 @@ final class OfficeLayerView: NSView {
         bubble.borderWidth = style.fill == nil ? 0 : 1.5
         person.glyph.string = style.text
         person.glyph.foregroundColor = style.ink.cgColor
-        let size: CGFloat = style.fill == nil ? 8 : 10
+        let size = style.fill == nil ? OfficeArt.idleGlyphSize : OfficeArt.glyphSize
         person.glyph.font = NSFont.systemFont(ofSize: size, weight: .bold)
         person.glyph.fontSize = size
         let sink: CGFloat = agent.sits ? 3 * s : 0
@@ -515,7 +515,7 @@ final class OfficeLayerView: NSView {
         person.health.isHidden = false
         person.health.frame = CGRect(x: person.body.bounds.midX - width / 2, y: (PixelPerson.headTop + 2) * s - sink, width: width, height: 3 * s)
         person.healthFill.frame = CGRect(x: s, y: s, width: max(1, (width - 2 * s) * CGFloat(min(percent, 100)) / 100), height: s)
-        person.healthFill.backgroundColor = NSColor(hex: SessionText.contextHigh(Double(percent)) ? 0xFAB219 : 0x5AA2F0).cgColor
+        person.healthFill.backgroundColor = NSColor(SessionText.contextHigh(Double(percent)) ? Theme.warning : Theme.question).cgColor
     }
 
     /// Ticks once a second while anyone waits at your desk, and only then.
@@ -579,7 +579,7 @@ final class OfficeLayerView: NSView {
             let x = (island.x + 1) * s
             // Above the table, clear of the context bars over the top row's heads.
             let top = (layout.height - island.y + 15) * s
-            let font = NSFont.systemFont(ofSize: 7, weight: .bold)
+            let font = NSFont.systemFont(ofSize: OfficeArt.tableLabelSize, weight: .bold)
             let fits = { (name: String) in NSAttributedString(string: name, attributes: [.font: font]).size().width <= width }
             // More sessions than seats: the rest are counted on the label ("· 28 +20").
             let extra = island.total > island.seats ? " +\(island.total - island.seats)" : ""
@@ -587,7 +587,7 @@ final class OfficeLayerView: NSView {
                         island.total > 1 ? "\(island.agent.uppercased()) · \(island.total)" : nil, island.agent.uppercased()]
                 .compactMap { $0 }.first(where: fits)
             if let name {
-                let label = text(name, size: 7, color: color, weight: .bold)
+                let label = text(name, size: OfficeArt.tableLabelSize, color: color, weight: .bold)
                 label.frame = CGRect(x: x, y: top - 10, width: width, height: 9)
                 labels.append(label)
             } else {
@@ -605,7 +605,7 @@ final class OfficeLayerView: NSView {
             ("BREAK", OfficeLayout.sofaX, layout.corridor + 1),
         ]
         for (name, x, top) in stations {
-            let label = text(name, size: 6.5, color: NSColor(hex: 0x8C86B0))
+            let label = text(name, size: OfficeArt.stationLabelSize, color: OfficeArt.stationInk)
             label.alignmentMode = .center
             label.frame = CGRect(x: CGFloat(x) * s - 30, y: CGFloat(layout.height - top) * s - 8, width: 60, height: 8)
             labels.append(label)
@@ -663,28 +663,29 @@ final class OfficeLayerView: NSView {
         hideTip()
         guard let session = sessions[person.agent.id] else { return }
         let lines = NSMutableAttributedString()
-        func add(_ string: String, _ size: CGFloat, _ weight: NSFont.Weight, _ color: NSColor) {
-            lines.append(NSAttributedString(string: string, attributes: [.font: NSFont.systemFont(ofSize: size, weight: weight), .foregroundColor: color]))
+        func add(_ string: String, _ step: DS.TypeStep, _ weight: NSFont.Weight, _ color: NSColor) {
+            lines.append(NSAttributedString(string: string, attributes: [.font: NSFont.systemFont(ofSize: step.points, weight: weight), .foregroundColor: color]))
         }
-        add(session.project, 12, .semibold, .white)
-        add("  " + [session.agent, session.host].compactMap { $0 }.joined(separator: " · "), 10, .regular, NSColor(hex: 0x8A8980))
-        add("\n" + SessionText.detail(session), 11, .regular, NSColor(hex: 0xE9E8E2))
-        add("\n" + SessionText.time(session), 10, .medium, session.state.attention != nil ? NSColor(hex: 0xFAB219) : NSColor(hex: 0x8A8980))
+        let muted = NSColor(Theme.textMuted), warning = NSColor(Theme.warning)
+        add(session.project, .md, .semibold, NSColor(Theme.textPrimary))
+        add("  " + [session.agent, session.host].compactMap { $0 }.joined(separator: " · "), .sm, .regular, muted)
+        add("\n" + SessionText.detail(session), .base, .regular, NSColor(Theme.textPrimary))
+        add("\n" + SessionText.time(session), .sm, .medium, session.state.attention != nil ? warning : muted)
         if let percent = session.contextPercent {
             let high = SessionText.contextHigh(percent)
-            add("\n" + (high ? "\(Int(percent))% context · compacts soon" : "\(Int(percent))% context"), 10, .medium,
-                high ? NSColor(hex: 0xFAB219) : NSColor(hex: 0x8A8980))
+            add("\n" + (high ? "\(Int(percent))% context · compacts soon" : "\(Int(percent))% context"), .sm, .medium,
+                high ? warning : muted)
         }
         if let task = session.task, !SessionText.detail(session).contains(task) {
-            add("\nAsked: \"\(task)\"", 10, .regular, NSColor(hex: 0x8A8980))
+            add("\nAsked: \"\(task)\"", .sm, .regular, muted)
         }
         let width: CGFloat = 220
         let size = lines.boundingRect(with: CGSize(width: width - 20, height: 200), options: [.usesLineFragmentOrigin]).size
         let box = CALayer()
-        box.backgroundColor = NSColor(hex: 0x1A1A19).cgColor
-        box.borderColor = NSColor(hex: 0x2E2D2B).cgColor
+        box.backgroundColor = NSColor(Theme.raised).cgColor
+        box.borderColor = NSColor(DS.Fill.subtle).cgColor
         box.borderWidth = 1
-        box.cornerRadius = 10
+        box.cornerRadius = DS.Radius.md
         box.zPosition = 2000
         let height = ceil(size.height) + 14
         let feet = person.body.position

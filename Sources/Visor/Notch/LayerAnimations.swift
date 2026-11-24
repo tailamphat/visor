@@ -100,7 +100,7 @@ struct BlinkingCaret: NSViewRepresentable {
         view.wantsLayer = true
         let caret = CALayer()
         caret.frame = CGRect(origin: .zero, size: Self.size)
-        caret.cornerRadius = 0.75
+        caret.cornerRadius = Self.size.width / 2
         view.layer?.addSublayer(caret)
         return view
     }

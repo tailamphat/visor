@@ -15,6 +15,11 @@ literal	opacity fill	opacity\(0?\.[0-9]
 literal	white	Color\.white
 literal	named colour	(\(|\?\?) *\.(white|black|gray)\b
 literal	rgb colour	(?<!NS)Color\((red|white|hue):
+literal	AppKit rgb colour	NSColor\((red|srgbRed|white|calibratedRed|deviceRed): *[0-9.]
+literal	AppKit font size	ofSize: *[0-9.]
+literal	layer corner radius	cornerRadius *= *[0-9.]
+literal	alpha component	withAlphaComponent\( *0?\.[0-9]
+literal	fill strength	Fill\.white\( *[0-9.]
 
 # The design system itself: tokens as SwiftUI values and the shared components.
 skip	Sources/Visor/DesignSystem/	the design system
@@ -23,10 +28,10 @@ skip	Sources/Visor/DesignSystem/	the design system
 skip	Sources/Visor/Notch/Theme.swift	token entry point and agent brand colours
 # Out of scope by the epic: agent brand marks and Office pixel art keep their own palettes.
 skip	Sources/Visor/Shared/AgentMark.swift	agent brand marks
+skip	Sources/Visor/Office/OfficeArt.swift	Office pixel art: the room palette and room-scale label sizes
 skip	Sources/Visor/Office/BreakProps.swift	Office pixel art
 skip	Sources/Visor/Office/FilmCast.swift	Office pixel art
 skip	Sources/Visor/Office/FilmRoom.swift	Office pixel art
-skip	Sources/Visor/Office/OfficeLayerView.swift	Office pixel art
 skip	Sources/Visor/Office/OfficeRoom.swift	Office pixel art
 skip	Sources/Visor/Office/PixelPerson.swift	Office pixel art
 skip	Sources/Visor/Office/Pixels.swift	Office pixel art

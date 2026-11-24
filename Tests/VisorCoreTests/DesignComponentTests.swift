@@ -18,6 +18,7 @@ struct DesignComponentTests {
         "Banner.compactHeight", "KeyCap.opacity", "Popover.fill",
         "Shadow.opacity", "Shadow.radius", "Shadow.y", "Shadow.largeRadius", "Shadow.largeY",
         "Shadow.smallRadius", "Shadow.toastOpacity", "Shadow.toastY", "Shadow.liftedOpacity",
+        "IntroLight.dim", "IntroLight.halo", "IntroLight.haloWarm", "IntroLight.trailMiddle", "IntroLight.trailWarm", "IntroLight.glint", "IntroLight.glow", "IntroLight.trailRadius", "IntroLight.glowRadius", "IntroLight.sparkRadius",
     ]
 
     /// The pieces that moved in from private copies keep their look: the Music

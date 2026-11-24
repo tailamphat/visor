@@ -49,6 +49,8 @@ public enum DesignTokens {
         public static let introSpark: UInt32 = 0xCFE6FF
         /// The intro trail's middle and the Bar's Shortcuts tile.
         public static let violet: UInt32 = 0xA78BFA
+        /// The line along a local (debug or worktree) build's open panel.
+        public static let localBuild: UInt32 = 0xFF8C1A
     }
 
     /// Text sizes in points. Weights: regular, medium, semibold, bold (light only with display).
@@ -153,6 +155,7 @@ public enum DesignScale {
             ("question", p.question), ("critical", p.critical), ("stuck", p.stuck), ("awake", p.awake), ("mint", p.mint),
             ("rose", p.rose), ("allowText", p.allowText), ("alwaysText", p.alwaysText), ("denyText", p.denyText),
             ("introGlow", p.introGlow), ("introSky", p.introSky), ("introSpark", p.introSpark), ("violet", p.violet),
+            ("localBuild", p.localBuild),
         ]
         return colours.map { Step($0.0, Double($0.1)) }
     }()

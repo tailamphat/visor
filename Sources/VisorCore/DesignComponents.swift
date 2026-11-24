@@ -56,6 +56,16 @@ public enum DesignComponents {
         Measurement(name: "Shadow.toastOpacity", value: Shadow.toastOpacity, scale: nil),
         Measurement(name: "Shadow.toastY", value: Shadow.toastY, scale: nil),
         Measurement(name: "Shadow.liftedOpacity", value: Shadow.liftedOpacity, scale: nil),
+        Measurement(name: "IntroLight.dim", value: IntroLight.dim, scale: nil),
+        Measurement(name: "IntroLight.halo", value: IntroLight.halo, scale: nil),
+        Measurement(name: "IntroLight.haloWarm", value: IntroLight.haloWarm, scale: nil),
+        Measurement(name: "IntroLight.trailMiddle", value: IntroLight.trailMiddle, scale: nil),
+        Measurement(name: "IntroLight.trailWarm", value: IntroLight.trailWarm, scale: nil),
+        Measurement(name: "IntroLight.glint", value: IntroLight.glint, scale: nil),
+        Measurement(name: "IntroLight.glow", value: IntroLight.glow, scale: nil),
+        Measurement(name: "IntroLight.trailRadius", value: IntroLight.trailRadius, scale: nil),
+        Measurement(name: "IntroLight.glowRadius", value: IntroLight.glowRadius, scale: nil),
+        Measurement(name: "IntroLight.sparkRadius", value: IntroLight.sparkRadius, scale: nil),
     ]
 
     /// A small button inside a card.
@@ -154,5 +164,25 @@ public enum DesignComponents {
         public static let toastOpacity: Double = 0.4
         public static let toastY: Double = 3
         public static let liftedOpacity: Double = 0.5
+    }
+
+    /// The intro's light (Intro.swift): strengths of the palette's intro colours
+    /// and the soft corners of its glow shapes. One animation's own values.
+    public enum IntroLight {
+        /// The screen dimmed behind the flight (surface at this strength).
+        public static let dim: Double = 0.5
+        /// The halo behind the icon: introGlow, fading into Claude's warm colour.
+        public static let halo: Double = 0.4
+        public static let haloWarm: Double = 0.12
+        /// The light trail: violet in the middle, warm at the tail.
+        public static let trailMiddle: Double = 0.85
+        public static let trailWarm: Double = 0.6
+        /// The glint across the icon.
+        public static let glint: Double = 0.9
+        /// The glow round the notch as the icon lands.
+        public static let glow: Double = 0.25
+        public static let trailRadius: Double = 4
+        public static let glowRadius: Double = 16
+        public static let sparkRadius: Double = 2
     }
 }

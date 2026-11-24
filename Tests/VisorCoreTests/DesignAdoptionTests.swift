@@ -114,6 +114,11 @@ struct DesignAdoptionTests {
             "white": ["Color.white"],
             "named colour": ["colors[name] ?? .gray", "Circle().fill(.white)", ".fill(.gray)", ".foregroundStyle(.black)"],
             "rgb colour": ["Color(red: 1, green: 0.4, blue: 0.3)", "Color(white: 0.2)"],
+            "AppKit rgb colour": ["NSColor(red: 1, green: 0.55, blue: 0.1, alpha: 1)", "NSColor(srgbRed: 0.2, green: 0, blue: 0, alpha: 1)"],
+            "AppKit font size": ["NSFont.systemFont(ofSize: 8, weight: .bold)", "NSFont.monospacedDigitSystemFont(ofSize: 7.5, weight: .bold)"],
+            "layer corner radius": ["glow.cornerRadius = 16", "caret.cornerRadius = 0.75"],
+            "alpha component": ["Light.glow.withAlphaComponent(0.4)", "NSColor.black.withAlphaComponent(.3)"],
+            "fill strength": ["DS.Fill.white(0.3)", "DS.Fill.white(.07)"],
         ]
         #expect(Set(samples.keys) == Set(Self.rules.literals.map(\.name)))
         for literal in Self.rules.literals {
@@ -124,7 +129,9 @@ struct DesignAdoptionTests {
         let clean = ".font(DS.font(.sm)) .fill(DS.Fill.subtle) cornerRadius: DS.Radius.md .opacity(shown ? 1 : 0.5)"
             + " .shadow(color: .black.opacity(dragged ? 0.5 : 0)) .fill(on ? DS.Fill.strong : .clear) .opacity(0)"
             + " cornerRadius: CGFloat(Spec.Banner.radius) cornerRadius: CGFloat(Piece.rowRadius)"
-            + " Color(hex: P.surface) NSColor(hex: UInt32(accent))"
+            + " Color(hex: P.surface) NSColor(hex: UInt32(accent)) NSColor(srgbRed: CGFloat(pixel[0]) / 255"
+            + " NSFont.systemFont(ofSize: step.points) caret.cornerRadius = Self.size.width / 2"
+            + " color.withAlphaComponent(Glow.halo) DS.Fill.white(Piece.trackFill)"
         #expect(Self.hits("x.swift", clean).isEmpty, "\(Self.hits("x.swift", clean))")
         #expect(Self.hits("x.swift", "    // .font(.system(size: 11))").isEmpty, "comment lines are skipped")
     }

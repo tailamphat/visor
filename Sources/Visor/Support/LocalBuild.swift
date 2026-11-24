@@ -4,7 +4,7 @@ import VisorCore
 /// Local builds (debug, worktree, plain bundle.sh) look different from the release.
 enum LocalBuild {
     static let isLocal = !BuildKind.isRelease(info: Bundle.main.infoDictionary)
-    static let orange = NSColor(red: 1, green: 0.55, blue: 0.1, alpha: 1)
+    static let orange = NSColor(hex: DesignTokens.Palette.localBuild)
 
     /// The first menu line. Main thread only; `start()` fills in the commit and worktree.
     private(set) static var menuTitle = BuildKind.menuTitle(version: version, commit: info?["VisorCommit"] as? String, worktree: nil)

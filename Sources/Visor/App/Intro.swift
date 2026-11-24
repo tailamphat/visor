@@ -18,6 +18,8 @@ final class IntroController {
     private let duration: CFTimeInterval = base + flight.extra
 
     /// The intro's light, from the palette (`DS.Palette.intro*`), made once.
+    private typealias Glow = DesignComponents.IntroLight
+
     private enum Light {
         static let glow = NSColor(DS.Palette.introGlow)
         static let sky = NSColor(DS.Palette.introSky)
@@ -66,7 +68,7 @@ final class IntroController {
         // The stage lights go down around the centre, and come back up at the end.
         let dim = CALayer()
         dim.frame = root.bounds
-        dim.backgroundColor = NSColor(Theme.surface).withAlphaComponent(0.5).cgColor
+        dim.backgroundColor = NSColor(Theme.surface).withAlphaComponent(Glow.dim).cgColor
         dim.opacity = 0
         root.addSublayer(dim)
         animate(dim, "opacity", [0, 1, 1, 0.25, 0], times([0, 0.1, 0.7, 1, 1], length: duration + 0.6), start: start, length: duration + 0.6)
@@ -76,7 +78,7 @@ final class IntroController {
         halo.type = .radial
         halo.bounds = CGRect(x: 0, y: 0, width: 220, height: 220)
         halo.position = centre
-        halo.colors = [Light.glow.withAlphaComponent(0.4).cgColor, Light.warm.withAlphaComponent(0.12).cgColor,
+        halo.colors = [Light.glow.withAlphaComponent(Glow.halo).cgColor, Light.warm.withAlphaComponent(Glow.haloWarm).cgColor,
                        NSColor.clear.cgColor]
         halo.locations = [0, 0.45, 1]
         halo.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -88,15 +90,15 @@ final class IntroController {
 
         // The light trail from the icon to the notch.
         let trail = CAGradientLayer()
-        trail.colors = [Light.sky.cgColor, Light.violet.withAlphaComponent(0.85).cgColor,
-                        Light.warm.withAlphaComponent(0.6).cgColor, NSColor.clear.cgColor]
+        trail.colors = [Light.sky.cgColor, Light.violet.withAlphaComponent(Glow.trailMiddle).cgColor,
+                        Light.warm.withAlphaComponent(Glow.trailWarm).cgColor, NSColor.clear.cgColor]
         trail.locations = [0, 0.35, 0.7, 1]
         trail.startPoint = CGPoint(x: 0.5, y: 1)
         trail.endPoint = CGPoint(x: 0.5, y: 0)
         trail.anchorPoint = CGPoint(x: 0.5, y: 1)
         trail.bounds = CGRect(x: 0, y: 0, width: 8, height: notch.y - centre.y)
         trail.position = notch
-        trail.cornerRadius = 4
+        trail.cornerRadius = CGFloat(Glow.trailRadius)
         trail.opacity = 0
         root.addSublayer(trail)
         animate(trail, "opacity", [0, 0, 1, 0], times([0, 0.42, 0.5, 0.62]), start: start)
@@ -122,7 +124,7 @@ final class IntroController {
 
         // A glint flashing across it.
         let glint = CAGradientLayer()
-        glint.colors = [NSColor.clear.cgColor, Light.white.withAlphaComponent(0.9).cgColor, NSColor.clear.cgColor]
+        glint.colors = [NSColor.clear.cgColor, Light.white.withAlphaComponent(Glow.glint).cgColor, NSColor.clear.cgColor]
         glint.startPoint = CGPoint(x: 0, y: 0.5)
         glint.endPoint = CGPoint(x: 1, y: 0.5)
         glint.bounds = CGRect(x: 0, y: 0, width: 240, height: 2)
@@ -136,8 +138,8 @@ final class IntroController {
         let glow = CALayer()
         glow.bounds = CGRect(x: 0, y: 0, width: 220, height: 40)
         glow.position = CGPoint(x: notch.x, y: h - 14)
-        glow.cornerRadius = 16
-        glow.backgroundColor = Light.glow.withAlphaComponent(0.25).cgColor
+        glow.cornerRadius = CGFloat(Glow.glowRadius)
+        glow.backgroundColor = Light.glow.withAlphaComponent(Glow.glow).cgColor
         glow.shadowColor = Light.glow.cgColor
         glow.shadowOpacity = 1
         glow.shadowRadius = 24
@@ -150,7 +152,7 @@ final class IntroController {
             let r = 60 + Double(i % 3) * 26
             let spark = CALayer()
             spark.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
-            spark.cornerRadius = 2
+            spark.cornerRadius = CGFloat(Glow.sparkRadius)
             spark.backgroundColor = Light.spark.cgColor
             spark.shadowColor = Light.sky.cgColor
             spark.shadowOpacity = 1
