@@ -111,17 +111,17 @@ struct ConsentLabel: LabelStyle {
     }
 }
 
+/// A capsule button on a solid fill; its text takes the fill's on-colour.
 struct PillButton: ButtonStyle {
     var fill: Color
-    var foreground: Color = .white
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DS.font(.md, .semibold))
-            .foregroundStyle(foreground)
+            .foregroundStyle(fill.onColour)
             .padding(.horizontal, 14)
             .frame(height: 28)
-            .background(Capsule().fill(fill.opacity(configuration.isPressed ? 0.75 : 1)))
+            .background(Capsule().fill(configuration.isPressed ? fill.pressedFill : fill))
             .contentShape(Capsule())
     }
 }

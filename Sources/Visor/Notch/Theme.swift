@@ -17,7 +17,7 @@ enum Theme {
     static let textMuted = Color(hex: P.textMuted)
 
     static let accent = Color(hex: P.accent)
-    static let accentTrack = Color(hex: P.accentTrack).opacity(0.45)
+    static let accentTrack = Color(hex: P.accentTrack).opacity(DesignContrast.accentTrackOpacity)
     static let deemphasis = Color(hex: P.deemphasis)
     static let claude = Color(hex: P.claude)
 

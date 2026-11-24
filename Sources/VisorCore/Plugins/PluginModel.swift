@@ -55,13 +55,16 @@ public struct PluginManifest: Equatable, @unchecked Sendable {
                               hosts: object["hosts"] as? [String] ?? [],
                               secrets: (object["secrets"] as? [String: Any] ?? [:]).compactMapValues(PluginSecret.parse),
                               settings: object["settings"] as? [String: Any] ?? [:],
-                              accent: (object["accent"] as? String).flatMap(Self.hexColor))
+                              accent: (object["accent"] as? String).flatMap(Self.hexColor)
+                                .map { Int(DesignContrast.readableAccent(UInt32(truncatingIfNeeded: $0))) })
     }
 
-    /// "#RRGGBB" as 0xRRGGBB.
+    /// "#RRGGBB" as 0xRRGGBB. `parse` then makes it readable on the notch
+    /// (`DesignContrast.readableAccent`), once per load.
     static func hexColor(_ text: String) -> Int? {
-        guard text.count == 7, text.hasPrefix("#") else { return nil }
-        return Int(text.dropFirst(), radix: 16)
+        let digits = text.dropFirst()
+        guard text.count == 7, text.hasPrefix("#"), digits.allSatisfy(\.isHexDigit) else { return nil }
+        return Int(digits, radix: 16)
     }
 
     /// Whether `visor.http` may call this URL: https, to a listed host.

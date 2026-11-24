@@ -367,6 +367,25 @@ struct PluginViewTests {
         #expect(m.accent == 0xA78BFA)
         #expect(try PluginManifest.parse(Data(#"{"id":"a","name":"A","accent":"purple"}"#.utf8)).accent == nil)
     }
+
+    /// An accent too dark for the black notch is lightened once, at load; a
+    /// readable one is kept.
+    @Test func darkManifestAccentIsMadeReadable() throws {
+        let dark = try PluginManifest.parse(Data(##"{"id":"a","name":"A","accent":"#202020"}"##.utf8))
+        #expect(dark.accent == Int(DesignContrast.readableAccent(0x202020)))
+        #expect(dark.accent != 0x202020)
+        let blue = try PluginManifest.parse(Data(##"{"id":"a","name":"A","accent":"#3987E5"}"##.utf8))
+        #expect(blue.accent == 0x3987E5)
+    }
+
+    /// Only six hex digits make a colour: a sign or other text is no accent (and never traps).
+    @Test func accentNeedsSixHexDigits() throws {
+        for bad in ["#-12345", "#+12345", "# 12345", "#12345G", "#0x1234"] {
+            let m = try PluginManifest.parse(Data(#"{"id":"a","name":"A","accent":"\#(bad)"}"#.utf8))
+            #expect(m.accent == nil, "\(bad)")
+        }
+        #expect(PluginManifest.hexColor("#00ff7F") == 0x00FF7F)
+    }
 }
 
 @Suite("Focus plugin")

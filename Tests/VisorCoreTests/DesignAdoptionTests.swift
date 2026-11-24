@@ -82,6 +82,29 @@ struct DesignAdoptionTests {
         #expect(found.isEmpty, "\(found.count) literal(s): \(found.joined(separator: ", "))")
     }
 
+    /// A bare `.white`/`.black` (not `DS.Fill.white(...)`, not the shadow's black).
+    static let bareBlackOrWhite = try! NSRegularExpression(pattern: #"(?<![A-Za-z])\.(white|black)\b(?!\.opacity\(shown)"#)
+    /// A stored text colour a caller could set (`var foreground: Color = .white`).
+    static let storedTextColour = try! NSRegularExpression(pattern: #"\bvar (foreground|text|textColor): Color\s*(=|$)"#)
+
+    /// Components that fill with a tint draw their text in the tint's on-colour
+    /// (`DesignContrast.on`), never a fixed white or black, and take no text
+    /// colour from the caller.
+    @Test func tintedFillsUseTheOnColour() throws {
+        let banned = [Self.bareBlackOrWhite, Self.storedTextColour]
+        for path in ["DesignSystem/SharedComponents.swift", "Shared/Components.swift"] {
+            let text = try String(contentsOf: Self.root.appendingPathComponent(path), encoding: .utf8)
+            let code = text.components(separatedBy: "\n").enumerated()
+                .filter { !$0.element.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            for (index, line) in code {
+                for regex in banned where Self.matches(regex, line) {
+                    Issue.record("\(path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+            #expect(text.contains("onColour"), "\(path) doesn't use the on-colour")
+        }
+    }
+
     /// Each skip names a real file or folder, so a stale entry can't hide a new file later.
     @Test func skipsExist() {
         #expect(!Self.rules.skips.isEmpty)

@@ -1,6 +1,40 @@
 import SwiftUI
 import VisorCore
 
+/// A solid fill's text colour and held colour (`DesignContrast.on` and
+/// `.pressed`), resolved from its sRGB value once per colour and kept, so a
+/// button's body never converts colours again.
+struct SolidFill {
+    let on: Color
+    let pressed: Color
+
+    private static var cache: [Color: SolidFill] = [:]
+    private static let lock = NSLock()
+
+    static func of(_ fill: Color) -> SolidFill {
+        lock.lock()
+        defer { lock.unlock() }
+        if let known = cache[fill] { return known }
+        // A translucent fill is taken over the black surface first.
+        var hex = DesignTokens.Palette.textPrimary
+        if let rgb = NSColor(fill).usingColorSpace(.sRGB) {
+            let alpha = rgb.alphaComponent
+            func byte(_ c: CGFloat) -> UInt32 { UInt32((min(max(c * alpha, 0), 1) * 255).rounded()) }
+            hex = byte(rgb.redComponent) << 16 | byte(rgb.greenComponent) << 8 | byte(rgb.blueComponent)
+        }
+        let solid = SolidFill(on: Color(hex: DesignContrast.on(hex)), pressed: Color(hex: DesignContrast.pressed(hex)))
+        cache[fill] = solid
+        return solid
+    }
+}
+
+extension Color {
+    /// The text and icon colour for this fill: black on a light fill, white on a dark one.
+    var onColour: Color { SolidFill.of(self).on }
+    /// This fill while its button is held: moved away from its text colour.
+    var pressedFill: Color { SolidFill.of(self).pressed }
+}
+
 /// The design tokens as SwiftUI values. Values live in VisorCore's
 /// `DesignTokens` (tested, and read by the website generator); this file only
 /// converts them. `Theme` stays the entry point for colours.

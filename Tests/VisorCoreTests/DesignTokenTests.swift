@@ -108,7 +108,7 @@ struct DesignTokenTests {
         #expect(P.clash == 0xFF8A3D)
         #expect(P.warning == 0xFAB219)
         #expect(P.question == 0x5AA2F0)
-        #expect(P.critical == 0xD03B3B)
+        #expect(P.critical == 0xE04A4A)
         #expect(P.stuck == 0xFF6B6B)
         #expect(DesignTokens.Size.bar == 4)
         #expect(DesignTokens.Size.cardInset == 10)

@@ -6,8 +6,9 @@ import VisorCore
 
 private typealias Spec = DesignComponents
 
-/// A small button inside a card: `.primary` (accent fill, white text) for the
-/// main action, `.secondary` (white fill) beside it. Dims while held.
+/// A small button inside a card: `.primary` (accent fill, text in its on-colour)
+/// for the main action, `.secondary` (white fill) beside it. While held, the
+/// primary fill moves away from its text (`pressedFill`), the secondary dims.
 struct CardButton: ButtonStyle {
     enum Kind { case primary, secondary }
 
@@ -21,19 +22,24 @@ struct CardButton: ButtonStyle {
     }
 
     private var fill: Color {
-        kind == .primary ? tint ?? Theme.accent : Color.white.opacity(Spec.CardButton.secondaryFill)
+        kind == .primary ? tint ?? Theme.accent : DS.Fill.white(Spec.CardButton.secondaryFill)
     }
-    private var text: Color { kind == .primary ? .white : Theme.textPrimary }
+    /// The primary fill's on-colour (black on a light tint), so no tint a view
+    /// or plugin passes can carry unreadable text.
+    private var text: Color { kind == .primary ? fill.onColour : Theme.textPrimary }
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let pressed = configuration.isPressed
+        let primary = kind == .primary
+        return configuration.label
             .font(.system(size: CGFloat(Spec.CardButton.type), weight: .semibold))
             .foregroundStyle(text)
             .lineLimit(1)
             .padding(.horizontal, CGFloat(Spec.CardButton.padding))
             .frame(height: CGFloat(Spec.CardButton.height))
-            .background(RoundedRectangle(cornerRadius: CGFloat(Spec.CardButton.radius), style: .continuous).fill(fill))
-            .opacity(configuration.isPressed ? Spec.CardButton.pressedOpacity : 1)
+            .background(RoundedRectangle(cornerRadius: CGFloat(Spec.CardButton.radius), style: .continuous)
+                .fill(primary && pressed ? fill.pressedFill : fill))
+            .opacity(!primary && pressed ? Spec.CardButton.pressedOpacity : 1)
             .contentShape(Rectangle())
     }
 }
@@ -56,7 +62,7 @@ struct DismissButton: View {
     }
 }
 
-/// A small capsule label: `.solid(tint)` with black text ("Stuck?"), or
+/// A small capsule label: `.solid(tint)` with the tint's on-colour ("Stuck?"), or
 /// `.neutral` on a white fill (a version, a count).
 struct Badge: View {
     enum Style { case solid(Color), neutral }
@@ -77,13 +83,13 @@ struct Badge: View {
     }
 
     private var foreground: Color {
-        if case .solid = style { return .black }
+        if case .solid(let tint) = style { return tint.onColour }
         return Theme.textPrimary
     }
     private var fill: Color {
         switch style {
         case .solid(let tint): return tint
-        case .neutral: return Color.white.opacity(Spec.Badge.neutralFill)
+        case .neutral: return DS.Fill.white(Spec.Badge.neutralFill)
         }
     }
 }

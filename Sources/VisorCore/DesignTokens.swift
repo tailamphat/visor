@@ -29,7 +29,8 @@ public enum DesignTokens {
         public static let warning: UInt32 = 0xFAB219
         /// An agent asking you something: blue, apart from an approval's amber.
         public static let question: UInt32 = 0x5AA2F0
-        public static let critical: UInt32 = 0xD03B3B
+        /// Bright enough to read as text on black and inside every banner (DesignContrast).
+        public static let critical: UInt32 = 0xE04A4A
         /// Stuck warnings: coral, apart from amber, the clash orange and the question blue.
         public static let stuck: UInt32 = 0xFF6B6B
         /// Keep-awake cup: apart from an approval's amber.

@@ -71,7 +71,7 @@ A plugin watches something you care about (CI, pull requests, an on-call pager, 
 | `hosts` | | The only hosts `visor.http` may call, over https. `"*.example.com"` matches any subdomain. |
 | `secrets` | | Sign-ins Visor may attach to requests, and where they may go. See [Secrets](#secrets). |
 | `settings` | | Name → default value. Users override them in `settings.json`. |
-| `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars, banners and its primary button, and the `accent` name in the [design system](#design-system). Red, amber and green keep their meaning. |
+| `accent` | | The plugin's one colour, `"#RRGGBB"`: charts, progress bars, banners and its primary button, and the `accent` name in the [design system](#design-system). Red, amber and green keep their meaning. An accent too dark to read on the black notch (as text, 4.5:1, there and inside every banner) is lightened toward white until it reads, once when the plugin loads; a readable accent is used as it is. |
 
 ```json
 {
@@ -292,6 +292,8 @@ The [design system page](design-system.html) ([online](https://tailamphat.github
 | `textPrimary`, `textSecondary`, `textMuted` | white, light grey, grey | text levels |
 
 Visor's approval colours aren't offered: in Visor they mean "allow" and "deny".
+
+**Readable on every tint.** Visor picks the text colour on a solid tint itself: a primary button and a solid badge draw their text in the tint's on-colour, black on a light tint (amber, coral, your light accent) and white on a dark one. There is no option to set it, so a plugin can't put white text on a light tint. Every named colour reads as text on the notch and inside a banner of any tint.
 
 **Text.** `ui.text` styles sit on Visor's type scale; `size` and `weight` pick another step:
 

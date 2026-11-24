@@ -117,8 +117,9 @@ struct PluginsView: View {
 
     private func block(_ info: PluginInfo) -> some View {
         let off = model.disabledPlugins.contains(info.id)
-        // The manifest's own colour: data from plugin.json, not a literal.
-        let accent = info.accent.map { Color(nsColor: NSColor(hex: UInt32($0))) } ?? Theme.accent
+        // The manifest's own colour: data from plugin.json, not a literal, already made
+        // readable on the notch at load (`DesignContrast.readableAccent`).
+        let accent = info.accent.flatMap { UInt32(exactly: $0) }.map { Color(nsColor: NSColor(hex: $0)) } ?? Theme.accent
         return VStack(alignment: .leading, spacing: DS.Space.sm) {
             HStack(spacing: DS.Space.sm) {
                 Image(systemName: info.icon).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textSecondary)
