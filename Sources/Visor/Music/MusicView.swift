@@ -1,9 +1,6 @@
 import SwiftUI
 import VisorCore
 
-/// Artwork drop shadow strength; no shadow token exists yet.
-private enum MusicShadow { static let strength = 0.45 }
-
 /// Big artwork on the left over a blurred copy of itself; title, progress and
 /// controls on the right, with the play button in the artwork's colour.
 struct MusicView: View {
@@ -14,7 +11,7 @@ struct MusicView: View {
             let tint = model.artworkTint ?? NSColor(Theme.textSecondary)
             HStack(alignment: .center, spacing: 18) {
                 Artwork(image: model.artwork, size: 96, corner: 12)
-                    .shadow(color: .black.opacity(MusicShadow.strength), radius: 14, y: 6)
+                    .dsShadow(.artwork)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(now.title).font(DS.font(.xl, .semibold)).foregroundStyle(Theme.textPrimary)
@@ -95,7 +92,7 @@ struct CompactMusicView: View {
             let tint = model.artworkTint ?? NSColor(Theme.textSecondary)
             HStack(alignment: .center, spacing: 12) {
                 Artwork(image: model.artwork, size: 64, corner: 10)
-                    .shadow(color: .black.opacity(MusicShadow.strength), radius: 10, y: 4)
+                    .dsShadow(.panel)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(now.title).font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
@@ -154,7 +151,7 @@ struct AccessibilityHint: View {
             }
             .font(DS.font(.base))
             .foregroundStyle(Theme.warning)
-            .hintBox(tint: Theme.warning)
+            .compactBanner(tint: Theme.warning)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -186,7 +183,7 @@ struct ExactControlHint: View {
         }
         .font(DS.font(.base))
         .foregroundStyle(Theme.question)
-        .hintBox(tint: Theme.question)
+        .compactBanner(tint: Theme.question)
     }
 }
 
@@ -219,17 +216,5 @@ struct Progress: View {
     static func time(_ seconds: Double) -> String {
         let s = Int(seconds.rounded(.down))
         return String(format: "%d:%02d", s / 60, s % 60)
-    }
-}
-
-extension View {
-    /// The banner card's tint and corner at the hint's one-row height (26 pt),
-    /// so the Music panel keeps its height; `bannerCard`'s 10 pt inset would clip it.
-    fileprivate func hintBox(tint: Color) -> some View {
-        let shape = RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-        return padding(.horizontal, DS.Space.lg)
-            .frame(height: 26)
-            .background(shape.fill(tint.opacity(DesignComponents.Banner.fill)))
-            .overlay(shape.strokeBorder(tint.opacity(DesignComponents.Banner.strokeOpacity), lineWidth: 1))
     }
 }

@@ -1,79 +1,99 @@
 import Foundation
 import Testing
 
-/// Views that have moved onto the design system keep no literal colours, type
-/// sizes, radii or white fills: each value comes from `DS`, `Theme` or a shared
-/// component. Add a folder (or a single `.swift` file) under `Sources/Visor/`
-/// once its views are migrated.
+/// Every view under `Sources/Visor/` (Plugins included) keeps no literal colours,
+/// type sizes, radii or white fills: each value comes from `DS`, `Theme` or a
+/// shared component. The patterns and the skipped paths live in
+/// `scripts/design-literals.txt`, which `scripts/check.sh` reads too, so the
+/// test and the check always agree.
 @Suite("Design adoption")
 struct DesignAdoptionTests {
-    static let migrated = ["Usage", "Music", "Clipboard", "Agents", "Notch", "Bar", "App/Intro.swift"]
+    struct Rules {
+        var literals: [(name: String, regex: NSRegularExpression)] = []
+        /// Paths under the repo: a file, or a folder ending in "/".
+        var skips: [String] = []
+    }
 
-    /// Files the scan skips, by path under `Sources/Visor/`. Theme.swift is the
-    /// token entry point (it turns `DesignTokens.Palette` into SwiftUI colours) and
-    /// holds the agents' brand marks; `themeHexesAreOnlyBrandMarks` guards it.
-    static let exempt: Set<String> = ["Notch/Theme.swift"]
+    private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appendingPathComponent("../..").standardized
+    private static let root = repo.appendingPathComponent("Sources/Visor")
 
-    /// What a literal looks like in SwiftUI code, with a name for the failure message.
-    static let literals: [(name: String, pattern: String)] = [
-        ("hex colour", #"Color\(hex:"#),
-        // Any size that isn't a token or a shared component's measurement.
-        ("font size", #"\.system\(size:(?! *(DS\.|CGFloat\(Spec))"#),
-        ("corner radius", #"cornerRadius:(?! *(DS\.|CGFloat\(Spec))"#),
-        // A fractional strength; opacity(0) and a ternary (whole-view dimming) are fine.
-        ("opacity fill", #"opacity\(0?\.[0-9]"#),
-        ("white", #"Color\.white"#),
-        ("named colour", #"(\(|\?\?) *\.(white|black|gray)\b"#),
-        ("rgb colour", #"(?<!NS)Color\((red|white|hue):"#),
-    ]
+    /// Compiles a pattern from the list (each one once, in `rules`).
+    private static let compile: (String) -> NSRegularExpression = { try! NSRegularExpression(pattern: $0) }
+
+    /// The shared list, parsed once: `literal<TAB>name<TAB>regex` and `skip<TAB>path<TAB>why`.
+    static let rules: Rules = {
+        var rules = Rules()
+        let url = repo.appendingPathComponent("scripts/design-literals.txt")
+        let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        for line in text.components(separatedBy: "\n") {
+            let fields = line.components(separatedBy: "\t")
+            guard fields.count >= 3, !line.hasPrefix("#") else { continue }
+            switch fields[0] {
+            case "literal": rules.literals.append((fields[1], compile(fields[2])))
+            case "skip": rules.skips.append(fields[1])
+            default: continue
+            }
+        }
+        return rules
+    }()
 
     /// A six-digit hex colour literal, for `themeHexesAreOnlyBrandMarks`.
     static let hexLiteral = try! NSRegularExpression(pattern: #"0x[0-9A-Fa-f]{6}\b"#)
-
-    /// The patterns, compiled once.
-    static let regexes: [(name: String, regex: NSRegularExpression)] = literals.map { ($0.name, try! NSRegularExpression(pattern: $0.pattern)) }
 
     private static func matches(_ regex: NSRegularExpression, _ text: String) -> Bool {
         regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
-    private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        .appendingPathComponent("../../Sources/Visor").standardized
-
-    /// The Swift files of a folder, or the one file, under `Sources/Visor/`, minus `exempt`.
-    private static func sources(_ path: String) throws -> [URL] {
-        let url = root.appendingPathComponent(path)
-        if path.hasSuffix(".swift") {
-            return FileManager.default.fileExists(atPath: url.path) ? [url] : []
-        }
-        return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "swift" && !exempt.contains("\(path)/\($0.lastPathComponent)") }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    private static func skipped(_ path: String) -> Bool {
+        rules.skips.contains { $0.hasSuffix("/") ? path.hasPrefix($0) : path == $0 }
     }
 
-    /// Every `file:line (kind)` with a literal in `folder`.
-    static func hits(in folder: String) throws -> [String] {
+    /// Every Swift file under `Sources/Visor/`, as a repo path, minus the skips.
+    static func sources() -> [String] {
+        let prefix = repo.path + "/"
+        let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
+            .compactMap { ($0 as? URL)?.standardized.path }
+            .filter { $0.hasSuffix(".swift") }
+            .map { String($0.dropFirst(prefix.count)) } ?? []
+        return files.filter { !skipped($0) }.sorted()
+    }
+
+    /// Every `file:line (kind)` with a literal in `text`; comment lines are skipped.
+    static func hits(_ path: String, _ text: String) -> [String] {
         var out: [String] = []
-        for file in try sources(folder) {
-            let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: "\n")
-            for (index, line) in lines.enumerated() {
-                for (name, regex) in regexes where matches(regex, line) {
-                    out.append("\(file.lastPathComponent):\(index + 1) (\(name))")
-                }
+        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("//") { continue }
+            for (name, regex) in rules.literals where matches(regex, line) {
+                out.append("\(path):\(index + 1) (\(name))")
             }
         }
         return out
     }
 
-    @Test(arguments: migrated)
-    func viewsUseOnlyTokens(folder: String) throws {
-        #expect(!(try Self.sources(folder)).isEmpty, "no Swift files in Sources/Visor/\(folder)")
-        let found = try Self.hits(in: folder)
-        #expect(found.isEmpty, "\(found.count) literal(s) in \(folder): \(found.joined(separator: ", "))")
+    @Test func viewsUseOnlyTokens() throws {
+        let files = Self.sources()
+        #expect(files.count > 50, "found only \(files.count) Swift files under Sources/Visor")
+        #expect(files.contains("Sources/Visor/Plugins/PluginsView.swift"))
+        var found: [String] = []
+        for path in files {
+            found += Self.hits(path, try String(contentsOf: Self.repo.appendingPathComponent(path), encoding: .utf8))
+        }
+        #expect(found.isEmpty, "\(found.count) literal(s): \(found.joined(separator: ", "))")
     }
 
-    /// Theme.swift is exempt from the scan, so it must not collect one-off
-    /// colours: its only hex literals are the agents' brand marks in `AgentStyle`.
+    /// Each skip names a real file or folder, so a stale entry can't hide a new file later.
+    @Test func skipsExist() {
+        #expect(!Self.rules.skips.isEmpty)
+        for skip in Self.rules.skips {
+            var folder: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: Self.repo.appendingPathComponent(skip).path, isDirectory: &folder)
+            #expect(exists && folder.boolValue == skip.hasSuffix("/"), "stale skip \(skip)")
+        }
+    }
+
+    /// Theme.swift is skipped, so it must not collect one-off colours: its only
+    /// hex literals are the agents' brand marks in `AgentStyle`.
     @Test func themeHexesAreOnlyBrandMarks() throws {
         let text = try String(contentsOf: Self.root.appendingPathComponent("Notch/Theme.swift"), encoding: .utf8)
         let lines = text.components(separatedBy: "\n")
@@ -84,26 +104,28 @@ struct DesignAdoptionTests {
 
     /// The scan itself finds each kind of literal.
     @Test func patternsCatchLiterals() {
-        // Each kind of literal, in every spelling Usage had before it moved.
+        // Each kind of literal, in every spelling the views had before they moved.
         let samples: [String: [String]] = [
-            "hex colour": ["Color(hex: 0x1A1A19)"],
+            "hex colour": ["Color(hex: 0x1A1A19)", "NSColor(hex: 0xA78BFA)"],
             "font size": [".font(.system(size: 11))", ".font(.system(size: large ? 18 : 13, weight: .semibold))"],
-            "corner radius": ["RoundedRectangle(cornerRadius: 9)", "RoundedRectangle(cornerRadius: big ? 9 : 6)"],
-            "opacity fill": ["Color.white.opacity(0.08)", "Theme.accent.opacity(.5)"],
+            "corner radius": ["RoundedRectangle(cornerRadius: 9)", "RoundedRectangle(cornerRadius: big ? 9 : 6)",
+                              "Path(roundedRect: rect, cornerRadius: size.height / 2)"],
+            "opacity fill": ["Color.white.opacity(0.08)", "Theme.accent.opacity(.5)", ".foreground.opacity(0.16)"],
             "white": ["Color.white"],
             "named colour": ["colors[name] ?? .gray", "Circle().fill(.white)", ".fill(.gray)", ".foregroundStyle(.black)"],
             "rgb colour": ["Color(red: 1, green: 0.4, blue: 0.3)", "Color(white: 0.2)"],
         ]
-        #expect(Set(samples.keys) == Set(Self.regexes.map(\.name)))
-        for literal in Self.regexes {
+        #expect(Set(samples.keys) == Set(Self.rules.literals.map(\.name)))
+        for literal in Self.rules.literals {
             for sample in samples[literal.name] ?? [] {
-                #expect(Self.matches(literal.regex, sample), "\(literal.name) misses \(sample)")
+                #expect(Self.hits("x.swift", sample).count >= 1, "\(literal.name) misses \(sample)")
             }
         }
         let clean = ".font(DS.font(.sm)) .fill(DS.Fill.subtle) cornerRadius: DS.Radius.md .opacity(shown ? 1 : 0.5)"
             + " .shadow(color: .black.opacity(dragged ? 0.5 : 0)) .fill(on ? DS.Fill.strong : .clear) .opacity(0)"
-        for literal in Self.regexes {
-            #expect(!Self.matches(literal.regex, clean), "\(literal.name)")
-        }
+            + " cornerRadius: CGFloat(Spec.Banner.radius) cornerRadius: CGFloat(Piece.rowRadius)"
+            + " Color(hex: P.surface) NSColor(hex: UInt32(accent))"
+        #expect(Self.hits("x.swift", clean).isEmpty, "\(Self.hits("x.swift", clean))")
+        #expect(Self.hits("x.swift", "    // .font(.system(size: 11))").isEmpty, "comment lines are skipped")
     }
 }

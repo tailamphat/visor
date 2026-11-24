@@ -48,6 +48,10 @@ enum DS {
         static let strong = Color.white.opacity(DesignTokens.Fill.strong)
         static let heavy = Color.white.opacity(DesignTokens.Fill.heavy)
 
+        /// White at a strength a component names (`PluginPieces.trackFill`), for
+        /// measurements a test already holds to the fill scale.
+        static func white(_ strength: Double) -> Color { Color.white.opacity(strength) }
+
         /// The same strengths as numbers, for tinted fills (`Theme.stuck.opacity(DS.Fill.Opacity.subtle)`).
         enum Opacity {
             static let faint = DesignTokens.Fill.faint
@@ -89,5 +93,22 @@ enum DS {
         static let introSky = Color(hex: DesignTokens.Palette.introSky)
         static let introSpark = Color(hex: DesignTokens.Palette.introSpark)
         static let violet = Color(hex: DesignTokens.Palette.violet)
+    }
+
+    /// Drop shadows (`DesignComponents.Shadow`); draw one with `.dsShadow(_:shown:)`.
+    struct Shadow {
+        let opacity: Double
+        let radius: CGFloat
+        let y: CGFloat
+
+        private typealias S = DesignComponents.Shadow
+        /// The open panel, and small artwork.
+        static let panel = Shadow(opacity: S.opacity, radius: CGFloat(S.radius), y: CGFloat(S.y))
+        /// Large artwork.
+        static let artwork = Shadow(opacity: S.opacity, radius: CGFloat(S.largeRadius), y: CGFloat(S.largeY))
+        /// A toast over a list.
+        static let toast = Shadow(opacity: S.toastOpacity, radius: CGFloat(S.smallRadius), y: CGFloat(S.toastY))
+        /// A row lifted while dragged.
+        static let lifted = Shadow(opacity: S.liftedOpacity, radius: CGFloat(S.smallRadius), y: CGFloat(S.y))
     }
 }

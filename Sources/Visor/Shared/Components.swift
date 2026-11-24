@@ -1,6 +1,8 @@
 import SwiftUI
 import VisorCore
 
+private typealias Spec = DesignComponents
+
 struct EmptyState: View {
     let symbol: String
     let title: String
@@ -10,9 +12,9 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 20)).foregroundStyle(Theme.textMuted)
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-            Text(detail).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+            Image(systemName: symbol).font(.system(size: DS.Size.iconLarge)).foregroundStyle(Theme.textMuted)
+            Text(title).font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
+            Text(detail).font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center).frame(maxWidth: 380)
             if let button, let action {
                 Button(button, action: action).buttonStyle(PillButton(fill: Theme.accent)).padding(.top, 4)
@@ -89,11 +91,12 @@ struct KeyCap: View {
 
     var body: some View {
         Text(key)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: CGFloat(Spec.KeyCap.type), weight: .semibold))
             .padding(.horizontal, 4.5)
             .padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.foreground.opacity(0.16)))
-            .opacity(0.8)
+            .background(RoundedRectangle(cornerRadius: CGFloat(Spec.KeyCap.radius), style: .continuous)
+                .fill(.foreground.opacity(Spec.KeyCap.fill)))
+            .opacity(Spec.KeyCap.opacity)
             .help("Press \(key) while the pointer is over the card")
     }
 }
@@ -114,48 +117,12 @@ struct PillButton: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .semibold))
+            .font(DS.font(.md, .semibold))
             .foregroundStyle(foreground)
             .padding(.horizontal, 14)
             .frame(height: 28)
             .background(Capsule().fill(fill.opacity(configuration.isPressed ? 0.75 : 1)))
             .contentShape(Capsule())
-    }
-}
-
-/// The agent's own mark in its brand colour, on a dark tile.
-struct AgentIcon: View {
-    var agent = "Claude Code"
-    var size: CGFloat
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-            .fill(AgentStyle.tile)
-            .frame(width: size, height: size)
-            .overlay(AgentMark(agent: agent, size: size * 0.62))
-    }
-}
-
-/// The agent's own mark (Claude's starburst, Copilot's face), drawn from its vector artwork.
-struct AgentMark: View {
-    var agent: String
-    var size: CGFloat
-    var color: Color?
-
-    var body: some View {
-        LogoShape(agent: agent).fill(color ?? Color(nsColor: AgentStyle.mark(agent)))
-            .frame(width: size, height: size)
-            .accessibilityLabel(agent)
-    }
-}
-
-struct LogoShape: Shape {
-    let agent: String
-
-    func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width, rect.height) / 24
-        return Path(AgentLogo.path(for: agent))
-            .applying(CGAffineTransform(translationX: rect.midX - 12 * scale, y: rect.midY - 12 * scale).scaledBy(x: scale, y: scale))
     }
 }
 
@@ -167,7 +134,7 @@ struct ToolDivider: View {
 
     var body: some View {
         Canvas { context, size in
-            context.clip(to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: size.height / 2))
+            context.clip(to: Capsule(style: .continuous).path(in: CGRect(origin: .zero, size: size)))
             var stripes = Path()
             var x: CGFloat = -size.height
             while x < size.width + size.height {
@@ -175,7 +142,7 @@ struct ToolDivider: View {
                 stripes.addLine(to: CGPoint(x: x + size.height, y: 0))
                 x += 5
             }
-            context.stroke(stripes, with: .color(.white.opacity(0.16)), lineWidth: 1.5)
+            context.stroke(stripes, with: .color(DS.Fill.strong), lineWidth: 1.5)
         }
         .frame(height: Self.band)
         .padding(.vertical, Self.room)

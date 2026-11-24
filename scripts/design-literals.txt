@@ -1,0 +1,32 @@
+# Literal colours, type sizes, radii and fills that the design system replaces.
+# One list, read by scripts/check.sh (perl) and Tests/VisorCoreTests/DesignAdoptionTests.swift
+# (NSRegularExpression), so the check and the test can't disagree. Both scan every Swift
+# file under Sources/Visor (Plugins included) line by line, comment lines skipped.
+#
+# literal<TAB>name<TAB>regex   (Perl and ICU read this syntax the same: lookarounds, \b)
+# skip<TAB>path<TAB>why        (a whole file or a folder ending in /; never single lines)
+#
+# There is no allowlist of lines: move a value into DesignTokens/DesignComponents instead.
+
+literal	hex colour	(NS)?Color\(hex: *(0x|[0-9])
+literal	font size	\.system\(size:(?! *(DS\.|CGFloat\((Spec|Piece)\.))
+literal	corner radius	cornerRadius:(?! *(DS\.|CGFloat\((Spec|Piece)\.))
+literal	opacity fill	opacity\(0?\.[0-9]
+literal	white	Color\.white
+literal	named colour	(\(|\?\?) *\.(white|black|gray)\b
+literal	rgb colour	(?<!NS)Color\((red|white|hue):
+
+# The design system itself: tokens as SwiftUI values and the shared components.
+skip	Sources/Visor/DesignSystem/	the design system
+# Theme is the colour entry point (DesignTokens.Palette as SwiftUI colours) and holds
+# AgentStyle's brand colours; the test themeHexesAreOnlyBrandMarks keeps other hexes out.
+skip	Sources/Visor/Notch/Theme.swift	token entry point and agent brand colours
+# Out of scope by the epic: agent brand marks and Office pixel art keep their own palettes.
+skip	Sources/Visor/Shared/AgentMark.swift	agent brand marks
+skip	Sources/Visor/Office/BreakProps.swift	Office pixel art
+skip	Sources/Visor/Office/FilmCast.swift	Office pixel art
+skip	Sources/Visor/Office/FilmRoom.swift	Office pixel art
+skip	Sources/Visor/Office/OfficeLayerView.swift	Office pixel art
+skip	Sources/Visor/Office/OfficeRoom.swift	Office pixel art
+skip	Sources/Visor/Office/PixelPerson.swift	Office pixel art
+skip	Sources/Visor/Office/Pixels.swift	Office pixel art

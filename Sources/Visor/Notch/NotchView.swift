@@ -184,7 +184,7 @@ struct NotchView: View {
             if LocalBuild.isLocal { Color(nsColor: LocalBuild.orange).frame(height: 1.5).allowsHitTesting(false) }
         }
         .clipShape(shape)
-        .shadow(color: .black.opacity(model.expanded ? 0.45 : 0), radius: 10, y: 4)
+        .dsShadow(.panel, shown: model.expanded)
         .offset(x: layout.shift(model))
         .animation(Theme.spring, value: model.expanded)
         .animation(Theme.spring, value: size)

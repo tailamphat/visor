@@ -26,7 +26,7 @@ struct AccountsView: View {
                     AccountRow(model: model, provider: provider, grip: grip(provider))
                         .offset(y: offset(provider))
                         .zIndex(dragged ? 1 : 0)
-                        .shadow(color: .black.opacity(dragged ? 0.5 : 0), radius: 8, y: 4)
+                        .dsShadow(.lifted, shown: dragged)
                 }
             }
         }

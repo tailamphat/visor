@@ -137,6 +137,42 @@ if [[ -f "$SITE" ]]; then
   ' "$TMP/added" >> "$HITS"
 fi
 
+# 5. The design system: no literal colour, type size, radius or fill in any app view. Unlike
+#    the rules above this scans the whole of Sources/Visor (Plugins included), not only added
+#    lines, so it passes only while the tree is clean. Patterns and skipped paths come from
+#    scripts/design-literals.txt, which DesignAdoptionTests reads too; there is no allowlist of
+#    lines. Skipped by path there: the design system itself (Sources/Visor/DesignSystem/; the
+#    token values in Sources/VisorCore/Design*.swift are outside Sources/Visor), Theme.swift
+#    (token entry point), and, out of scope by the epic, agent brand marks and Office pixel art.
+LITERALS=scripts/design-literals.txt
+if [[ -f "$LITERALS" ]]; then
+  find Sources/Visor -name '*.swift' | sort | perl -e '
+    my $list = shift; my (@literals, @skips);
+    open(my $fh, "<", $list) or die "check: $list: $!\n";
+    while (<$fh>) {
+      chomp; next if /^#/;
+      my @f = split /\t/;
+      next if @f < 3;
+      push @literals, [$f[1], qr/$f[2]/] if $f[0] eq "literal";
+      push @skips, $f[1] if $f[0] eq "skip";
+    }
+    FILE: while (my $file = <STDIN>) {
+      chomp $file;
+      for my $s (@skips) { next FILE if ($s =~ m{/$} ? index($file, $s) == 0 : $file eq $s) }
+      open(my $in, "<", $file) or next;
+      while (my $line = <$in>) {
+        next if $line =~ m{^\s*//};
+        for my $l (@literals) {
+          print "$file:$.: literal $l->[0] (use DS, Theme or a shared component; see $list)\n" if $line =~ $l->[1];
+        }
+      }
+      close $in;
+    }
+  ' "$LITERALS" >> "$HITS"
+else
+  hit "$LITERALS" 1 "missing (the design-system literal rule reads it)"
+fi
+
 if [[ -f "$WORDS" ]]; then
   while IFS= read -r word || [[ -n "$word" ]]; do
     word="${word%%#*}"; word="$(echo "$word" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"

@@ -15,7 +15,22 @@ struct DesignComponentTests {
     static let namedConstants: Set<String> = [
         "Banner.strokeOpacity", "CardButton.pressedOpacity", "SectionHeader.tracking",
         "Backdrop.artwork", "Backdrop.shadeBottom", "Backdrop.tint", "Artwork.iconRatio",
+        "Banner.compactHeight", "KeyCap.opacity", "Popover.fill",
+        "Shadow.opacity", "Shadow.radius", "Shadow.y", "Shadow.largeRadius", "Shadow.largeY",
+        "Shadow.smallRadius", "Shadow.toastOpacity", "Shadow.toastY", "Shadow.liftedOpacity",
     ]
+
+    /// The pieces that moved in from private copies keep their look: the Music
+    /// hint's 26 pt row, the shadows Music, Clipboard, the panel and Accounts drew.
+    @Test func movedPiecesKeepTheirLook() {
+        #expect(C.Banner.compactHeight == 26)
+        #expect(C.Shadow.opacity == 0.45 && C.Shadow.radius == 10 && C.Shadow.y == 4)
+        #expect(C.Shadow.largeRadius == 14 && C.Shadow.largeY == 6)
+        #expect(C.Shadow.toastOpacity == 0.4 && C.Shadow.smallRadius == 8 && C.Shadow.toastY == 3)
+        #expect(C.Shadow.liftedOpacity == 0.5)
+        #expect(C.KeyCap.fill == 0.16 && C.KeyCap.opacity == 0.8 && C.KeyCap.type == 10)
+        #expect(C.Popover.fill == 0.92 && C.Popover.radius == 12)
+    }
 
     @Test func everyComponentValueIsATokenStep() {
         var constants = Set<String>()

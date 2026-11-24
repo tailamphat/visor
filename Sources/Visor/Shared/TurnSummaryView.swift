@@ -14,10 +14,10 @@ struct TurnSummaryView: View {
         let session = model.board.sessions.first { $0.id == turn.sessionID }
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).foregroundStyle(Theme.good)
-                Text("\(turn.project) finished").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Image(systemName: "checkmark.circle.fill").font(DS.font(.lg)).foregroundStyle(Theme.good)
+                Text("\(turn.project) finished").font(DS.font(.lg, .semibold)).foregroundStyle(Theme.textPrimary)
                 if let time = turn.durationText {
-                    Text("· \(time)").font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                    Text("· \(time)").font(DS.font(.md)).foregroundStyle(Theme.textMuted)
                 }
                 Spacer(minLength: 0)
                 AgentMark(agent: turn.agent, size: 12)
@@ -32,13 +32,13 @@ struct TurnSummaryView: View {
                 let (files, more) = stats.shortFiles(in: turn.cwd, limit: 3)
                 if !files.isEmpty {
                     Text(files.joined(separator: " · ") + (more > 0 ? "  +\(more)" : ""))
-                        .font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                        .font(DS.font(.base, design: .monospaced)).foregroundStyle(Theme.textSecondary)
                         .lineLimit(1).truncationMode(.middle)
                 }
             }
             .padding(.horizontal, 11).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
             HStack(spacing: 6) {
                 if let session {
                     pill(session.host.map { "Open in \($0)" } ?? "Open the terminal") { model.focusAgent?(session) }
@@ -50,8 +50,8 @@ struct TurnSummaryView: View {
 
     private func figure(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(value).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
-            Text(label).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+            Text(value).font(DS.font(.lg, .semibold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+            Text(label).font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -65,15 +65,15 @@ struct TurnSummaryView: View {
 
     private func status(_ title: String, _ command: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(color)
-            Text(command).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
+            Text(title).font(DS.font(.lg, .semibold)).foregroundStyle(color)
+            Text(command).font(DS.font(.sm)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.tail)
         }
         .help(command)
     }
 
     private func pill(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            Text(title).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 12).frame(height: 26)
                 .background(Capsule().fill(Theme.raised))
                 .contentShape(Capsule())

@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 import VisorCore
 
+private typealias Spec = DesignComponents
+
 /// The office's world setting: a tile for each world with a thumbnail of its
 /// room and cast, over the office. Picking one swaps the room at once.
 struct OfficeWorldPicker: View {
@@ -10,20 +12,17 @@ struct OfficeWorldPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("OFFICE WORLD").font(.system(size: 10.5, weight: .semibold)).tracking(0.6).foregroundStyle(Theme.textMuted)
+                SectionHeader("Office world")
                 Spacer()
-                Button { model.officePicker = false } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.textMuted)
-                }
-                .buttonStyle(.plain)
-                .help("Close")
+                DismissButton(help: "Close") { model.officePicker = false }
             }
             HStack(spacing: 8) {
                 ForEach(OfficeWorld.allCases, id: \.self) { world in tile(world) }
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.92)))
+        .background(RoundedRectangle(cornerRadius: CGFloat(Spec.Popover.radius), style: .continuous)
+            .fill(Theme.surface.opacity(Spec.Popover.fill)))
         .padding(10)
     }
 
@@ -37,16 +36,16 @@ struct OfficeWorldPicker: View {
                 if let image = OfficeThumbnail.image(world) {
                     Image(decorative: image, scale: 1).resizable().interpolation(.none)
                         .aspectRatio(CGFloat(image.width) / CGFloat(image.height), contentMode: .fit)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                 }
-                Text(world.title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                Text(Self.subtitle(world)).font(.system(size: 10)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                Text(world.title).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary)
+                Text(Self.subtitle(world)).font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
             }
             .padding(6)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.raised))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
                 .strokeBorder(picked ? Theme.accent : .clear, lineWidth: 1.5))
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }

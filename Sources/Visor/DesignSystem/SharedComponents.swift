@@ -112,6 +112,23 @@ extension View {
             .background(shape.fill(tint.opacity(Spec.Banner.fill)))
             .overlay(shape.strokeBorder(tint.opacity(Spec.Banner.strokeOpacity), lineWidth: 1))
     }
+
+    /// The banner card on one line (Music hints, the clash banner): the same tint,
+    /// stroke and corner at a fixed `height`, the card's inset at the sides only,
+    /// so a short row isn't clipped by the inset above and below.
+    func compactBanner(tint: Color, height: CGFloat = CGFloat(Spec.Banner.compactHeight)) -> some View {
+        let shape = RoundedRectangle(cornerRadius: CGFloat(Spec.Banner.radius), style: .continuous)
+        return padding(.horizontal, CGFloat(Spec.Banner.inset))
+            .frame(height: height)
+            .background(shape.fill(tint.opacity(Spec.Banner.fill)))
+            .overlay(shape.strokeBorder(tint.opacity(Spec.Banner.strokeOpacity), lineWidth: 1))
+    }
+
+    /// A drop shadow from the design system; `shown` false fades it to nothing
+    /// (animated with the view, like the panel's on open).
+    func dsShadow(_ shadow: DS.Shadow, shown: Bool = true) -> some View {
+        self.shadow(color: .black.opacity(shown ? shadow.opacity : 0), radius: shadow.radius, y: shadow.y)
+    }
 }
 
 /// Album artwork in a rounded square (closed notch, Music); a note on the

@@ -175,7 +175,7 @@ struct PluginPlaceholder: View {
         VStack(alignment: .leading, spacing: DS.Space.md) {
             ForEach([0.62, 0.8, 0.45], id: \.self) { width in
                 GeometryReader { geo in
-                    RoundedRectangle(cornerRadius: DS.Radius.xs).fill(Color.white.opacity(Piece.trackFill))
+                    RoundedRectangle(cornerRadius: DS.Radius.xs).fill(DS.Fill.white(Piece.trackFill))
                         .frame(width: geo.size.width * width, height: CGFloat(Piece.placeholderLine))
                 }
                 .frame(height: CGFloat(Piece.placeholderLine))
@@ -261,7 +261,7 @@ struct PluginNodeView: View {
                     ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                         // An empty bar is a faint stub, so a quiet day still has a place.
                         RoundedRectangle(cornerRadius: CGFloat(Piece.barRadius))
-                            .fill(pending || value == 0 ? Color.white.opacity(Piece.trackFill)
+                            .fill(pending || value == 0 ? DS.Fill.white(Piece.trackFill)
                                   : tint(states.indices.contains(index) ? states[index] : nil,
                                          names.indices.contains(index) ? names[index] : nil).opacity(Piece.barOpacity))
                             .frame(height: pending ? DS.Space.sm : max(DS.Space.xxs, height * value / top))
@@ -287,7 +287,7 @@ struct PluginNodeView: View {
                     }
                     .font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.xxs)
-                    .background(Capsule().fill(Color.white.opacity(Piece.trackFill)))
+                    .background(Capsule().fill(DS.Fill.white(Piece.trackFill)))
                 }
             }
         case .list(let rows):
@@ -358,14 +358,14 @@ struct PluginNodeView: View {
                             .foregroundStyle(on ? Theme.textPrimary : Theme.textSecondary)
                             .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.xxs)
                             .background(RoundedRectangle(cornerRadius: CGFloat(Piece.rowRadius))
-                                .fill(on ? Color.white.opacity(Piece.pickerOnFill) : .clear))
+                                .fill(on ? DS.Fill.white(Piece.pickerOnFill) : .clear))
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(DS.Space.xxs)
-            .background(RoundedRectangle(cornerRadius: CGFloat(Piece.rowRadius)).fill(Color.white.opacity(Piece.pickerFill)))
+            .background(RoundedRectangle(cornerRadius: CGFloat(Piece.rowRadius)).fill(DS.Fill.white(Piece.pickerFill)))
         case .toggle(let label, let on, let action):
             HStack {
                 Text(label).font(DS.font(.base)).foregroundStyle(Theme.textSecondary)
@@ -414,7 +414,7 @@ struct PluginNodeView: View {
     private func track(value: Double?, fill: Color) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(Piece.trackFill))
+                Capsule().fill(DS.Fill.white(Piece.trackFill))
                 if let value { Capsule().fill(fill).frame(width: max(DS.Size.bar, geo.size.width * value)) }
             }
         }
@@ -462,7 +462,7 @@ struct PluginRowView: View {
         .padding(.horizontal, CGFloat(Piece.rowPadding))
         .frame(height: CGFloat(Piece.rowHeight))
         .background(RoundedRectangle(cornerRadius: CGFloat(Piece.rowRadius), style: .continuous)
-            .fill(hovered && row.url != nil ? Color.white.opacity(Piece.hoverFill) : .clear))
+            .fill(hovered && row.url != nil ? DS.Fill.white(Piece.hoverFill) : .clear))
         .contentShape(Rectangle())
         .onHover { inside in
             if inside { model.pluginHover = key } else if model.pluginHover == key { model.pluginHover = nil }

@@ -218,12 +218,7 @@ struct ClashBanner: View {
             Spacer(minLength: 6)
             DismissButton(action: dismiss)
         }
-        .padding(.horizontal, 10)
-        .frame(height: Self.height)
-        // The banner card's chrome; not `.bannerCard`, whose inset on all sides would overflow this one-line 32 pt row.
-        .background(RoundedRectangle(cornerRadius: CGFloat(Spec.Banner.radius), style: .continuous).fill(Theme.clash.opacity(Spec.Banner.fill)))
-        .overlay(RoundedRectangle(cornerRadius: CGFloat(Spec.Banner.radius), style: .continuous)
-            .strokeBorder(Theme.clash.opacity(Spec.Banner.strokeOpacity), lineWidth: 1))
+        .compactBanner(tint: Theme.clash, height: Self.height)
         .help("\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
     }
 

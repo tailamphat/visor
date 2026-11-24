@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 import VisorCore
 
+private typealias Spec = DesignComponents
+
 /// The Agents tab as an office: each tool a table, each session a little
 /// person who walks to where its work happens. A bar above the room sums it up
 /// and switches back to the list.
@@ -42,7 +44,7 @@ struct OfficeView: View {
     private var worldMenu: some View {
         Button { model.officePicker.toggle() } label: {
             Image(systemName: "paintpalette")
-                .font(.system(size: 11, weight: .semibold))
+                .font(DS.font(.base, .semibold))
                 .foregroundStyle(model.officePicker ? Theme.textPrimary : Theme.textSecondary)
                 .frame(width: 22, height: 18)
                 .contentShape(Rectangle())
@@ -59,7 +61,8 @@ struct OfficeView: View {
             .foregroundColor(Theme.textMuted)
         if scene.waiting > 0 { text = text + Text(" · \(scene.waiting) waiting").foregroundColor(Theme.warning) }
         if scene.hidden > 0 { text = text + Text(" · \(scene.hidden) not shown").foregroundColor(Theme.textMuted) }
-        return text.font(.system(size: 10.5, weight: .semibold)).textCase(.uppercase).tracking(0.6).lineLimit(1)
+        return text.font(.system(size: CGFloat(Spec.SectionHeader.type), weight: .semibold)).textCase(.uppercase)
+            .tracking(CGFloat(Spec.SectionHeader.tracking)).lineLimit(1)
     }
 }
 

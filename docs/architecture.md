@@ -20,7 +20,7 @@ App folders:
 - `Usage`: `UsageService` plus one extension per provider (`UsageService+Claude`, `+Copilot`, `+Antigravity`, `+OpenCode`, `+Tokens`), views (`UsageView`, `ProviderBlocks`, `TokensView` with `UsageBar`, `AccountsView`, `SpendView`, `LimitMeter`), and the release radar: `RadarService` (every 6 h on queue `visor.radar`, first check 2 min after launch or 6 h after the saved last one; `--version` only when the binary's stamp changed; the folders holding offered tools' links and their binaries are watched (`DispatchSource`, 2 s settle), and a change reruns only `--version` so a caught-up card shows "Updated" for 3 s and goes (`RadarState.confirm`/`cards`); formulae from a tap other than Homebrew core (`BrewReceipt`) are skipped; GETs only `registry.npmjs.org`, `formulae.brew.sh`, `api.github.com` through `ReleaseFetcher`, which refuses any other redirect target and cuts answers at 2 MB; log in `~/Library/Logs/Visor/radar.log`) with `RadarCard` (the "What's new" section). Its logic is `RadarState` and `ReleaseRadar` in VisorCore.
 - `Music`: `MusicService`, `BrowserBridgeServer`, `MusicView`.
 - `Clipboard`, `Bar` (tab hidden for now), `Office` (pixel office for the Agents tab), `Plugins` (`PluginService`, `PluginRunner`, `PluginsView`).
-- `DesignSystem/`: `Tokens.swift` (`DS`: the design tokens as SwiftUI fonts, radii, fills, spacing and sizes, read from VisorCore's `DesignTokens`); `SharedComponents.swift` (`CardButton`, `DismissButton`, `Badge`, `SectionHeader`, `.bannerCard`).
+- `DesignSystem/`: `Tokens.swift` (`DS`: the design tokens as SwiftUI fonts, radii, fills, spacing and sizes, read from VisorCore's `DesignTokens`); `SharedComponents.swift` (`CardButton`, `DismissButton`, `Badge`, `SectionHeader`, `.bannerCard`, `.compactBanner`, `.dsShadow`).
 - `Shared`: small views. `Support`: `Shell`, `UnixSocketListener`, `AudioOutputWatcher`, `HotKey`, `MediaKeys`.
 
 ## Data flows
@@ -118,7 +118,7 @@ Moving an old literal onto the scale: `DesignScale.snap(value, to:)` picks the n
 
 ### Shared components
 
-Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value is a token step except the named constants `Banner.strokeOpacity`, `CardButton.pressedOpacity`, `SectionHeader.tracking`, the music `Backdrop` strengths and `Artwork.iconRatio`; `DesignComponents.measurements` lists them all); SwiftUI views in `Sources/Visor/DesignSystem/SharedComponents.swift`. Use them instead of a view's own button, badge or card chrome.
+Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value is a token step except the named constants `Banner.strokeOpacity`, `CardButton.pressedOpacity`, `SectionHeader.tracking`, the music `Backdrop` strengths, `Artwork.iconRatio`, `Banner.compactHeight`, `KeyCap.opacity`, `Popover.fill` and the `Shadow` values; `DesignComponents.measurements` lists them all); SwiftUI views in `Sources/Visor/DesignSystem/SharedComponents.swift`. Use them instead of a view's own button, badge or card chrome.
 
 | Component | Use | Looks |
 |---|---|---|
@@ -126,13 +126,16 @@ Measurements in `Sources/VisorCore/DesignComponents.swift` (tested: every value 
 | `CardButton(.secondary)` | the other card actions (Later, Ignore) | same, white fill medium; both dim to .75 while held |
 | `DismissButton(help: "Close") { }` | the "x" on a card | 18 pt square, xmark at sm bold, muted |
 | `.bannerCard(tint:height:)` | a tinted card over a list (Stuck?, handoff) | cardInset on all sides, radius md, tint at fill subtle, tint stroke .35 |
+| `.compactBanner(tint:height:)` | a one-line banner (Music hints, the clash banner) | the banner card at a fixed height (26 pt default), cardInset at the sides only |
+| `KeyCap(key: "esc")` | the key that presses a button | sm semibold, radius xs, foreground at fill strong, dimmed to .8 |
+| `.dsShadow(.panel / .artwork / .toast / .lifted, shown:)` | drop shadows (open panel, Music artwork, Clipboard toast, dragged row) | black at `DesignComponents.Shadow` strengths, blurs and offsets |
 | `Badge("Stuck?", .solid(tint))`, `Badge("v2", .neutral)` | a small capsule label | sm semibold, padding sm x hair, black on tint or white fill medium |
 | `SectionHeader("Plans")` | the uppercase title over a group | sm semibold, uppercase, tracking 0.6, muted |
 | `Artwork(image:size:corner:)` | album art (closed notch, Music) | rounded square; without art a muted note at .45 of its size on raised |
 
 A banner's height is `DesignComponents.Banner.height(rows:spacing:)`: fixed-height rows plus gaps inside the inset. To add a component: its measurements as token references in `DesignComponents`, each added to `measurements` (`Design components` tests fail otherwise), then the view in `SharedComponents.swift`, then a row in this table.
 
-Migrated areas (no literal colours, type sizes, radii or white fills; `DesignAdoptionTests` scans each folder or file): Usage, Music, Clipboard, Agents, Notch, Bar, App/Intro.swift. `Notch/Theme.swift` is exempt as the colour entry point; its only literal hexes are the brand marks in `AgentStyle` (tested). Add a folder or file to `DesignAdoptionTests.migrated` once its views are moved. The intro's light uses the palette tokens `introGlow`, `introSky`, `introSpark` and `violet` (also the Bar's Shortcuts tile).
+Enforced everywhere: `scripts/check.sh` and `DesignAdoptionTests` scan every Swift file under `Sources/Visor` (Plugins included) for literal colours, type sizes, radii and fills, with one shared pattern list, `scripts/design-literals.txt`. There is no allowlist of lines; only whole paths are skipped, each with its reason: the design system itself, `Notch/Theme.swift` (the colour entry point; its only literal hexes are the brand marks in `AgentStyle`, tested), `Shared/AgentMark.swift` (brand marks) and the Office pixel-art files. A value the scale lacks becomes a token or a component measurement, never a literal. The intro's light uses the palette tokens `introGlow`, `introSky`, `introSpark` and `violet` (also the Bar's Shortcuts tile).
 
 ## Patterns
 

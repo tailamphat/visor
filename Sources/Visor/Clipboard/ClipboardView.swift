@@ -3,8 +3,6 @@ import VisorCore
 
 /// Clipboard history: a search line, then everything copied, newest first,
 /// one line each. Hover a row for ✕; right-click for more.
-/// The undo toast's shadow strength; no shadow token exists yet.
-private enum ClipToast { static let shadow = 0.4 }
 
 struct ClipboardView: View {
     let model: AppModel
@@ -72,7 +70,7 @@ struct ClipboardView: View {
                 }
                 .padding(.horizontal, 12).frame(height: 28)
                 .background(Capsule().fill(Theme.raised))
-                .shadow(color: .black.opacity(ClipToast.shadow), radius: 8, y: 3)
+                .dsShadow(.toast)
             }
         }
     }
