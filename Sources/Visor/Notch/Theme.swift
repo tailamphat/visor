@@ -93,5 +93,5 @@ enum AgentStyle {
         agent == "Copilot CLI" ? Color(hex: 0xC4B0FF) : Color(hex: 0xF0A58A)
     }
     /// The tile behind the mark in lists.
-    static let tile = Color.white.opacity(0.08)
+    static let tile = DS.Fill.subtle
 }

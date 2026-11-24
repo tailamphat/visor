@@ -21,9 +21,9 @@ enum Tab: String, CaseIterable {
         }
     }
 
-    /// The puzzle piece is wide and short; drawn a little larger it matches the
-    /// other icons' height and weight.
-    var symbolSize: CGFloat { self == .plugins ? 13.5 : 12 }
+    /// The icon's size on the type scale. The puzzle piece is wide and short;
+    /// one step larger it matches the other icons' height and weight.
+    var iconStep: DS.TypeStep { self == .plugins ? .lg : .md }
 
     /// The tabs in the top bar. Bar is hidden for now; its code stays so it can come back.
     /// Plugins sits on the right of the notch, once a plugin is installed.

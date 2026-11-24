@@ -19,17 +19,17 @@ struct BarView: View {
         .padding(6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(model.barTargeted ? Theme.accent.opacity(0.14) : .clear)
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .fill(model.barTargeted ? Theme.accent.opacity(DS.Fill.Opacity.medium) : .clear)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(model.barTargeted ? Theme.accent.opacity(0.7) : .clear, lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .strokeBorder(model.barTargeted ? Theme.accent : .clear, lineWidth: 1.5)
         )
         .overlay(alignment: .bottom) {
             if model.bar.items.isEmpty {
                 Text("Drag apps, files, folders or links here")
-                    .font(.system(size: 12)).foregroundStyle(Theme.textMuted).padding(.bottom, 30)
+                    .font(DS.font(.md)).foregroundStyle(Theme.textMuted).padding(.bottom, 30)
             }
         }
         // Dropping on empty space adds to the end.
@@ -50,20 +50,20 @@ struct BarTile: View {
         Button { model.barActions?.open(item) } label: {
             VStack(spacing: 5) {
                 content.frame(height: 34)
-                Text(item.name).font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+                Text(item.name).font(DS.font(.sm)).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1).truncationMode(.middle)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 68)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(targeted ? Theme.good.opacity(0.22) : Color.white.opacity(0.06))
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .fill(targeted ? Theme.good.opacity(DS.Fill.Opacity.heavy) : DS.Fill.faint)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
                     .strokeBorder(targeted ? Theme.good : .clear, lineWidth: 1.5)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .help(help)
@@ -108,18 +108,18 @@ struct BarTile: View {
         case .app, .file, .folder:
             Image(nsImage: BarIcons.icon(for: item.target)).resizable().interpolation(.high).frame(width: 34, height: 34)
         case .link:
-            symbol("globe", fill: Color(hex: 0x2B2B30))
+            symbol("globe", fill: DS.Fill.medium)
         case .shortcut:
-            symbol("command", fill: Color(hex: 0x7A5AF8))
+            symbol("command", fill: DS.Palette.violet)
         case .widget:
             widget
         }
     }
 
     private func symbol(_ name: String, fill: Color) -> some View {
-        RoundedRectangle(cornerRadius: 9, style: .continuous).fill(fill)
+        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(fill)
             .frame(width: 34, height: 34)
-            .overlay(Image(systemName: name).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white))
+            .overlay(Image(systemName: name).font(DS.font(.xl, .semibold)).foregroundStyle(Theme.textPrimary))
     }
 
     @ViewBuilder private var widget: some View {
@@ -139,7 +139,7 @@ struct BarTile: View {
                 HStack(spacing: 3) {
                     Text(model.battery.map { "\($0.percent)%" } ?? "–").modifier(WidgetValue())
                     if model.battery?.charging == true {
-                        Image(systemName: "bolt.fill").font(.system(size: 9)).foregroundStyle(Theme.warning)
+                        Image(systemName: "bolt.fill").font(DS.font(.xs)).foregroundStyle(Theme.warning)
                     }
                 }
                 Meter(value: Double(model.battery?.percent ?? 0) / 100, lowIsBad: true)
@@ -166,7 +166,7 @@ struct BarTile: View {
 
 struct WidgetValue: ViewModifier {
     func body(content: Content) -> some View {
-        content.font(.system(size: 15, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+        content.font(DS.font(.xl, .bold).monospacedDigit()).foregroundStyle(Theme.textPrimary)
     }
 }
 
@@ -182,7 +182,7 @@ struct Meter: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.15))
+                Capsule().fill(DS.Fill.strong)
                 Capsule().fill(color).frame(width: geo.size.width * min(1, max(0, value)))
             }
         }
@@ -197,16 +197,16 @@ struct AddTile: View {
     var body: some View {
         Button { AddMenu.show(model: model) } label: {
             VStack(spacing: 5) {
-                Image(systemName: "plus").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.textMuted).frame(height: 34)
-                Text("Add").font(.system(size: 10.5)).foregroundStyle(Theme.textMuted)
+                Image(systemName: "plus").font(.system(size: DS.Size.iconLarge, weight: .medium)).foregroundStyle(Theme.textMuted).frame(height: 34)
+                Text("Add").font(DS.font(.sm)).foregroundStyle(Theme.textMuted)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 68)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .strokeBorder(DS.Fill.heavy, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
         }
         .buttonStyle(.plain)
         .help("Add a widget or a Shortcut")

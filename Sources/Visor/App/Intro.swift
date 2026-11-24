@@ -17,6 +17,16 @@ final class IntroController {
     private static let flight = (from: 0.42, to: 0.54, extra: 2.0)
     private let duration: CFTimeInterval = base + flight.extra
 
+    /// The intro's light, from the palette (`DS.Palette.intro*`), made once.
+    private enum Light {
+        static let glow = NSColor(DS.Palette.introGlow)
+        static let sky = NSColor(DS.Palette.introSky)
+        static let spark = NSColor(DS.Palette.introSpark)
+        static let violet = NSColor(DS.Palette.violet)
+        static let warm = NSColor(Theme.claude)
+        static let white = NSColor(Theme.textPrimary)
+    }
+
     /// A moment on the 4.6 s timeline, in seconds on the real one.
     private static func seconds(_ fraction: Double) -> Double {
         let s = fraction * base, a = flight.from * base, b = flight.to * base
@@ -56,7 +66,7 @@ final class IntroController {
         // The stage lights go down around the centre, and come back up at the end.
         let dim = CALayer()
         dim.frame = root.bounds
-        dim.backgroundColor = NSColor.black.withAlphaComponent(0.5).cgColor
+        dim.backgroundColor = NSColor(Theme.surface).withAlphaComponent(0.5).cgColor
         dim.opacity = 0
         root.addSublayer(dim)
         animate(dim, "opacity", [0, 1, 1, 0.25, 0], times([0, 0.1, 0.7, 1, 1], length: duration + 0.6), start: start, length: duration + 0.6)
@@ -66,7 +76,7 @@ final class IntroController {
         halo.type = .radial
         halo.bounds = CGRect(x: 0, y: 0, width: 220, height: 220)
         halo.position = centre
-        halo.colors = [NSColor(hex: 0x96B4FF).withAlphaComponent(0.4).cgColor, NSColor(hex: 0xE8825F).withAlphaComponent(0.12).cgColor,
+        halo.colors = [Light.glow.withAlphaComponent(0.4).cgColor, Light.warm.withAlphaComponent(0.12).cgColor,
                        NSColor.clear.cgColor]
         halo.locations = [0, 0.45, 1]
         halo.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -78,8 +88,8 @@ final class IntroController {
 
         // The light trail from the icon to the notch.
         let trail = CAGradientLayer()
-        trail.colors = [NSColor(hex: 0x8CC8FF).cgColor, NSColor(hex: 0xA78BFA).withAlphaComponent(0.85).cgColor,
-                        NSColor(hex: 0xE8825F).withAlphaComponent(0.6).cgColor, NSColor.clear.cgColor]
+        trail.colors = [Light.sky.cgColor, Light.violet.withAlphaComponent(0.85).cgColor,
+                        Light.warm.withAlphaComponent(0.6).cgColor, NSColor.clear.cgColor]
         trail.locations = [0, 0.35, 0.7, 1]
         trail.startPoint = CGPoint(x: 0.5, y: 1)
         trail.endPoint = CGPoint(x: 0.5, y: 0)
@@ -112,7 +122,7 @@ final class IntroController {
 
         // A glint flashing across it.
         let glint = CAGradientLayer()
-        glint.colors = [NSColor.clear.cgColor, NSColor.white.withAlphaComponent(0.9).cgColor, NSColor.clear.cgColor]
+        glint.colors = [NSColor.clear.cgColor, Light.white.withAlphaComponent(0.9).cgColor, NSColor.clear.cgColor]
         glint.startPoint = CGPoint(x: 0, y: 0.5)
         glint.endPoint = CGPoint(x: 1, y: 0.5)
         glint.bounds = CGRect(x: 0, y: 0, width: 240, height: 2)
@@ -127,8 +137,8 @@ final class IntroController {
         glow.bounds = CGRect(x: 0, y: 0, width: 220, height: 40)
         glow.position = CGPoint(x: notch.x, y: h - 14)
         glow.cornerRadius = 16
-        glow.backgroundColor = NSColor(hex: 0x96B4FF).withAlphaComponent(0.25).cgColor
-        glow.shadowColor = NSColor(hex: 0x96B4FF).cgColor
+        glow.backgroundColor = Light.glow.withAlphaComponent(0.25).cgColor
+        glow.shadowColor = Light.glow.cgColor
         glow.shadowOpacity = 1
         glow.shadowRadius = 24
         glow.shadowOffset = .zero
@@ -141,8 +151,8 @@ final class IntroController {
             let spark = CALayer()
             spark.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
             spark.cornerRadius = 2
-            spark.backgroundColor = NSColor(hex: 0xCFE6FF).cgColor
-            spark.shadowColor = NSColor(hex: 0x9FD0FF).cgColor
+            spark.backgroundColor = Light.spark.cgColor
+            spark.shadowColor = Light.sky.cgColor
             spark.shadowOpacity = 1
             spark.shadowRadius = 4
             spark.shadowOffset = .zero
@@ -192,20 +202,20 @@ struct WelcomeView: View {
                     Text(String(letter))
                 }
             }
-            .font(.system(size: 28, weight: .light))
-            .foregroundStyle(.white)
+            .font(DS.font(.display, .light))
+            .foregroundStyle(Theme.textPrimary)
             .blur(radius: settled ? 0 : 8)
             .opacity(settled ? 1 : 0)
             .animation(.timingCurve(0.2, 0.7, 0.2, 1, duration: 1.4), value: settled)
             if model.welcomeBrief {
                 Text(LocalBuild.helloLine)
-                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                    .font(DS.font(.md)).foregroundStyle(Theme.textSecondary)
                     .opacity(settled ? 1 : 0)
                     .animation(.easeOut(duration: 0.6).delay(0.9), value: settled)
             } else {
                 Group {
                     Text("I live up here: your agents, usage, music and clipboard.")
-                        .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                        .font(DS.font(.md)).foregroundStyle(Theme.textSecondary)
                 // The Allow button's style and key: mint with dark text, Return presses it.
                 Button { model.dismissWelcome() } label: {
                     Label { KeyHint(title: "Get started", key: "↩") } icon: { Image(systemName: "checkmark") }

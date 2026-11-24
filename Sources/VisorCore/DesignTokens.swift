@@ -41,6 +41,14 @@ public enum DesignTokens {
         public static let allowText: UInt32 = 0x06260F
         public static let alwaysText: UInt32 = 0xC9F3D6
         public static let denyText: UInt32 = 0xFF9D95
+        /// The intro's light: the halo behind the icon and the glow round the notch.
+        public static let introGlow: UInt32 = 0x96B4FF
+        /// The intro's light trail (top) and the sparks' glow.
+        public static let introSky: UInt32 = 0x8CC8FF
+        /// The intro's sparks.
+        public static let introSpark: UInt32 = 0xCFE6FF
+        /// The intro trail's middle and the Bar's Shortcuts tile.
+        public static let violet: UInt32 = 0xA78BFA
     }
 
     /// Text sizes in points. Weights: regular, medium, semibold, bold (light only with display).
@@ -144,6 +152,7 @@ public enum DesignScale {
             ("good", p.good), ("onPace", p.onPace), ("clash", p.clash), ("warning", p.warning),
             ("question", p.question), ("critical", p.critical), ("stuck", p.stuck), ("awake", p.awake), ("mint", p.mint),
             ("rose", p.rose), ("allowText", p.allowText), ("alwaysText", p.alwaysText), ("denyText", p.denyText),
+            ("introGlow", p.introGlow), ("introSky", p.introSky), ("introSpark", p.introSpark), ("violet", p.violet),
         ]
         return colours.map { Step($0.0, Double($0.1)) }
     }()

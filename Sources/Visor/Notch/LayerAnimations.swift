@@ -90,7 +90,9 @@ struct PulsingSymbol: NSViewRepresentable {
 
 /// A text caret that blinks like the system's, for the clipboard search.
 struct BlinkingCaret: NSViewRepresentable {
-    var color = NSColor(hex: 0x3987E5)
+    /// The accent as an NSColor, made once: the clipboard search makes a caret on every keystroke.
+    private static let accent = NSColor(Theme.accent)
+    var color = BlinkingCaret.accent
     private static let size = CGSize(width: 1.5, height: 14)
 
     func makeNSView(context: Context) -> NSView {

@@ -35,6 +35,11 @@ public enum DesignComponents {
         Measurement(name: "SectionHeader.tracking", value: SectionHeader.tracking, scale: nil),
         Measurement(name: "DismissButton.size", value: DismissButton.size, scale: DesignScale.size),
         Measurement(name: "DismissButton.type", value: DismissButton.type, scale: DesignScale.typeScale),
+        Measurement(name: "Backdrop.artwork", value: Backdrop.artwork, scale: nil),
+        Measurement(name: "Backdrop.shadeTop", value: Backdrop.shadeTop, scale: DesignScale.fill),
+        Measurement(name: "Backdrop.shadeBottom", value: Backdrop.shadeBottom, scale: nil),
+        Measurement(name: "Backdrop.tint", value: Backdrop.tint, scale: nil),
+        Measurement(name: "Artwork.iconRatio", value: Artwork.iconRatio, scale: nil),
     ]
 
     /// A small button inside a card.
@@ -81,5 +86,23 @@ public enum DesignComponents {
     public enum DismissButton {
         public static let size = T.Size.button
         public static let type = T.TypeScale.sm
+    }
+
+    /// The music panel's backdrop: the blurred artwork under a black shade that
+    /// darkens downwards, lit by the artwork's colour.
+    public enum Backdrop {
+        /// The artwork's opacity.
+        public static let artwork: Double = 0.6
+        /// The black shade at the top...
+        public static let shadeTop = T.Fill.heavy
+        /// ...and at the bottom.
+        public static let shadeBottom: Double = 0.8
+        /// The artwork colour's glow.
+        public static let tint: Double = 0.45
+    }
+
+    /// Album artwork in a rounded square; without art, a note at this share of its size.
+    public enum Artwork {
+        public static let iconRatio: Double = 0.45
     }
 }

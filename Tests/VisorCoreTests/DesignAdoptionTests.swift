@@ -3,10 +3,16 @@ import Testing
 
 /// Views that have moved onto the design system keep no literal colours, type
 /// sizes, radii or white fills: each value comes from `DS`, `Theme` or a shared
-/// component. Add a folder under `Sources/Visor/` once its views are migrated.
+/// component. Add a folder (or a single `.swift` file) under `Sources/Visor/`
+/// once its views are migrated.
 @Suite("Design adoption")
 struct DesignAdoptionTests {
-    static let migrated = ["Usage", "Music", "Clipboard", "Agents"]
+    static let migrated = ["Usage", "Music", "Clipboard", "Agents", "Notch", "Bar", "App/Intro.swift"]
+
+    /// Files the scan skips, by path under `Sources/Visor/`. Theme.swift is the
+    /// token entry point (it turns `DesignTokens.Palette` into SwiftUI colours) and
+    /// holds the agents' brand marks; `themeHexesAreOnlyBrandMarks` guards it.
+    static let exempt: Set<String> = ["Notch/Theme.swift"]
 
     /// What a literal looks like in SwiftUI code, with a name for the failure message.
     static let literals: [(name: String, pattern: String)] = [
@@ -21,6 +27,9 @@ struct DesignAdoptionTests {
         ("rgb colour", #"(?<!NS)Color\((red|white|hue):"#),
     ]
 
+    /// A six-digit hex colour literal, for `themeHexesAreOnlyBrandMarks`.
+    static let hexLiteral = try! NSRegularExpression(pattern: #"0x[0-9A-Fa-f]{6}\b"#)
+
     /// The patterns, compiled once.
     static let regexes: [(name: String, regex: NSRegularExpression)] = literals.map { ($0.name, try! NSRegularExpression(pattern: $0.pattern)) }
 
@@ -28,11 +37,17 @@ struct DesignAdoptionTests {
         regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
-    private static func sources(_ folder: String) throws -> [URL] {
-        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("../../Sources/Visor/\(folder)").standardized
-        return try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "swift" }
+    private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appendingPathComponent("../../Sources/Visor").standardized
+
+    /// The Swift files of a folder, or the one file, under `Sources/Visor/`, minus `exempt`.
+    private static func sources(_ path: String) throws -> [URL] {
+        let url = root.appendingPathComponent(path)
+        if path.hasSuffix(".swift") {
+            return FileManager.default.fileExists(atPath: url.path) ? [url] : []
+        }
+        return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "swift" && !exempt.contains("\(path)/\($0.lastPathComponent)") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
@@ -55,6 +70,16 @@ struct DesignAdoptionTests {
         #expect(!(try Self.sources(folder)).isEmpty, "no Swift files in Sources/Visor/\(folder)")
         let found = try Self.hits(in: folder)
         #expect(found.isEmpty, "\(found.count) literal(s) in \(folder): \(found.joined(separator: ", "))")
+    }
+
+    /// Theme.swift is exempt from the scan, so it must not collect one-off
+    /// colours: its only hex literals are the agents' brand marks in `AgentStyle`.
+    @Test func themeHexesAreOnlyBrandMarks() throws {
+        let text = try String(contentsOf: Self.root.appendingPathComponent("Notch/Theme.swift"), encoding: .utf8)
+        let lines = text.components(separatedBy: "\n")
+        let start = try #require(lines.firstIndex { $0.hasPrefix("enum AgentStyle") }, "AgentStyle not found")
+        let early = lines[..<start].enumerated().filter { Self.matches(Self.hexLiteral, $0.element) }.map { "Theme.swift:\($0.offset + 1)" }
+        #expect(early.isEmpty, "hex colours outside AgentStyle: \(early.joined(separator: ", "))")
     }
 
     /// The scan itself finds each kind of literal.

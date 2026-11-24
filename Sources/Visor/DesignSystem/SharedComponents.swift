@@ -113,3 +113,27 @@ extension View {
             .overlay(shape.strokeBorder(tint.opacity(Spec.Banner.strokeOpacity), lineWidth: 1))
     }
 }
+
+/// Album artwork in a rounded square (closed notch, Music); a note on the
+/// raised colour while there's no art.
+struct Artwork: View {
+    let image: NSImage?
+    let size: CGFloat
+    let corner: CGFloat
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().interpolation(.medium).aspectRatio(contentMode: .fill)
+            } else {
+                ZStack {
+                    Theme.raised
+                    Image(systemName: "music.note").font(.system(size: size * CGFloat(Spec.Artwork.iconRatio)))
+                        .foregroundStyle(Theme.textMuted)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+    }
+}

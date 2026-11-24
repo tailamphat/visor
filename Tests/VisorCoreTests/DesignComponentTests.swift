@@ -12,7 +12,10 @@ struct DesignComponentTests {
 
     /// Values that are the component's own, not a token. Listed by name so a
     /// new literal can't slip in unnoticed.
-    static let namedConstants: Set<String> = ["Banner.strokeOpacity", "CardButton.pressedOpacity", "SectionHeader.tracking"]
+    static let namedConstants: Set<String> = [
+        "Banner.strokeOpacity", "CardButton.pressedOpacity", "SectionHeader.tracking",
+        "Backdrop.artwork", "Backdrop.shadeBottom", "Backdrop.tint", "Artwork.iconRatio",
+    ]
 
     @Test func everyComponentValueIsATokenStep() {
         var constants = Set<String>()

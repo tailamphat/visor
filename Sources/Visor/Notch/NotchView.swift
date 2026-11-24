@@ -1,6 +1,8 @@
 import VisorCore
 import SwiftUI
 
+private typealias Spec = DesignComponents
+
 /// Sizes shared by the view and the window controller's hover hit-testing.
 @MainActor
 struct NotchLayout {
@@ -155,7 +157,7 @@ struct NotchView: View {
         .background {
             // Approvals: a soft mint glow from the top-left corner, matching the buttons.
             if model.expanded && model.showsCard {
-                RadialGradient(colors: [ConsentButton.mint.opacity(0.16), .clear],
+                RadialGradient(colors: [DS.Palette.mint.opacity(DS.Fill.Opacity.strong), .clear],
                                center: .topLeading, startRadius: 0, endRadius: 380)
                     .transition(.opacity)
             }
@@ -164,10 +166,11 @@ struct NotchView: View {
             // Music: blurred artwork behind a dark shade, lit by the artwork colour.
             if model.showsMusic, let backdrop = model.artworkBackdrop {
                 ZStack {
-                    Image(nsImage: backdrop).resizable().aspectRatio(contentMode: .fill).opacity(0.6)
-                    LinearGradient(colors: [.black.opacity(0.25), .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                    Image(nsImage: backdrop).resizable().aspectRatio(contentMode: .fill).opacity(Spec.Backdrop.artwork)
+                    LinearGradient(colors: [Theme.surface.opacity(Spec.Backdrop.shadeTop), Theme.surface.opacity(Spec.Backdrop.shadeBottom)],
+                                   startPoint: .top, endPoint: .bottom)
                     if let tint = model.artworkTint {
-                        RadialGradient(colors: [Color(nsColor: tint).opacity(0.45), .clear],
+                        RadialGradient(colors: [Color(nsColor: tint).opacity(Spec.Backdrop.tint), .clear],
                                        center: UnitPoint(x: 0.15, y: 0.7), startRadius: 0, endRadius: 300)
                     }
                 }
@@ -198,6 +201,11 @@ struct NotchView: View {
 struct CollapsedView: View {
     let model: AppModel
     let layout: NotchLayout
+
+    /// The equalizer's colours, made once: white on the artwork's corner without
+    /// an artwork tint, secondary text on its own.
+    private static let barsColor = NSColor(Theme.textPrimary)
+    private static let idleBarsColor = NSColor(Theme.textSecondary)
 
     var body: some View {
         HStack(spacing: 0) {
@@ -253,7 +261,7 @@ struct CollapsedView: View {
     @ViewBuilder private var left: some View {
         if let peek = model.peek, case .plugin(let icon, let news) = peek {
             Image(systemName: news.icon ?? icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(DS.font(.lg, .semibold))
                 .foregroundStyle(PluginStyle.color(news.state))
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .status(_, let incident) = peek {
@@ -264,9 +272,9 @@ struct CollapsedView: View {
             AgentMark(agent: update.name, size: 16)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.white, Theme.accent)
-                        .background(Circle().fill(.black).padding(-1.5))
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.textPrimary, Theme.accent)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
                 // Counts the badge reaching past the corner.
@@ -277,9 +285,9 @@ struct CollapsedView: View {
             AgentMark(agent: stuck.agent, size: 16)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.black, Theme.stuck)
-                        .background(Circle().fill(.black).padding(-1.5))
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.surface, Theme.stuck)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
                 // Counts the badge reaching past the corner.
@@ -290,9 +298,9 @@ struct CollapsedView: View {
             AgentMark(agent: "Claude Code", size: 16)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.black, Theme.warning)
-                        .background(Circle().fill(.black).padding(-1.5))
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.surface, Theme.warning)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
                 // Counts the badge reaching past the corner.
@@ -313,9 +321,9 @@ struct CollapsedView: View {
             AgentMark(agent: agent, size: 16)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.white, Theme.good)
-                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black).padding(-1.5))
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.textPrimary, Theme.good)
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous).fill(Theme.surface).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
                 // Counts the badge reaching past the corner.
@@ -329,43 +337,43 @@ struct CollapsedView: View {
         } else if model.keepingAwake && !model.isPlaying {
             awakeSign
         } else if model.isPlaying {
-            Artwork(image: model.artwork, size: 20, corner: 5)
+            Artwork(image: model.artwork, size: 20, corner: DS.Radius.sm)
         }
     }
 
     /// Visor is holding off sleep: a small filled cup, so you know why the Mac stays awake.
     private var awakeSign: some View {
-        Image(systemName: "cup.and.saucer.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(AwakeCup.amber)
+        Image(systemName: "cup.and.saucer.fill").font(DS.font(.sm, .semibold)).foregroundStyle(Theme.awake)
             .help("Keeping your Mac awake")
     }
 
     @ViewBuilder private var right: some View {
         if let peek = model.peek, case .status(let agent, _) = peek {
             Text("\(IncidentLine.name(agent)) is having issues")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .release(let update) = peek {
             Text("\(update.latest.description) out")
-                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .font(DS.font(.base, .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .stuck(let stuck) = peek {
             Text(stuck.short)
-                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .font(DS.font(.base, .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .handoff(let handoff) = peek {
             Text("\(handoff.targets.first?.agent ?? "Another agent") has room")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {
             Text("same file")
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .answered = peek {
             Text("Answered")
-                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                .font(DS.font(.base, .medium).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
         } else if let peek = model.peek, case .plugin(_, let news) = peek {
             Text(news.title)
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 .frame(maxWidth: 220, alignment: .leading)
         } else if let note = model.attentionNote {
             // Takes the right side over the artwork until it's dealt with.
@@ -374,7 +382,7 @@ struct CollapsedView: View {
                 if let icon = note.icon {
                     Image(nsImage: icon).resizable().frame(width: 18, height: 18)
                         .overlay(alignment: .bottomTrailing) {
-                            bubble.background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black)).offset(x: 5, y: 4)
+                            bubble.background(RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous).fill(Theme.surface)).offset(x: 5, y: 4)
                         }
                         // Counts the bubble reaching past the corner.
                         .padding(.trailing, 5)
@@ -387,18 +395,18 @@ struct CollapsedView: View {
             if model.hasActivity || model.peek != nil {
                 // The agent has the left side: the bars sit on the artwork's
                 // corner, like the "?" on the app icon, so the right stays small.
-                Artwork(image: model.artwork, size: 20, corner: 5)
+                Artwork(image: model.artwork, size: 20, corner: DS.Radius.sm)
                     .overlay(alignment: .bottomTrailing) {
-                        EqualizerBars.mini(color: model.artworkTint ?? .white, active: model.nowPlaying?.surelyPlaying ?? false)
+                        EqualizerBars.mini(color: model.artworkTint ?? Self.barsColor, active: model.nowPlaying?.surelyPlaying ?? false)
                             .padding(2.5)
-                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.black))
+                            .background(RoundedRectangle(cornerRadius: DS.Radius.xs, style: .continuous).fill(Theme.surface))
                             .offset(x: 5, y: 4)
                     }
                     // Counts the bars reaching past the corner; their black
                     // backing doesn't show on the notch.
                     .padding(.trailing, 2.5)
             } else {
-                EqualizerBars(color: NSColor(hex: 0xC3C2B7))
+                EqualizerBars(color: Self.idleBarsColor)
             }
         } else if !model.quotas.isEmpty || !model.pluginBadges.isEmpty {
             HStack(spacing: 6) {
@@ -416,12 +424,12 @@ struct CollapsedView: View {
                             .overlay(alignment: .topTrailing) {
                                 if let incident = model.incidents[quota.agent] {
                                     Circle().fill(IncidentLine.color(incident)).frame(width: 5, height: 5)
-                                        .background(Circle().fill(.black).padding(-1.5)).offset(x: 3, y: -2)
+                                        .background(Circle().fill(Theme.surface).padding(-1.5)).offset(x: 3, y: -2)
                                 }
                             }
                         // The time left when it runs out within the hour.
                         Text(quota.text)
-                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .font(DS.font(.xs, .semibold).monospacedDigit())
                             .lineLimit(1)
                             .fixedSize()
                             .foregroundStyle(quota.level == .critical ? Theme.critical
@@ -440,10 +448,15 @@ struct AttentionBubble: View {
     let kind: Attention
     let size: CGFloat
 
+    private static let question = NSColor(Theme.question)
+    private static let approval = NSColor(Theme.warning)
+    private static let light = NSColor(Theme.textPrimary)
+    private static let dark = NSColor(Theme.surface)
+
     var body: some View {
         PulsingSymbol(name: kind == .question ? "questionmark.bubble.fill" : "exclamationmark.bubble.fill",
-                      color: kind == .question ? NSColor(hex: 0x5AA2F0) : NSColor(hex: 0xFAB219),
-                      glyph: kind == .question ? .white : .black,
+                      color: kind == .question ? Self.question : Self.approval,
+                      glyph: kind == .question ? Self.light : Self.dark,
                       size: size)
             .id(kind)
     }
@@ -467,7 +480,7 @@ struct AgentBadge: View {
                                   size: 12, active: !entry.waiting)
                         .id("\(entry.agent)\(String(describing: entry.attention))")
                     if entry.count > 1 {
-                        Text("\(entry.count)").font(.system(size: 10, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                        Text("\(entry.count)").font(DS.font(.sm, .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .help(entry.attention == .question ? "\(entry.agent) asks you something"
@@ -475,33 +488,12 @@ struct AgentBadge: View {
             }
             if !marks.more.isEmpty {
                 Text("+\(marks.more.count)")
-                    .font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textSecondary)
+                    .font(DS.font(.xs, .bold)).foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 4).padding(.vertical, 1)
-                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                    .background(Capsule().fill(DS.Fill.medium))
                     .help(marks.more.joined(separator: ", "))
             }
         }
-    }
-}
-
-struct Artwork: View {
-    let image: NSImage?
-    let size: CGFloat
-    let corner: CGFloat
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image).resizable().interpolation(.medium).aspectRatio(contentMode: .fill)
-            } else {
-                ZStack {
-                    Theme.raised
-                    Image(systemName: "music.note").font(.system(size: size * 0.45)).foregroundStyle(Theme.textMuted)
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
     }
 }
 
@@ -623,7 +615,7 @@ struct AgentSlot: View {
                 .overlay(alignment: .bottomTrailing) {
                     if total > 1 {
                         // A tab-wide slot fits one digit and a plus; the exact counts are in the help.
-                        Text(total > 9 ? "9+" : "\(total)").font(.system(size: 8, weight: .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                        Text(total > 9 ? "9+" : "\(total)").font(DS.font(.xs, .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                             .offset(x: 6, y: 3)
                     }
                 }
@@ -642,12 +634,12 @@ struct TabButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: tab.symbol)
-                .font(.system(size: tab.symbolSize, weight: .semibold))
+                .font(DS.font(tab.iconStep, .semibold))
                 .foregroundStyle(selected ? Theme.textPrimary : Theme.textMuted)
                 .frame(width: width, height: 22)
                 .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(selected ? Color.white.opacity(0.14) : .clear))
+                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                        .fill(selected ? DS.Fill.medium : .clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

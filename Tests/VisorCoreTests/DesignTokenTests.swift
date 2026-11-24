@@ -132,6 +132,15 @@ struct DesignTokenTests {
         #expect(awake?.value != Double(DesignTokens.Palette.warning))
     }
 
+    /// The intro's light (halo, trail, sparks) and the Shortcuts tile come from
+    /// the palette, so the website can share them.
+    @Test func paletteHasIntroColours() {
+        let expected: [String: UInt32] = ["introGlow": 0x96B4FF, "introSky": 0x8CC8FF, "introSpark": 0xCFE6FF, "violet": 0xA78BFA]
+        for (name, hex) in expected {
+            #expect(DesignScale.palette.first { $0.name == name }?.value == Double(hex), "\(name)")
+        }
+    }
+
     /// The site generator (DS3) reads `DesignTokens.swift` as text: one
     /// `static let name: Type = literal` per value, inside `enum Group`.
     @Test func sourceLinesParse() throws {
