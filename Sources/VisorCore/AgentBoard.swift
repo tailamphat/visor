@@ -58,6 +58,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
         set { helperList = newValue.isEmpty ? nil : newValue }
     }
     public var runningHelpers: Int { helpers.filter { !$0.done }.count }
+    /// Running helpers the session itself started: what its line says it waits on.
+    var waitingOn: Int { helperList?.reduce(0) { $0 + ($1.done || $1.parent != nil ? 0 : 1) } ?? 0 }
     /// Kept per session; past this, the oldest finished helpers go first.
     public static let maxHelpers = 20
 
@@ -134,13 +136,18 @@ public struct AgentBoard: Equatable, Sendable {
             sessions[index].turnStart = now
             sessions[index].turn = TurnStats()
             sessions[index].helpers.removeAll(where: \.done)
+            // A running helper whose finished parent just went is now one the session waits on.
+            let kept = Set(sessions[index].helpers.compactMap(\.agentID))
+            for i in sessions[index].helpers.indices where sessions[index].helpers[i].parent.map({ !kept.contains($0) }) ?? false {
+                sessions[index].helpers[i].parent = nil
+            }
             next = .working("Thinking")
         case "PreInvocation": next = .working("Thinking")
         case "PreToolUse" where message.toolName == AgentQuestion.tool,
              "PermissionRequest" where message.toolName == AgentQuestion.tool:
             next = .asking(AgentQuestion(message)?.label ?? "Question")
         case "PreToolUse": next = .working(Self.describe(tool: message.toolName, input: message.toolInput))
-        case "PostToolUse", "PostToolUseFailure": next = .working(Self.waitLine(sessions[index].runningHelpers))
+        case "PostToolUse", "PostToolUseFailure": next = .working(Self.waitLine(sessions[index].waitingOn))
         case "PermissionRequest": next = .needsApproval(Self.describe(tool: message.toolName, input: message.toolInput))
         case "Notification":
             let kind = message.payload["notification_type"] as? String ?? ""
@@ -171,46 +178,64 @@ public struct AgentBoard: Equatable, Sendable {
 
     /// Subagent bookkeeping. Returns true when the event was a helper's own
     /// (its tools, its start and stop), which leaves the parent's line alone
-    /// except to count the helpers it waits on.
+    /// except to count the helpers it waits on. A helper's own Agent call
+    /// (Claude Code puts the helper's `agent_id` on it) starts a nested helper.
     private mutating func applyHelper(_ message: HookMessage, at index: Int, now: Date) -> Bool {
         var session = sessions[index]
         defer { sessions[index] = session }
-        let agentID = message.payload["agent_id"] as? String
+        let agentID = Self.hookID(message.payload["agent_id"])
         let isTask = message.toolName == "Task" || message.toolName == "Agent"
-        let toolUseID = message.payload["tool_use_id"] as? String
+        let toolUseID = Self.hookID(message.payload["tool_use_id"])
+        // Nesting is Claude Code's; other agents' helper events keep the old handling.
+        let ownCall = isTask && (agentID == nil || session.agent == "Claude Code")
         switch message.event {
-        case "PreToolUse" where isTask && agentID == nil:
+        case "PreToolUse" where ownCall:
             let input = message.toolInput
-            session.helpers.append(AgentHelper(id: toolUseID ?? UUID().uuidString, type: input["subagent_type"] as? String ?? "general-purpose",
-                                               task: (input["description"] as? String).flatMap(Self.summarize) ?? "Helper",
-                                               background: input["run_in_background"] as? Bool ?? false))
+            if let agentID, let p = session.helpers.firstIndex(where: { $0.agentID == agentID }) {
+                session.helpers[p].activity = Self.describe(tool: message.toolName, input: input)
+            }
+            var helper = AgentHelper(id: toolUseID ?? UUID().uuidString, type: Self.hookID(input["subagent_type"]) ?? "general-purpose",
+                                     task: (input["description"] as? String).flatMap(Self.summarize) ?? "Helper",
+                                     background: input["run_in_background"] as? Bool ?? false)
+            helper.parent = agentID
+            helper.start = now
+            session.helpers.append(helper)
             Self.trim(&session.helpers)
             setWaiting(&session, now: now)
             return true
-        case "PostToolUse" where isTask && agentID == nil, "PostToolUseFailure" where isTask && agentID == nil:
+        case "PostToolUse" where ownCall, "PostToolUseFailure" where ownCall:
             // A foreground Task returns when its helper is done; a background one returns at once.
-            if let i = session.helpers.lastIndex(where: { $0.id == toolUseID }) ?? session.helpers.firstIndex(where: { !$0.done && !$0.background && $0.agentID == nil }),
-               !session.helpers[i].background {
-                session.helpers[i].done = true
+            // Only a failure of the Agent call itself fails the helper; an interrupt is you stopping it.
+            let failed = message.event == "PostToolUseFailure" && (message.payload["is_interrupt"] as? Bool) != true
+            if let i = session.helpers.lastIndex(where: { $0.id == toolUseID })
+                ?? session.helpers.firstIndex(where: { !$0.done && !$0.background && $0.agentID == nil && $0.parent == agentID }) {
+                if failed { session.helpers[i].failed = true }
+                if failed || !session.helpers[i].background { Self.finish(&session.helpers[i], now: now) }
             }
-            return false
+            guard let agentID else { return false }
+            if let p = session.helpers.firstIndex(where: { $0.agentID == agentID }) { session.helpers[p].activity = nil }
+            setWaiting(&session, now: now)
+            return true
         case "SubagentStart":
             guard let agentID else { return true }
-            let type = message.payload["agent_type"] as? String
+            let type = Self.hookID(message.payload["agent_type"])
             if let i = session.helpers.firstIndex(where: { $0.agentID == nil && !$0.done && $0.type == type })
                 ?? session.helpers.firstIndex(where: { $0.agentID == nil && !$0.done }) {
                 session.helpers[i].agentID = agentID
             } else {
-                session.helpers.append(AgentHelper(id: agentID, type: type ?? "general-purpose", task: type ?? "Helper"))
-                session.helpers[session.helpers.count - 1].agentID = agentID
+                var helper = AgentHelper(id: agentID, type: type ?? "general-purpose", task: type ?? "Helper")
+                helper.agentID = agentID
+                helper.start = now
+                session.helpers.append(helper)
                 Self.trim(&session.helpers)
             }
             setWaiting(&session, now: now)
             return true
         case "SubagentStop":
+            // A stop for an agent no row knows only finishes a helper not linked to another agent.
             if let i = session.helpers.firstIndex(where: { $0.agentID == agentID && agentID != nil })
-                ?? session.helpers.firstIndex(where: { !$0.done }) {
-                session.helpers[i].done = true
+                ?? session.helpers.firstIndex(where: { !$0.done && (agentID == nil || $0.agentID == nil) }) {
+                Self.finish(&session.helpers[i], now: now)
                 session.helpers[i].activity = nil
             }
             setWaiting(&session, now: now)
@@ -224,12 +249,43 @@ public struct AgentBoard: Equatable, Sendable {
         }
     }
 
+    /// An id or type from a hook, capped so a hostile payload can't grow saved sessions.
+    static func hookID(_ value: Any?) -> String? {
+        (value as? String).map { $0.count > 128 ? String($0.prefix(128)) : $0 }
+    }
+
+    /// Marks a helper done; the first end it gets is its end time.
+    static func finish(_ helper: inout AgentHelper, now: Date) {
+        helper.done = true
+        if helper.end == nil { helper.end = now }
+    }
+
+    /// Moves `agentID` onto the helper started by the Agent call `toolUseID`
+    /// (from `agent-<id>.meta.json`), swapping with the row that took it by order.
+    /// What arrived under the agent id (its line, its stop) moves with it; a
+    /// failure came by tool_use_id, so it is already on the right row.
+    public mutating func link(session id: String, agentID: String, toolUseID: String) {
+        let agentID = Self.hookID(agentID) ?? agentID
+        guard let s = sessions.firstIndex(where: { $0.id == id }),
+              let target = sessions[s].helpers.firstIndex(where: { $0.id == toolUseID }),
+              sessions[s].helpers[target].agentID != agentID else { return }
+        var helpers = sessions[s].helpers
+        if let other = helpers.firstIndex(where: { $0.agentID == agentID }) {
+            helpers[other].agentID = helpers[target].agentID
+            (helpers[other].activity, helpers[target].activity) = (helpers[target].activity, helpers[other].activity)
+            (helpers[other].done, helpers[target].done) = (helpers[target].done, helpers[other].done)
+            (helpers[other].end, helpers[target].end) = (helpers[target].end, helpers[other].end)
+        }
+        helpers[target].agentID = agentID
+        sessions[s].helpers = helpers
+    }
+
     /// While helpers run, the parent's line counts them instead of echoing their tools.
     private func setWaiting(_ session: inout AgentSession, now: Date) {
-        let line = AgentState.working(Self.waitLine(session.runningHelpers))
+        let line = AgentState.working(Self.waitLine(session.waitingOn))
         switch session.state {
         case .working: if session.state != line { session.state = line }
-        case .idle where session.runningHelpers > 0, .done where session.runningHelpers > 0: session.state = line; session.since = now
+        case .idle where session.waitingOn > 0, .done where session.waitingOn > 0: session.state = line; session.since = now
         default: break
         }
     }
@@ -463,8 +519,10 @@ extension AgentSession {
     }
 }
 
-/// A subagent a session started: its task (from the Task call), its type, and
-/// what it's doing now (from its own tool events, which carry `agent_id`).
+/// A subagent a session started: its task (from the Task call), its type,
+/// what it's doing now (from its own tool events, which carry `agent_id`),
+/// which helper started it, when it ran and whether its Agent call failed.
+/// The newer fields are optional so older saved sessions load.
 public struct AgentHelper: Equatable, Sendable, Codable, Identifiable {
     public var id: String
     public var agentID: String?
@@ -473,6 +531,17 @@ public struct AgentHelper: Equatable, Sendable, Codable, Identifiable {
     public var activity: String?
     public var done = false
     public var background = false
+    /// The agent id of the helper that started it; nil for the session's own.
+    public var parent: String?
+    /// When its Agent call (or, without one, its SubagentStart) arrived, and when it ended.
+    public var start: Date?
+    public var end: Date?
+    /// Its Agent call failed (PostToolUseFailure, not an interrupt); its own tools failing doesn't count.
+    var failedFlag: Bool?
+    public var failed: Bool {
+        get { failedFlag ?? false }
+        set { failedFlag = newValue ? true : nil }
+    }
 
     public init(id: String, type: String, task: String, done: Bool = false, background: Bool = false) {
         self.id = id; self.type = type; self.task = task; self.done = done; self.background = background
