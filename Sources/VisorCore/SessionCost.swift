@@ -42,6 +42,8 @@ public final class SessionCostReader: @unchecked Sendable {
         var helpers: [String: HelperStats] = [:]
         /// tool_use ids counted, as hashes.
         var toolsSeen = Set<Int>()
+        /// The newest reply in the main transcript (not the helpers').
+        var lastReply: TokenUsage?
     }
 
     private var tallies: [String: Tally] = [:]
@@ -87,6 +89,11 @@ public final class SessionCostReader: @unchecked Sendable {
     /// The read offset of one of a session's files, for tests.
     public func offset(of file: String, session: String) -> UInt64? {
         tallies[session]?.offsets[file]
+    }
+
+    /// The newest reply of the session's own transcript, for the cache clock.
+    public func lastReply(session: String) -> TokenUsage? {
+        tallies[session]?.lastReply
     }
 
     /// The session's harness X-ray, once its first reply has been read.
@@ -137,6 +144,7 @@ public final class SessionCostReader: @unchecked Sendable {
                 if let helperID { tally.helpers[helperID, default: HelperStats()].context(usage) }
                 if let key, !tally.seen.insert(key.hashValue).inserted { return }
                 if let helperID { tally.helpers[helperID, default: HelperStats()].add(usage) }
+                if helperID == nil, usage.timestamp >= (tally.lastReply?.timestamp ?? .distantPast) { tally.lastReply = usage }
                 tally.cost.tokens += usage.input + usage.output + usage.cacheWrite5m + usage.cacheWrite1h
                 if Pricing.price(for: usage.model) == nil {
                     tally.cost.unpriced = true

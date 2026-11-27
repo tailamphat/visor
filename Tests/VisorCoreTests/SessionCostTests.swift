@@ -174,3 +174,33 @@ struct SessionCostTests {
         #expect(SessionCostReader().read(transcript: dir.appendingPathComponent("none.jsonl").path, session: "s1") == nil)
     }
 }
+
+@Suite("Session cost last reply")
+struct SessionCostLastReplyTests {
+    private func line(_ id: String, at time: String, write1h: Int = 0, read: Int = 0) -> String {
+        #"{"type":"assistant","requestId":"req_\#(id)","timestamp":"\#(time)","message":{"id":"msg_\#(id)","model":"claude-opus-4-5","usage":{"input_tokens":7,"output_tokens":1,"cache_read_input_tokens":\#(read),"cache_creation":{"ephemeral_5m_input_tokens":3,"ephemeral_1h_input_tokens":\#(write1h)}}}}"#
+    }
+
+    @Test func keepsLastMainReply() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("visor-last-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("s1/subagents"), withIntermediateDirectories: true)
+        let path = dir.appendingPathComponent("s1.jsonl").path
+        try Data((line("1", at: "2026-11-23T10:00:00Z") + "\n" + line("2", at: "2026-11-23T10:01:00Z", write1h: 9, read: 500) + "\n").utf8).write(to: URL(fileURLWithPath: path))
+        // A helper replies later than the main transcript: it must not count.
+        try Data((line("h", at: "2026-11-23T10:05:00Z", read: 99) + "\n").utf8)
+            .write(to: dir.appendingPathComponent("s1/subagents/agent-a.jsonl"))
+        let reader = SessionCostReader()
+        #expect(reader.lastReply(session: "s1") == nil)
+        _ = reader.read(transcript: path, session: "s1")
+        let last = try #require(reader.lastReply(session: "s1"))
+        #expect(last.input == 7 && last.cacheRead == 500 && last.cacheWrite5m == 3 && last.cacheWrite1h == 9)
+        #expect(last.model == "claude-opus-4-5")
+        #expect(last.timestamp == ISODate.parse("2026-11-23T10:01:00Z"))
+        let handle = try #require(FileHandle(forWritingAtPath: path))
+        try handle.seekToEnd()
+        handle.write(Data((line("3", at: "2026-11-23T10:02:00Z", read: 700) + "\n").utf8))
+        try handle.close()
+        _ = reader.read(transcript: path, session: "s1")
+        #expect(reader.lastReply(session: "s1")?.cacheRead == 700)
+    }
+}
