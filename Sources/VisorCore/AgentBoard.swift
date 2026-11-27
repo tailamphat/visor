@@ -79,6 +79,10 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     /// What its harness put in the context before the first prompt (Claude Code), from
     /// its first reply. Optional so older saved sessions load.
     public var xray: HarnessXRay?
+    /// Claude Code's permission mode from its latest own event. Optional so older saved sessions load.
+    public var mode: PermissionMode?
+    /// The bypass peek was already taken for this session (see `AgentBoard.takeModePeek`).
+    var modePeeked: Bool?
 
     /// How full the context window is, 0-100; nil when unknown.
     public var contextPercent: Double? {
@@ -129,6 +133,11 @@ public struct AgentBoard: Equatable, Sendable {
         if message.pid > 0 { sessions[index].pid = message.pid }
         sessions[index].lastEvent = now
         sessions[index].turn.record(message)
+        // Only the session's own events say its mode; a helper's carry its own.
+        if sessions[index].agent == "Claude Code", Self.hookID(message.payload["agent_id"]) == nil,
+           let mode = PermissionMode(field: message.payload["permission_mode"]) {
+            sessions[index].mode = mode
+        }
         if applyHelper(message, at: index, now: now) { return }
 
         let next: AgentState?
@@ -530,11 +539,19 @@ extension AgentBoard {
         }
     }
 
+    /// True once per session, the first time it is seen in bypass mode; marks it taken.
+    public mutating func takeModePeek(id: String) -> Bool {
+        guard let i = sessions.firstIndex(where: { $0.id == id }),
+              PermissionMode.shouldPeek(mode: sessions[i].mode, alreadyPeeked: sessions[i].modePeeked ?? false) else { return false }
+        sessions[i].modePeeked = true
+        return true
+    }
+
     public func differsVisibly(from other: AgentBoard) -> Bool {
         guard sessions.count == other.sessions.count else { return true }
         return zip(sessions, other.sessions).contains { a, b in
             a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
-                || a.agent != b.agent || a.host != b.host || a.task != b.task
+                || a.agent != b.agent || a.mode != b.mode || a.host != b.host || a.task != b.task
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
                 || Self.helpersDiffer(a.helperList, b.helperList) || a.cost?.label != b.cost?.label || a.xray != b.xray
         }
