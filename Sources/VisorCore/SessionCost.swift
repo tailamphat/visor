@@ -38,6 +38,10 @@ public final class SessionCostReader: @unchecked Sendable {
         var cost = SessionCost(dollars: 0, tokens: 0)
         /// The harness X-ray of each file, read alongside the cost until its first reply.
         var xrays: [String: XRayScanner] = [:]
+        /// Each helper's stats by agent id, from its own transcript.
+        var helpers: [String: HelperStats] = [:]
+        /// tool_use ids counted, as hashes.
+        var toolsSeen = Set<Int>()
     }
 
     private var tallies: [String: Tally] = [:]
@@ -49,14 +53,21 @@ public final class SessionCostReader: @unchecked Sendable {
     /// The session's cost after reading whatever is new; nil when the transcript can't be read.
     public func read(transcript path: String, session: String) -> SessionCost? {
         lastBytesRead = 0
-        guard FileManager.default.isReadableFile(atPath: path) else { return nil }
+        guard PastSessionScan.isRegularFile(path), FileManager.default.isReadableFile(atPath: path) else { return nil }
         var tally = tallies[session].flatMap { $0.path == path ? $0 : nil } ?? Tally(path: path)
         let subagents = (path as NSString).deletingPathExtension + "/subagents"
-        let extra = ((try? FileManager.default.contentsOfDirectory(atPath: subagents)) ?? [])
+        // Regular files only: a link or a pipe in a transcript folder is never followed.
+        let extra = (isLink(subagents) ? [] : ((try? FileManager.default.contentsOfDirectory(atPath: subagents)) ?? []))
             .filter { $0.hasSuffix(".jsonl") }.sorted().map { subagents + "/" + $0 }
+            .filter(PastSessionScan.isRegularFile)
         for file in [path] + extra {
             let size = ((try? FileManager.default.attributesOfItem(atPath: file))?[.size] as? NSNumber)?.uint64Value ?? 0
             let start = tally.offsets[file] ?? 0
+            // The meta file is read when the helper is new or its transcript grew, until it is done.
+            if file != path, let id = HelperStats.agentID(ofFile: file), tally.helpers[id]?.metaDone != true,
+               size != start || tally.helpers[id] == nil {
+                HelperStats.readMeta(for: file, id: id, into: &tally.helpers)
+            }
             if size == start { continue }
             if size < start {
                 // Rewritten: everything counted may be gone, so start the whole session over.
@@ -67,6 +78,10 @@ public final class SessionCostReader: @unchecked Sendable {
         }
         tallies[session] = tally
         return tally.cost
+    }
+
+    private func isLink(_ path: String) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
     /// The read offset of one of a session's files, for tests.
@@ -94,6 +109,11 @@ public final class SessionCostReader: @unchecked Sendable {
         return found
     }
 
+    /// What each of the session's helpers has cost and done, by agent id.
+    public func helperStats(session: String) -> [String: HelperStats] {
+        tallies[session]?.helpers ?? [:]
+    }
+
     /// Lines the X-ray of one file has parsed, for tests.
     func xrayLinesParsed(of file: String, session: String) -> Int? {
         tallies[session]?.xrays[file]?.linesParsed
@@ -105,11 +125,15 @@ public final class SessionCostReader: @unchecked Sendable {
     }
 
     private func consume(_ file: String, from start: UInt64, into tally: inout Tally) {
+        let helperID = file == tally.path ? nil : HelperStats.agentID(ofFile: file)
         guard let end = TranscriptUsage.readLines(of: file, from: start, { data in
             if tally.xrays[file]?.isDone != true { tally.xrays[file, default: XRayScanner()].ingest(data) }
+            if let helperID { HelperStats.countTools(in: data, id: helperID, seen: &tally.toolsSeen, into: &tally.helpers) }
             TranscriptUsage.forEachUsageLine(in: data) { line in
                 guard let (key, usage) = TranscriptUsage.parse(line: line) else { return }
+                if let helperID { tally.helpers[helperID, default: HelperStats()].context(usage) }
                 if let key, !tally.seen.insert(key.hashValue).inserted { return }
+                if let helperID { tally.helpers[helperID, default: HelperStats()].add(usage) }
                 tally.cost.tokens += usage.input + usage.output + usage.cacheWrite5m + usage.cacheWrite1h
                 if Pricing.price(for: usage.model) == nil {
                     tally.cost.unpriced = true

@@ -480,6 +480,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func readContextSoon(_ message: HookMessage) {
         guard message.provider == "claude", ["PostToolUse", "Stop", "SessionStart", "UserPromptSubmit"].contains(message.event),
               let session = message.sessionID, let path = message.payload["transcript_path"] as? String else { return }
+        // Only Claude Code's own project folders: the path comes from a hook payload.
+        guard ProjectHistory.isProjectFolder((path as NSString).deletingLastPathComponent, roots: Self.claudeProjectRoots) else { return }
         readContext(session: session, path: path)
     }
 
@@ -493,9 +495,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Claude Code may still be writing the reply when the hook runs.
         let costReader = costReader
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (reading, model, cost, xray) = autoreleasepool {
+            let (reading, model, cost, xray, helperStats) = autoreleasepool {
                 let cost = costReader.read(transcript: path, session: session)
-                return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session))
+                return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session), costReader.helperStats(session: session))
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -506,6 +508,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     // A transcript missing for a moment keeps the last cost.
                     if let cost { self.agents.setCost(cost, session: session) }
                     if let xray { self.gotXRay(xray, session: session, path: path) }
+                    self.agents.setHelperStats(helperStats, session: session)
                     self.publishAgents()
                     if let again = self.contextDirty.removeValue(forKey: session) { self.readContext(session: session, path: again) }
                 }

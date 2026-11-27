@@ -462,6 +462,20 @@ public struct AgentBoard: Equatable, Sendable {
         sessions[i].cost = cost
     }
 
+    /// Each helper's stats by agent id; a helper whose meta names its Agent call is linked
+    /// to it first. Written only when a value changed.
+    public mutating func setHelperStats(_ stats: [String: HelperStats], session id: String) {
+        for (agentID, st) in stats.sorted(by: { $0.key < $1.key }) {
+            if let toolUse = st.toolUseID { link(session: id, agentID: agentID, toolUseID: toolUse) }
+        }
+        guard let s = sessions.firstIndex(where: { $0.id == id }) else { return }
+        for i in sessions[s].helpers.indices {
+            guard let agentID = sessions[s].helpers[i].agentID, let st = stats[agentID],
+                  sessions[s].helpers[i].stats != st else { continue }
+            sessions[s].helpers[i].stats = st
+        }
+    }
+
     /// The session's harness X-ray: the first one stays, later reads can't change it.
     public mutating func setXRay(_ xray: HarnessXRay, session id: String) {
         guard let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].xray == nil else { return }
@@ -500,13 +514,24 @@ public struct AgentBoard: Equatable, Sendable {
 extension AgentBoard {
     /// Whether anything shown in the notch differs. The last-event time moves
     /// on every tool call but is never shown, so it alone doesn't count.
+    /// Helpers differ in what shows; their stats count only in displayed form.
+    static func helpersDiffer(_ a: [AgentHelper]?, _ b: [AgentHelper]?) -> Bool {
+        guard a?.count == b?.count else { return true }
+        return zip(a ?? [], b ?? []).contains { x, y in
+            var x = x, y = y
+            let shown = x.stats?.shown != y.stats?.shown
+            x.stats = nil; y.stats = nil
+            return shown || x != y
+        }
+    }
+
     public func differsVisibly(from other: AgentBoard) -> Bool {
         guard sessions.count == other.sessions.count else { return true }
         return zip(sessions, other.sessions).contains { a, b in
             a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
                 || a.agent != b.agent || a.host != b.host || a.task != b.task
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
-                || a.helperList != b.helperList || a.cost?.label != b.cost?.label || a.xray != b.xray
+                || Self.helpersDiffer(a.helperList, b.helperList) || a.cost?.label != b.cost?.label || a.xray != b.xray
         }
     }
 }
@@ -536,6 +561,8 @@ public struct AgentHelper: Equatable, Sendable, Codable, Identifiable {
     /// When its Agent call (or, without one, its SubagentStart) arrived, and when it ended.
     public var start: Date?
     public var end: Date?
+    /// Cost, model, context and tool counts from its own transcript.
+    public var stats: HelperStats?
     /// Its Agent call failed (PostToolUseFailure, not an interrupt); its own tools failing doesn't count.
     var failedFlag: Bool?
     public var failed: Bool {
