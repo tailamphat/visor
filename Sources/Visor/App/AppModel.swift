@@ -259,8 +259,15 @@ final class AppModel {
     var agentsNow = Date()
     /// The Agents list shows every session, past the cap of 8 cards.
     var agentsShowAll = false
-    /// The session whose subagents are listed under the cards (its ⑂ button).
-    var helpersOpen: String?
+    /// The session whose helpers waterfall shows under the cards (its ⑂ button or "Waiting on N helpers ›").
+    var helpersOpen: String? {
+        didSet { if helpersOpen != oldValue { helperSelected = nil } }
+    }
+    /// The waterfall row picked for its detail (`HelperGraph.Row.id`) and the turn it was picked in;
+    /// cleared when the waterfall changes or closes, ignored once a new turn starts
+    /// (read it through `HelperWaterfall.selected`).
+    var helperSelected: String?
+    var helperSelectedTurn: Date?
     /// MCP health, the line under the sessions; nil when no server is configured or seen.
     var mcp: MCPSummary?
     /// The per-server MCP list is open under that line.

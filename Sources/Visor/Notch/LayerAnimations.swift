@@ -182,3 +182,112 @@ extension NSColor {
                   blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 }
+
+/// The helpers waterfall's bars: one layer per `HelperWaterfall.BarSpec`, coloured by
+/// state, outlined on the critical path, and a running bar grows to the axis end with
+/// one Core Animation width animation (no timer). Layers are rebuilt only when the
+/// specs' keys change, so SwiftUI updating this view a moment later keeps them running.
+struct TraceBars: NSViewRepresentable {
+    let graph: HelperGraph
+    let rowHeight: CGFloat
+
+    func makeNSView(context: Context) -> TraceBarsView {
+        let view = TraceBarsView()
+        view.wantsLayer = true
+        return view
+    }
+
+    func updateNSView(_ view: TraceBarsView, context: Context) {
+        view.rowHeight = rowHeight
+        view.graph = graph
+    }
+}
+
+final class TraceBarsView: NSView {
+    var rowHeight: CGFloat = 18
+    var graph: HelperGraph? { didSet { if graph != oldValue { needsLayout = true } } }
+    private var keys: [String] = []
+    static let barHeight: CGFloat = 8
+    static let stripe: CGFloat = 2
+    static let stripeStep: CGFloat = 8
+    private static let colors: [HelperGraph.State: CGColor] = [
+        .done: NSColor(Theme.good).cgColor, .running: NSColor(Theme.warning).cgColor,
+        .failed: NSColor(Theme.critical).cgColor, .queued: NSColor(Theme.deemphasis).cgColor,
+    ]
+    private static let mainColor = NSColor(DS.Fill.strong).cgColor
+    private static let outline = NSColor(Theme.textPrimary).cgColor
+    private static let stripeColor = NSColor(Theme.surface).withAlphaComponent(DS.Fill.Opacity.heavy).cgColor
+
+    /// Rows count down from the top, like the names beside them.
+    override var isFlipped: Bool { true }
+
+    override func layout() {
+        super.layout()
+        apply()
+    }
+
+    /// Off screen (the waterfall closed): drop the layers so no grow animation keeps running.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
+            keys = []
+        } else {
+            needsLayout = true
+        }
+    }
+
+    private func apply() {
+        guard let graph, let host = layer, window != nil, bounds.width > 0 else { return }
+        let specs = HelperWaterfall.bars(graph: graph, trackWidth: Double(bounds.width), now: Date())
+        let keys = HelperWaterfall.layerKey(bars: specs, height: Double(bounds.height))
+        guard keys != self.keys else { return }
+        self.keys = keys
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        host.isGeometryFlipped = true  // top-down, whatever AppKit chose for the backing layer
+        host.sublayers?.forEach { $0.removeFromSuperlayer() }
+        for (i, spec) in specs.enumerated() {
+            host.addSublayer(bar(spec, row: i))
+        }
+        CATransaction.commit()
+    }
+
+    private func bar(_ spec: HelperWaterfall.BarSpec, row: Int) -> CALayer {
+        let bar = CALayer()
+        bar.anchorPoint = CGPoint(x: 0, y: 0.5)
+        let end = CGFloat(spec.growTo ?? spec.width)
+        let y = CGFloat(row) * rowHeight + (rowHeight - Self.barHeight) / 2
+        bar.frame = CGRect(x: CGFloat(spec.x), y: y, width: end, height: Self.barHeight)
+        bar.cornerRadius = DS.Radius.xs
+        bar.masksToBounds = true
+        bar.backgroundColor = spec.isMain ? Self.mainColor : Self.colors[spec.state]
+        if spec.critical {
+            bar.borderWidth = 1.5
+            bar.borderColor = Self.outline
+        }
+        if spec.state == .running {
+            let stripes = CAReplicatorLayer()
+            // As long as the bar will grow, not the whole track.
+            stripes.frame = CGRect(x: 0, y: 0, width: end, height: Self.barHeight)
+            let stripe = CALayer()
+            stripe.frame = CGRect(x: 0, y: 0, width: Self.stripe, height: Self.barHeight)
+            stripe.backgroundColor = Self.stripeColor
+            stripes.addSublayer(stripe)
+            stripes.instanceCount = Int(end / Self.stripeStep) + 1
+            stripes.instanceTransform = CATransform3DMakeTranslation(Self.stripeStep, 0, 0)
+            bar.addSublayer(stripes)
+        }
+        if let seconds = spec.growSeconds, seconds > 0, end > CGFloat(spec.width) {
+            let grow = CABasicAnimation(keyPath: "bounds.size.width")
+            grow.fromValue = CGFloat(spec.width)
+            grow.toValue = end
+            grow.duration = seconds
+            grow.timingFunction = CAMediaTimingFunction(name: .linear)
+            // A bar gains well under a point a second on a long turn: a few frames a second is plenty.
+            grow.preferredFrameRateRange = CAFrameRateRange(minimum: 1, maximum: 8, preferred: 4)
+            bar.add(grow, forKey: "grow")
+        }
+        return bar
+    }
+}

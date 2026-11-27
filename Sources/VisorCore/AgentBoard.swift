@@ -42,6 +42,9 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var task: String?
     /// When the user last sent it a prompt: the start of the current turn.
     public var turnStart: Date?
+    /// The session's cost when the current turn began (nil when unknown), so the
+    /// helpers waterfall can tell this turn's own spend from earlier turns'.
+    public var turnCostBase: Double?
     /// The last finished turn ended by asking you something ("Should I commit?").
     public var askedForReply = false
     /// What it did this turn (files, lines, commands, tests). Optional so
@@ -133,6 +136,8 @@ public struct AgentBoard: Equatable, Sendable {
         case "SessionStart": next = .idle
         case "UserPromptSubmit":
             if let prompt = message.payload["prompt"] as? String { sessions[index].task = Self.summarize(prompt) }
+            // Before turnStart moves: a session's first turn starts from nothing.
+            sessions[index].turnCostBase = sessions[index].turnStart == nil ? sessions[index].cost?.dollars ?? 0 : sessions[index].cost?.dollars
             sessions[index].turnStart = now
             sessions[index].turn = TurnStats()
             sessions[index].helpers.removeAll(where: \.done)

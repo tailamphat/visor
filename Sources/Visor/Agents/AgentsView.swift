@@ -73,15 +73,15 @@ struct AgentsView: View {
 
     /// The open helpers list, under the cards of the group its session is in.
     @ViewBuilder private func helpers(in sessions: [AgentSession]) -> some View {
-        if let id = model.helpersOpen, let session = sessions.first(where: { $0.id == id }), !session.helpers.isEmpty {
-            HelpersList(session: session)
+        if let id = model.helpersOpen, let session = sessions.first(where: { $0.id == id }), HelperWaterfall.shows(session) {
+            HelpersList(session: session, model: model)
         }
     }
 
     /// The open helpers list's session, if it's still there and has helpers.
     static func openHelpers(_ model: AppModel) -> AgentSession? {
         guard let id = model.helpersOpen else { return nil }
-        return model.board.sessions.first { $0.id == id && !$0.helpers.isEmpty }
+        return model.board.sessions.first { $0.id == id && HelperWaterfall.shows($0) }
     }
 
     /// Many sessions: whoever needs you, then the busiest, then the most recent, as
@@ -336,13 +336,21 @@ struct AgentCard: View {
                             Text(cost).font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                                 .lineLimit(1).fixedSize()
                         }
-                        if let model, !session.helpers.isEmpty {
+                        if let model, HelperWaterfall.shows(session) {
                             HelpersButton(session: session, model: model)
                         }
                     }
                     .frame(height: 13)
                 }
-                Text(detail).font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                if let model, HelperWaterfall.opensFromDetail(detail, session: session) {
+                    // "Waiting on N helpers ›" opens the helpers waterfall, like the ⑂ button.
+                    Button { model.helpersOpen = model.helpersOpen == session.id ? nil : session.id } label: {
+                        Text(detail + " ›").font(DS.font(.base)).foregroundStyle(Theme.question).lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(detail).font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                }
             }
         }
         .padding(.horizontal, 9)

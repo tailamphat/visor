@@ -26,88 +26,144 @@ struct HelpersButton: View {
     }
 }
 
-/// What each of a session's subagents is doing: running ones first, at most
-/// `rows`, then "+n more". Fixed ceiling, so many helpers never stretch the panel.
+/// A session's helpers as a trace waterfall (`HelperGraph`): who started whom on the
+/// left, when and how long on one time axis, cost on the right, the critical path
+/// outlined. Bars are `TraceBars` layers; running ones grow by Core Animation, so this
+/// view renders only when the board publishes (it never reads the list's 1 s clock).
 struct HelpersList: View {
     let session: AgentSession
-    static let rows = 6
-    static let rowHeight: CGFloat = 28
-    static let lineHeight: CGFloat = 16
+    let model: AppModel
+    private typealias W = HelperWaterfall
 
-    /// The list's height for a session, for the panel's size.
+    /// The waterfall's height for a session, for the panel's size.
     static func height(for session: AgentSession) -> CGFloat {
-        let shown = session.helperRows(limit: rows)
-        return 12 + lineHeight + CGFloat(shown.rows.count) * rowHeight + (shown.more > 0 ? lineHeight : 0)
+        CGFloat(HelperWaterfall.height(rows: 1 + min(session.helpers.count, AgentSession.maxHelpers)))
     }
 
     var body: some View {
-        let shown = session.helperRows(limit: Self.rows)
-        let running = session.runningHelpers
+        let graph = HelperGraph(session: session, now: Date())
+        let costs = W.costs(session: session)
+        let rowHeight = CGFloat(W.rowHeight)
+        let selected = W.selected(model.helperSelected, turn: model.helperSelectedTurn, current: session.turnStart,
+                                  rows: graph.rows.map(\.id))
         VStack(alignment: .leading, spacing: 0) {
-            header("\(session.project) · \(session.helpers.count) helper\(session.helpers.count == 1 ? "" : "s")" + (running > 0 ? " · \(running) working" : ""))
-            ForEach(shown.rows) { helper in
-                HStack(spacing: 9) {
-                    if helper.done {
-                        Circle().fill(DS.Palette.mint).frame(width: 9, height: 9)
-                    } else {
-                        HelperSpinner().frame(width: 10, height: 10)
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(helper.task).font(DS.font(.base, .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                        Text([helper.type, helper.done ? "Done" : helper.activity ?? "Thinking"].joined(separator: " · "))
-                            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
-                    }
-                    Spacer(minLength: 0)
+            header(graph)
+            HStack(spacing: CGFloat(W.gap)) {
+                Spacer().frame(width: CGFloat(W.nameWidth))
+                axis(graph)
+                Spacer().frame(width: CGFloat(W.costWidth))
+            }
+            .frame(height: CGFloat(W.axisHeight))
+            HStack(alignment: .top, spacing: CGFloat(W.gap)) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(graph.rows) { name($0).frame(height: rowHeight) }
                 }
-                .padding(.horizontal, 6)
-                .frame(height: Self.rowHeight)
+                .frame(width: CGFloat(W.nameWidth), alignment: .leading)
+                TraceBars(graph: graph, rowHeight: rowHeight)
+                    .frame(height: rowHeight * CGFloat(graph.rows.count))
+                VStack(alignment: .trailing, spacing: 0) {
+                    ForEach(graph.rows) { row in
+                        Text(costs[row.id] ?? "").font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                            .lineLimit(1).frame(height: rowHeight)
+                    }
+                }
+                .frame(width: CGFloat(W.costWidth), alignment: .trailing)
             }
-            if shown.more > 0 {
-                let rest = session.helpers.count - shown.rows.count
-                let restRunning = running - shown.rows.filter { !$0.done }.count
-                header("+\(rest) more" + (restRunning > 0 ? " · \(restRunning) working, \(rest - restRunning) done" : " · done"))
+            .background(alignment: .top) {
+                VStack(spacing: 0) {
+                    ForEach(graph.rows) { row in
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .fill(selected == row.id ? DS.Fill.subtle : Color.clear)
+                            .frame(height: rowHeight)
+                    }
+                }
+                .padding(.horizontal, -DS.Space.xs)
             }
+            .overlay(alignment: .top) {
+                VStack(spacing: 0) {
+                    ForEach(graph.rows) { row in
+                        Button {
+                            model.helperSelected = W.toggle(selected: selected, row: row.id)
+                            model.helperSelectedTurn = session.turnStart
+                        } label: {
+                            Color.clear.frame(height: rowHeight).frame(maxWidth: .infinity).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            caption(graph)
         }
-        .padding(6)
+        .padding(CGFloat(W.padding))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).strokeBorder(DS.Fill.subtle, lineWidth: 1))
     }
 
-    private func header(_ text: String) -> some View {
-        SectionHeader(text)
-            .padding(.horizontal, 6).frame(height: Self.lineHeight, alignment: .center)
+    /// Agent mark, "project · task", and "18m · $2.40" on the right.
+    private func header(_ graph: HelperGraph) -> some View {
+        HStack(spacing: DS.Space.sm) {
+            AgentMark(agent: session.agent, size: 11)
+            (Text(session.project).font(DS.font(.base, .semibold)).foregroundColor(Theme.textPrimary)
+                + Text(session.task.map { " · \($0)" } ?? "").font(DS.font(.base)).foregroundColor(Theme.textMuted))
+                .lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: DS.Space.md)
+            HelpersTurnTime(session: session, model: model, finished: graph.turnSeconds)
+        }
+        .frame(height: CGFloat(W.headerHeight))
+    }
+
+    /// Tick labels on the track: the first left-aligned, the last right-aligned.
+    private func axis(_ graph: HelperGraph) -> some View {
+        GeometryReader { geo in
+            let label: CGFloat = 32
+            ForEach(Array(graph.ticks.enumerated()), id: \.offset) { i, tick in
+                let x = CGFloat(tick.x) * geo.size.width
+                let first = i == 0, last = i == graph.ticks.count - 1
+                Text(tick.label).font(DS.font(.xs).monospacedDigit()).foregroundStyle(Theme.textMuted)
+                    .frame(width: label, alignment: first ? .leading : last ? .trailing : .center)
+                    .offset(x: first ? 0 : last ? geo.size.width - label : x - label / 2)
+            }
+        }
+    }
+
+    /// "├ builder cart.ts": connectors, the helper's type, its task dimmed.
+    private func name(_ row: HelperGraph.Row) -> some View {
+        let main = row.id == "main" && row.depth == 0
+        return (Text(row.prefix).foregroundColor(Theme.textMuted)
+            + Text(main ? "main session" : row.type ?? row.title).foregroundColor(Theme.textPrimary)
+            + Text(main ? "" : " \(row.title)").foregroundColor(Theme.textMuted))
+            .font(DS.font(.base)).lineLimit(1).truncationMode(.tail)
+    }
+
+    /// "Critical path: Plan then builder (14 of 18 min)" and "perf failed".
+    private func caption(_ graph: HelperGraph) -> some View {
+        HStack(spacing: DS.Space.sm) {
+            if let text = W.caption(graph) {
+                Circle().strokeBorder(Theme.textPrimary, lineWidth: 1.5).frame(width: 7, height: 7)
+                Text(text).font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
+            }
+            Spacer(minLength: DS.Space.md)
+            if let failed = W.failures(graph) {
+                Text(failed).font(DS.font(.sm, .medium)).foregroundStyle(Theme.critical).lineLimit(1).fixedSize()
+            }
+        }
+        .frame(height: CGFloat(W.captionHeight))
     }
 }
 
-/// A small arc that turns while a helper works: a Core Animation layer, so it
-/// costs nothing on the main thread.
-struct HelperSpinner: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        view.wantsLayer = true
-        let track = CAShapeLayer(), arc = CAShapeLayer()
-        let rect = CGRect(x: 1, y: 1, width: 8, height: 8)
-        for (layer, color, end) in [(track, NSColor(DS.Fill.strong), 1.0), (arc, NSColor(Theme.accent), 0.3)] {
-            layer.frame = CGRect(x: 0, y: 0, width: 10, height: 10)
-            layer.path = CGPath(ellipseIn: rect, transform: nil)
-            layer.fillColor = nil
-            layer.strokeColor = color.cgColor
-            layer.lineWidth = 1.8
-            layer.lineCap = .round
-            layer.strokeEnd = end
-            view.layer?.addSublayer(layer)
-        }
-        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-        spin.fromValue = 0
-        spin.toValue = -2 * Double.pi
-        spin.duration = 1
-        spin.repeatCount = .infinity
-        spin.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 24)
-        arc.add(spin, forKey: "spin")
-        return view
-    }
+/// The waterfall header's time and cost. Its own view so only it reads the list's
+/// 1 s clock while the turn runs; the waterfall itself stays still.
+private struct HelpersTurnTime: View {
+    let session: AgentSession
+    let model: AppModel
+    let finished: TimeInterval
 
-    func updateNSView(_ view: NSView, context: Context) {}
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? { CGSize(width: 10, height: 10) }
+    var body: some View {
+        let time = session.isActive
+            ? SessionText.elapsed(since: session.turnStart ?? session.since, now: model.agentsNow)
+            : HelperWaterfall.elapsed(seconds: finished)
+        Text([time, session.cost?.label].compactMap { $0 }.joined(separator: " · "))
+            .font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+    }
 }
