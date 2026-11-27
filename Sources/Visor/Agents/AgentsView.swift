@@ -61,6 +61,7 @@ struct AgentsView: View {
                         }
                     }
                     MCPSection(model: model)
+                    HarnessSection(model: model)
                     if !model.hooksInstalled {
                         Button("Connect Claude Code for approvals") { model.installHooks?() }
                             .buttonStyle(PillButton(fill: Theme.accent)).padding(.top, 4)
@@ -116,6 +117,7 @@ struct AgentsView: View {
                 }, dashed: true) { model.agentsShowAll = true }
             }
             MCPSection(model: model)
+            HarnessSection(model: model)
         }
     }
 

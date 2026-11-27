@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastPublish = Date()
         model.board = agents
+        refreshHarness()
         mcp.sessionsChanged(agents.sessions)
         saveAgentsSoon()
         awake.update()
@@ -483,6 +484,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func readContext(session: String, path: String) {
+        transcripts[session] = path
         guard contextPending.insert(session).inserted else {
             // The read may already be past this event's write; read again after it.
             contextDirty[session] = path
@@ -491,8 +493,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Claude Code may still be writing the reply when the hook runs.
         let costReader = costReader
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (reading, model, cost) = autoreleasepool {
-                (Self.contextReading(at: path), Self.claudeModelSetting(), costReader.read(transcript: path, session: session))
+            let (reading, model, cost, xray) = autoreleasepool {
+                let cost = costReader.read(transcript: path, session: session)
+                return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session))
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -502,11 +505,90 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.agents.setContext(tokens: reading.tokens, model: model, provenWindow: reading.provenWindow, session: session)
                     // A transcript missing for a moment keeps the last cost.
                     if let cost { self.agents.setCost(cost, session: session) }
+                    if let xray { self.gotXRay(xray, session: session, path: path) }
                     self.publishAgents()
                     if let again = self.contextDirty.removeValue(forKey: session) { self.readContext(session: session, path: again) }
                 }
             }
         }
+    }
+
+    // MARK: Harness X-ray
+
+    /// Earlier sessions of each project, read once per file; used on `adviceQueue` only,
+    /// so a long scan never holds up the context and cost reads.
+    private let projectHistory = ProjectHistory()
+    private let adviceQueue = DispatchQueue(label: "visor.xray-advice", qos: .utility)
+    /// Each Claude Code session's transcript, as its hooks name it.
+    private var transcripts: [String: String] = [:]
+    /// What the Harness line was last built from, so unrelated publishes skip it.
+    private var harnessInputs: [String] = []
+    /// Sessions whose earlier sessions were scanned for the MCP advice.
+    private var adviceScanned: Set<String> = []
+    /// The MCP advice per session id.
+    private var harnessAdvice: [String: MCPAdvice] = [:]
+
+    /// A session's first reply was read: keep its X-ray, then, once, look at the
+    /// project's earlier sessions for an MCP server it carries but never calls.
+    private func gotXRay(_ xray: HarnessXRay, session: String, path: String) {
+        agents.setXRay(xray, session: session)
+        guard let project = agents.sessions.first(where: { $0.id == session })?.project,
+              adviceScanned.insert(session).inserted else { return }
+        let history = projectHistory
+        let folder = (path as NSString).deletingLastPathComponent
+        // Only Claude Code's own project folders: the path comes from a hook payload.
+        guard ProjectHistory.isProjectFolder(folder, roots: Self.claudeProjectRoots) else { return }
+        let live = Set(agents.sessions.compactMap { transcripts[$0.id] })
+        adviceQueue.async { [weak self] in
+            let advice = MCPAdvice.make(current: xray, project: project,
+                                        past: history.earlier(in: folder, excluding: path, live: live))
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, let advice else { return }
+                    self.harnessAdvice[session] = advice
+                    self.refreshHarness()
+                }
+            }
+        }
+    }
+
+    /// The Harness line from the shown sessions; built only when a session with an X-ray,
+    /// its folder or the advice changed, and written only when it differs.
+    private func refreshHarness() {
+        // Pruned by the live sessions, which may be newer than the shown ones.
+        let ids = Set(agents.sessions.map(\.id))
+        harnessAdvice = harnessAdvice.filter { ids.contains($0.key) }
+        adviceScanned.formIntersection(ids)
+        transcripts = transcripts.filter { ids.contains($0.key) }
+        let inputs = model.board.sessions.filter { $0.xray != nil }.map { "\($0.id) \($0.agent) \($0.cwd)" }
+            + harnessAdvice.keys.sorted()
+        guard inputs != harnessInputs else { return }
+        harnessInputs = inputs
+        let summary = HarnessSummary.make(sessions: model.board.sessions, advice: harnessAdvice)
+        if model.harness != summary { model.harness = summary }
+        if summary == nil && model.harnessOpen { model.harnessOpen = false }
+    }
+
+    /// The session called the server its advice named: the advice no longer holds.
+    private func dropAnsweredAdvice(_ message: HookMessage) {
+        guard message.provider == "claude", message.event == "PreToolUse", let session = message.sessionID,
+              let tool = message.toolName, let advice = harnessAdvice[session], advice.isAnswered(byTool: tool) else { return }
+        harnessAdvice[session] = nil
+        refreshHarness()
+    }
+
+    /// Claude Code's transcript folders' parent: `~/.claude/projects`, or under
+    /// `CLAUDE_CONFIG_DIR`. Debug builds also take `VISOR_CLAUDE_PROJECTS` (a fixture folder).
+    private static var claudeProjectRoots: [String] {
+        let env = ProcessInfo.processInfo.environment
+        var roots = [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects").path]
+        if let dir = env["CLAUDE_CONFIG_DIR"], !dir.isEmpty {
+            roots.append(((dir as NSString).expandingTildeInPath as NSString).appendingPathComponent("projects"))
+        }
+        #if DEBUG
+        if let dir = env["VISOR_CLAUDE_PROJECTS"], !dir.isEmpty { roots.append(dir) }
+        #endif
+        return roots
     }
 
     /// Drops the running cost of sessions that left the board (exited, ended, /clear).
@@ -662,7 +744,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             playIntro(brief: message.payload["kind"] as? String == "hello")
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list; "xray":true/false the Harness list.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
@@ -675,6 +757,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let picker = message.payload["worldPicker"] as? Bool { model.officePicker = picker }
             if let tokens = message.payload["tokens"] as? Bool { model.usageTokens = tokens }
             if let open = message.payload["mcp"] as? Bool { model.mcpOpen = open && model.mcp != nil }
+            if let open = message.payload["xray"] as? Bool { model.harnessOpen = open && model.harness != nil }
             if let page = (message.payload["page"] as? String).flatMap(TokensPage.init(rawValue:)) { model.tokensPage = page }
             // "clipHover": n hovers the clipboard's nth row (0-based).
             if let row = (message.payload["clipHover"] as? NSNumber)?.intValue, model.clips.items.indices.contains(row) {
@@ -688,6 +771,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         agents.apply(message)
         mcp.record(message)
         noteEdit(message)
+        dropAnsweredAdvice(message)
         noteStuck(message)
         readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
@@ -906,7 +990,7 @@ extension AppDelegate {
     }
 
     /// The system Terminal by its fixed path, so a lookalike app with its bundle id can't take over.
-    private static func terminalURL() -> URL? {
+    nonisolated private static func terminalURL() -> URL? {
         let fixed = URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app")
         if FileManager.default.fileExists(atPath: fixed.path) { return fixed }
         return NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")

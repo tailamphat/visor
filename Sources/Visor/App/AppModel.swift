@@ -82,7 +82,7 @@ final class AppModel {
     // Notch state
     var expanded = false {
         // The turn summary is for the moment it finished; once the notch closes it's gone.
-        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil; mcpOpen = false; radarPlans = false } }
+        didSet { if !expanded && oldValue { summary = nil; helpersOpen = nil; mcpOpen = false; harnessOpen = false; radarPlans = false } }
     }
     /// A turn that just finished, shown as its summary when the notch opens
     /// during its "done" peek.
@@ -265,6 +265,11 @@ final class AppModel {
     var mcp: MCPSummary?
     /// The per-server MCP list is open under that line.
     var mcpOpen = false
+    /// Each Claude Code session's harness before its first prompt, and one MCP advice:
+    /// the line under the MCP line; nil until a session's first reply is read.
+    var harness: HarnessSummary?
+    /// The Harness list is open under that line.
+    var harnessOpen = false
     /// The Agents list came on screen (re-reads changed MCP configs).
     var mcpShown: (() -> Void)?
     /// The office's world picker is open over the room.

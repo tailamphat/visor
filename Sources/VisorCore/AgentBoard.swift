@@ -71,6 +71,9 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var contextWindow: Int?
     /// What it has cost so far, from its transcript (`SessionCostReader`).
     public var cost: SessionCost?
+    /// What its harness put in the context before the first prompt (Claude Code), from
+    /// its first reply. Optional so older saved sessions load.
+    public var xray: HarnessXRay?
 
     /// How full the context window is, 0-100; nil when unknown.
     public var contextPercent: Double? {
@@ -403,6 +406,12 @@ public struct AgentBoard: Equatable, Sendable {
         sessions[i].cost = cost
     }
 
+    /// The session's harness X-ray: the first one stays, later reads can't change it.
+    public mutating func setXRay(_ xray: HarnessXRay, session id: String) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].xray == nil else { return }
+        sessions[i].xray = xray
+    }
+
     public mutating func setHost(_ host: String?, session id: String) {
         guard let host, let i = sessions.firstIndex(where: { $0.id == id }), sessions[i].host != host else { return }
         sessions[i].host = host
@@ -441,7 +450,7 @@ extension AgentBoard {
             a.id != b.id || a.cwd != b.cwd || a.state != b.state || a.since != b.since
                 || a.agent != b.agent || a.host != b.host || a.task != b.task
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
-                || a.helperList != b.helperList || a.cost?.label != b.cost?.label
+                || a.helperList != b.helperList || a.cost?.label != b.cost?.label || a.xray != b.xray
         }
     }
 }
