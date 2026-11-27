@@ -491,6 +491,8 @@ enum Peek: Equatable {
     case release(ReleaseUpdate)
     /// A Claude limit runs out soon and another agent has room.
     case handoff(Handoff)
+    /// A helper's Agent call failed (never for one finishing).
+    case helperFailed(HelperFailure)
 
     var isRelease: Bool { if case .release = self { return true } else { return false } }
 }

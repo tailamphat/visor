@@ -248,6 +248,8 @@ struct CollapsedView: View {
             return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
         case .stuck(let stuck):
             return (stuck.agent, "\(stuck.agent): \(stuck.label) \(stuck.long)")
+        case .helperFailed(let failure):
+            return (failure.agent, "\(failure.agent): " + failure.names.joined(separator: ", ") + (failure.names.count == 1 ? " helper failed" : " failed"))
         case .handoff(let handoff):
             return ("Claude Code", "Claude \(handoff.limitTitle) limit " + (handoff.runsOutAt == nil ? "is out; " : "runs out soon; ")
                     + handoff.targets.map(\.agent).joined(separator: ", ") + " can take over")
@@ -301,6 +303,19 @@ struct CollapsedView: View {
                     Image(systemName: "arrow.right.circle.fill")
                         .font(DS.font(.xs, .semibold))
                         .foregroundStyle(Theme.surface, Theme.warning)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .helperFailed(let failure) = peek {
+            // The agent's mark with a red "!" on its corner: one of its helpers failed.
+            AgentMark(agent: failure.agent, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.textPrimary, Theme.critical)
                         .background(Circle().fill(Theme.surface).padding(-1.5))
                         .offset(x: 5, y: 4)
                 }
@@ -363,6 +378,10 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .handoff(let handoff) = peek {
             Text("\(handoff.targets.first?.agent ?? "Another agent") has room")
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .helperFailed(let failure) = peek {
+            Text(failure.text)
                 .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {
@@ -480,12 +499,20 @@ struct AgentBadge: View {
                     PulsingSymbol(name: "", logo: entry.agent, color: AgentStyle.mark(entry.agent),
                                   size: 12, active: !entry.waiting)
                         .id("\(entry.agent)\(String(describing: entry.attention))")
+                        .overlay(alignment: .bottomTrailing) {
+                            if let badge = entry.helperProgress.badge {
+                                HelperBadge(text: badge).offset(x: HelperBadge.reach, y: 4)
+                            }
+                        }
+                        // Counts the badge reaching past the corner.
+                        .padding(.trailing, entry.helperProgress.badge != nil ? HelperBadge.reach : 0)
                     if entry.count > 1 {
                         Text("\(entry.count)").font(DS.font(.sm, .bold).monospacedDigit()).foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .help(entry.attention == .question ? "\(entry.agent) asks you something"
-                      : entry.waiting ? "\(entry.agent) needs your approval" : "\(entry.agent): \(entry.count) working")
+                      : entry.waiting ? "\(entry.agent) needs your approval"
+                      : HelperProgress.slotHelp(marks: NotchMarks(shown: [entry], more: []), progress: entry.helperProgress))
             }
             if !marks.more.isEmpty {
                 Text("+\(marks.more.count)")
@@ -495,6 +522,24 @@ struct AgentBadge: View {
                     .help(marks.more.joined(separator: ", "))
             }
         }
+    }
+}
+
+/// The count of running helpers on an agent's mark in the closed notch. Neutral,
+/// like the "+N" chip: blue means a question waiting for you.
+struct HelperBadge: View {
+    let text: String
+    /// How far it reaches past the mark's corner; the side pads by this much.
+    static let reach: CGFloat = 5
+
+    var body: some View {
+        Text(text)
+            .font(DS.font(.xs, .bold).monospacedDigit())
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 2.5)
+            .background(Capsule().fill(DS.Fill.medium))
+            .background(Capsule().fill(Theme.surface).padding(-1.5))
+            .fixedSize()
     }
 }
 
@@ -620,7 +665,7 @@ struct AgentSlot: View {
                             .offset(x: 6, y: 3)
                     }
                 }
-                .help((marks.shown.map { "\($0.agent): \($0.count)" } + marks.more).joined(separator: ", "))
+                .help(HelperProgress.slotHelp(marks: marks, progress: marks.shown.first { $0.agent == HelperProgress.agent }?.helperProgress ?? HelperProgress()))
         }
     }
 }

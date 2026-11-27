@@ -771,11 +771,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         #endif
         var message = message
         message.pid = ProcessTree.agentAncestor(of: message.pid)
+        // Only a PostToolUseFailure can fail a helper: compare the board then (copy on write).
+        let before = HelperFailure.mayFail(message) ? agents : nil
         agents.apply(message)
         mcp.record(message)
         noteEdit(message)
         dropAnsweredAdvice(message)
         noteStuck(message)
+        // After noteStuck: a helper failing is the more specific news for the same event.
+        if let before { noteHelperFailure(before) }
         readContextSoon(message)
         if let session = message.sessionID, agents.sessions.first(where: { $0.id == session })?.host == nil {
             if let app = ProcessTree.hostAppPath(of: message.pid) {
@@ -880,6 +884,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshStuck() } }
         stuckExpiry = work
         DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
+    }
+
+    /// A helper failed: peek for 6 s. More failing in the same session while it
+    /// shows add up ("3 helpers failed") instead of peeking again.
+    private func noteHelperFailure(_ before: AgentBoard) {
+        guard let failure = HelperFailure.new(before: before, after: agents) else { return }
+        // More from the same session while it shows: update the text, keep the
+        // timer, so a flood of failures can't hold the peek open.
+        if case .helperFailed(let current)? = model.peek, current.session == failure.session {
+            model.peek = .helperFailed(HelperFailure.merge(shown: current, new: failure))
+            return
+        }
+        show(.helperFailed(failure), for: 6)
     }
 
     /// The changes a turn made, as a diff in the default text editor.
