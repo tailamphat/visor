@@ -36,6 +36,8 @@ public final class SessionCostReader: @unchecked Sendable {
         /// repeats a response's usage on each of its content blocks.
         var seen = Set<Int>()
         var cost = SessionCost(dollars: 0, tokens: 0)
+        /// The harness X-ray of each file, read alongside the cost until its first reply.
+        var xrays: [String: XRayScanner] = [:]
     }
 
     private var tallies: [String: Tally] = [:]
@@ -72,6 +74,31 @@ public final class SessionCostReader: @unchecked Sendable {
         tallies[session]?.offsets[file]
     }
 
+    /// The session's harness X-ray, once its first reply has been read.
+    public func xray(session: String) -> HarnessXRay? {
+        guard let tally = tallies[session] else { return nil }
+        return tally.xrays[tally.path]?.result
+    }
+
+    /// The X-rays of the session's helpers that have replied, by agent id
+    /// (from `subagents/agent-<id>.jsonl`).
+    public func helperXRays(session: String) -> [String: HarnessXRay] {
+        guard let tally = tallies[session] else { return [:] }
+        var found: [String: HarnessXRay] = [:]
+        for (file, scanner) in tally.xrays where file != tally.path {
+            guard let result = scanner.result else { continue }
+            var name = ((file as NSString).lastPathComponent as NSString).deletingPathExtension
+            if name.hasPrefix("agent-") { name.removeFirst("agent-".count) }
+            found[name] = result
+        }
+        return found
+    }
+
+    /// Lines the X-ray of one file has parsed, for tests.
+    func xrayLinesParsed(of file: String, session: String) -> Int? {
+        tallies[session]?.xrays[file]?.linesParsed
+    }
+
     /// Drops the tallies of sessions that are gone.
     public func forget(keeping ids: Set<String>) {
         tallies = tallies.filter { ids.contains($0.key) }
@@ -79,6 +106,7 @@ public final class SessionCostReader: @unchecked Sendable {
 
     private func consume(_ file: String, from start: UInt64, into tally: inout Tally) {
         guard let end = TranscriptUsage.readLines(of: file, from: start, { data in
+            if tally.xrays[file]?.isDone != true { tally.xrays[file, default: XRayScanner()].ingest(data) }
             TranscriptUsage.forEachUsageLine(in: data) { line in
                 guard let (key, usage) = TranscriptUsage.parse(line: line) else { return }
                 if let key, !tally.seen.insert(key.hashValue).inserted { return }
