@@ -110,8 +110,11 @@ public final class SessionCostReader: @unchecked Sendable {
     }
 
     /// What each of the session's helpers has cost and done, by agent id.
+    /// Each carries its own transcript's X-ray once that has replied.
     public func helperStats(session: String) -> [String: HelperStats] {
-        tallies[session]?.helpers ?? [:]
+        var stats = tallies[session]?.helpers ?? [:]
+        for (id, xray) in helperXRays(session: session) where stats[id] != nil { stats[id]?.xray = xray }
+        return stats
     }
 
     /// Lines the X-ray of one file has parsed, for tests.

@@ -54,6 +54,14 @@ struct HelperStatsTests {
         #expect(s.model == "claude-sonnet-4-5")
     }
 
+    @Test func helperStatsCarryXRay() throws {
+        try helper("a1", [reply("1", input: 10, cacheRead: 2000)])
+        let s = try #require(stats("a1"))
+        let xray = try #require(s.xray)
+        #expect(xray.total == 2010)
+        #expect(s.xray == reader.helperXRays(session: "s1")["a1"])
+    }
+
     @Test func toolCountsOnceEach() throws {
         try helper("a1", [reply("1", tool: "Bash", toolID: "t1"), reply("1", tool: "Bash", toolID: "t1"),
                            reply("2", tool: "Bash"), reply("3", tool: "Read")])
@@ -205,6 +213,22 @@ struct AgentBoardHelperStatsTests {
         st.context = 12_000
         next.setHelperStats(["a1": st], session: "s1")
         #expect(next.differsVisibly(from: board))
+    }
+
+    @Test func pillAndStartedShowOnTheirOwn() {
+        var board = AgentBoard()
+        board.apply(call("t1"))
+        board.apply(start("a1"))
+        var st = HelperStats(); st.toolUseID = "t1"
+        board.setHelperStats(["a1": st], session: "s1")
+        var typed = board
+        st.agentType = "general-purpose"
+        typed.setHelperStats(["a1": st], session: "s1")
+        #expect(typed.differsVisibly(from: board))
+        var started = typed
+        st.xray = HarnessXRay(total: 22_000, model: "claude-sonnet-4-5", prompt: 0, skills: 0, instructions: [], mcp: [], systemAndTools: 22_000)
+        started.setHelperStats(["a1": st], session: "s1")
+        #expect(started.differsVisibly(from: typed))
     }
 
     @Test func statsForAHelperThatIsGoneAreDropped() {

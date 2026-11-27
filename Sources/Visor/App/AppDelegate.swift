@@ -747,7 +747,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             playIntro(brief: message.payload["kind"] as? String == "hello")
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents; "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list; "xray":true/false the Harness list.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents ("helperRow":"<helper id>" selects a row and logs its card's line count to helpers-debug.log); "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list; "xray":true/false the Harness list.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
@@ -755,6 +755,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if message.payload["keyboard"] as? Bool == true { model.focusClipSearch?() }
             model.showAccounts = message.payload["accounts"] as? Bool == true
             if let helpers = message.payload["helpers"] as? String { model.helpersOpen = helpers.isEmpty ? nil : helpers }
+            if let row = message.payload["helperRow"] as? String, let session = model.board.sessions.first(where: { $0.id == model.helpersOpen }) {
+                model.helperSelected = row.isEmpty ? nil : row
+                model.helperSelectedTurn = session.turnStart
+                let lines = HelpersList.detail(for: session, model: model)?.lines.count ?? 0
+                let log = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Visor/helpers-debug.log")
+                try? FileManager.default.createDirectory(at: log.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? Data("\(Date().timeIntervalSince1970) helperRow \(row) lines \(lines)\n".utf8).write(to: log)
+            }
             if let office = message.payload["office"] as? Bool { model.agentsOffice = office }
             if let world = message.payload["world"] as? String { model.officeWorld = OfficeWorld(saved: world) }
             if let picker = message.payload["worldPicker"] as? Bool { model.officePicker = picker }

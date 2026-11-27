@@ -17,20 +17,25 @@ public struct HelperStats: Equatable, Sendable, Codable {
     public var toolUseID: String?
     public var parentAgentID: String?
     public var agentType: String?
+    /// What it started with before its first reply (its own transcript's X-ray).
+    public var xray: HarnessXRay?
     var metaDone = false
 
     public init() {}
 
-    /// Only what a view shows: cost as its label, context in thousands, model, tool counts.
+    /// Only what a view shows: cost as its label, context in thousands, model, tool counts, type, X-ray.
     public struct Shown: Equatable, Sendable {
         public var cost: String?
         public var contextK: Int
         public var model: String?
         public var tools: [String: Int]
+        /// The detail card's type pill and Started line.
+        public var agentType: String?
+        public var xray: HarnessXRay?
     }
     public var shown: Shown {
         Shown(cost: SessionCost(dollars: dollars, tokens: tokens, unpriced: unpriced).label,
-              contextK: context / 1000, model: model, tools: tools)
+              contextK: context / 1000, model: model, tools: tools, agentType: agentType, xray: xray)
     }
 
     public static let maxID = 128

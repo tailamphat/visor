@@ -117,7 +117,7 @@ struct NotchLayout {
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
                 if !model.stuck.isEmpty { content += StuckBanner.height + 6 }  // an agent going round in circles
                 if let handoff = model.handoff { content += HandoffBanner.height(for: handoff) + 6 }  // a Claude limit running out
-                if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers) + 6 }  // a session's subagents
+                if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers, model: model) + 6 }  // a session's subagents
                 content += MCPSection.height(model)  // the MCP line, and its server list when open
                 content += HarnessSection.height(model)  // the Harness line, and its X-ray list when open
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))

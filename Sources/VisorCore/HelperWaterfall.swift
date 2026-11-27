@@ -91,6 +91,13 @@ public enum HelperWaterfall {
         shows(session) && detail.hasPrefix("Waiting on ")
     }
 
+    public static let detailGap = 4.0
+
+    /// With the selected row's detail card, when one shows.
+    public static func height(rows: Int, detail: HelperDetail?) -> Double {
+        height(rows: rows) + (detail.map { $0.height + detailGap } ?? 0)
+    }
+
     public static func height(rows: Int) -> Double {
         2 * padding + headerHeight + axisHeight + Double(rows) * rowHeight + captionHeight
     }
