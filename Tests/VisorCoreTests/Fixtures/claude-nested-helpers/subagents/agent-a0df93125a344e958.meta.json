@@ -1,0 +1,1 @@
+{"agentType":"general-purpose","isBuiltIn":true,"description":"Run echo hi check","toolUseId":"toolu_01UozCToGog5vyzYbCunNxz9","parentAgentId":"aa4eb4f3833ee7f21","spawnDepth":2,"requestShape":"foreground","requestNonInteractive":true,"model":"claude-haiku-5-5","modelNotNamed":true,"pickedEffortModel":"claude-haiku-5-5","finished":true}
