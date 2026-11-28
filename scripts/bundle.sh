@@ -47,8 +47,15 @@ BUILD="${VISOR_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 if [[ "${VISOR_RELEASE:-}" == 1 ]]; then
   /usr/libexec/PlistBuddy -c "Add :VisorRelease string YES" "$APP/Contents/Info.plist"
 fi
-# Icons come from scripts/make-icon.swift.
-cp Resources/AppIcon.icns Resources/MenuIcon.png "$APP/Contents/Resources/"
+# Icons come from scripts/make-icon.swift. Local builds get the "Blueprint" dev
+# variants under the release names, so Info.plist and the app load them unchanged;
+# a missing dev file falls back to the release one.
+for icon in AppIcon.icns MenuIcon.png; do
+  src="Resources/$icon"
+  dev="Resources/${icon%.*}-Dev.${icon##*.}"
+  if [[ "${VISOR_RELEASE:-}" != 1 && -f "$dev" ]]; then src="$dev"; fi
+  cp "$src" "$APP/Contents/Resources/$icon"
+done
 # Sign with a stable local identity when there is one, so macOS keeps the
 # Accessibility and Automation permissions across rebuilds (an ad-hoc
 # signature is tied to the exact binary and changes every build).
