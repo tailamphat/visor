@@ -510,10 +510,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Claude Code may still be writing the reply when the hook runs.
         let costReader = costReader
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (reading, model, cost, xray, helperStats, lastReply) = autoreleasepool {
+            let (reading, model, cost, xray, helperStats, lastReply, turn) = autoreleasepool {
                 let cost = costReader.read(transcript: path, session: session)
                 return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session),
-                        costReader.helperStats(session: session), costReader.lastReply(session: session))
+                        costReader.helperStats(session: session), costReader.lastReply(session: session), costReader.lastTurn(session: session))
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -523,7 +523,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.agents.setContext(tokens: reading.tokens, model: model, provenWindow: reading.provenWindow, session: session)
                     // A transcript missing for a moment keeps the last cost.
                     // The last reply rides along for the cache clock; the board republishes when it changes.
-                    if let cost { self.agents.setCost(cost, lastReply: lastReply, session: session) }
+                    if let cost { self.agents.setCost(cost, lastReply: lastReply, turn: turn, session: session) }
                     if let xray { self.gotXRay(xray, session: session, path: path) }
                     self.agents.setHelperStats(helperStats, session: session)
                     self.publishAgents()
@@ -784,7 +784,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             playIntro(brief: message.payload["kind"] as? String == "hello")
             return
         }
-        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents ("helperRow":"<helper id>" selects a row and logs its card's line count to helpers-debug.log); "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list; "xray":true/false the Harness list.
+        // {"event":"_show","raw":{"tab":"usage"}} opens a tab; tab "none" collapses; "keyboard":true focuses the clipboard search; "accounts":true shows Connected accounts; "helpers":"<session id>" opens that session's subagents ("helperRow":"<helper id>" selects a row and logs its card's line count to helpers-debug.log); "office":true/false switches the Agents tab ("world":"galaxy" picks its world); "tokens":true/false the Usage tab ("page":"models" picks its view); "clipHover":n hovers a clipboard row; "mcp":true/false opens or closes the MCP server list; "xray":true/false the Harness list; "scrollEnd":true scrolls the Agents list to its last line.
         if message.event == "_show" {
             let tab = message.payload["tab"] as? String
             model.pinned = tab != nil && tab != "none"
@@ -806,6 +806,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let tokens = message.payload["tokens"] as? Bool { model.usageTokens = tokens }
             if let open = message.payload["mcp"] as? Bool { model.mcpOpen = open && model.mcp != nil }
             if let open = message.payload["xray"] as? Bool { model.harnessOpen = open && model.harness != nil }
+            if message.payload["scrollEnd"] as? Bool == true { model.agentsScrollEnd += 1 }  // the Agents list to its last line
             if let page = (message.payload["page"] as? String).flatMap(TokensPage.init(rawValue:)) { model.tokensPage = page }
             // "clipHover": n hovers the clipboard's nth row (0-based).
             if let row = (message.payload["clipHover"] as? NSNumber)?.intValue, model.clips.items.indices.contains(row) {

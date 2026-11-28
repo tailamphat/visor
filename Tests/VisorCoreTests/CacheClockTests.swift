@@ -110,7 +110,7 @@ struct CacheClockTests {
         #expect(CacheClock.line(last: usage(w5: 1), stoppedAt: stop, now: stop.addingTimeInterval(300))?.warm == false)
     }
 
-    // QA case 28: prices from under a cent to thousands, always whole.
+    // QA case 28 (epic QA case 9): prices from under a cent to thousands, always whole.
     @Test func pricesFromCentsToThousands() {
         #expect(CacheClock.dollars(0.0004) == "$0.01")
         #expect(CacheClock.dollars(0.5) == "$0.50")
@@ -121,7 +121,7 @@ struct CacheClockTests {
         #expect(CacheClock.dollars(1_234_567) == "$1,234,567")
     }
 
-    // QA case 29: token counts stay compact up to billions.
+    // QA case 29 (epic QA case 10): token counts stay compact up to billions.
     @Test func tokenCountsCompact() {
         #expect(CacheClock.tokens(640) == "640")
         #expect(CacheClock.tokens(142_400) == "142k")

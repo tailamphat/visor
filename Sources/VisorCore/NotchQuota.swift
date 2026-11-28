@@ -156,6 +156,17 @@ public enum NotchEars {
         return blocks.reduce(0, +) + Double(groupSizes.count - 1) * gap + Double(cacheRows) * cacheLine
     }
 
+    /// The full Agents list (every session, grouped as `AgentBoard.groups` shows them).
+    public static func agentsList(sessions: [AgentSession]) -> Double {
+        agentsList(groups: AgentBoard.groups(sessions))
+    }
+
+    /// The same, for groups already made.
+    public static func agentsList(groups: [(agent: String, sessions: [AgentSession])]) -> Double {
+        let tall = groups.reduce(0) { $0 + AgentBoard.cacheRows($1.sessions) }
+        return agentsGrid(groupSizes: groups.map(\.sessions.count), cacheRows: tall)
+    }
+
     /// The capped Agents list (`AgentsDigest`): a 17 pt header, rows of two cards,
     /// a 30 pt "more" row, then a 26 pt line per tool with folded idle sessions.
     public static func agentsDigest(cards: Int, idleLines: Int, cacheRows: Int = 0) -> Double {

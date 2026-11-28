@@ -56,6 +56,35 @@ struct NotchLayout {
     /// A panel just tall enough for content of this height, with the same room below it.
     func fitting(_ content: CGFloat) -> CGFloat { notch.height + Self.contentTop + content + Self.inset }
 
+    /// Everything in the Agents panel besides the cards, as the view shows it: the banners
+    /// above the list (one each, as `AgentsView` shows the first), the MCP and Harness lines
+    /// with their open lists, the Connect button and an open helpers list. A new banner or
+    /// line in `AgentsView` is added here too.
+    static func agentsExtras(_ model: AppModel) -> AgentsPanelExtras {
+        var banners: CGFloat = 0
+        if let away = model.away { banners += AwayRecapBanner.height(for: away) + 6 }  // what changed while locked
+        if !model.clashes.isEmpty { banners += ClashBanner.height + 6 }  // two agents on one file
+        if !model.stuck.isEmpty { banners += StuckBanner.height + 6 }  // an agent going round in circles
+        if let handoff = model.handoff { banners += HandoffBanner.height(for: handoff) + 6 }  // a Claude limit running out
+        banners += MCPSection.height(model)  // the MCP line, and its server list when open
+        banners += HarnessSection.height(model)  // the Harness line, and its X-ray list when open
+        let helpers = AgentsView.openHelpers(model)  // a session's subagents, under its card
+        return AgentsPanelExtras(banners: Double(banners), connect: !model.hooksInstalled, helpers: helpers?.id,
+                                 helpersHeight: helpers.map { Double(HelpersList.height(for: $0, model: model)) + 6 } ?? 0)
+    }
+
+    /// The content height the Agents list may take before the panel stops growing.
+    var agentsMaxContent: Double { Double(Self.listMaxHeight - notch.height - Self.contentTop - Self.inset) }
+
+    /// One digest per input, shared by the panel's size and the list.
+    private static let agentsMemo = AgentsPanel.Memo()
+
+    /// The one Agents digest the panel's size and the list both use: the list folds whole
+    /// rows when the cards, with everything around them, would pass the tallest panel.
+    func agentsDigest(_ model: AppModel, extras: AgentsPanelExtras? = nil) -> AgentsDigest {
+        Self.agentsMemo.digest(sessions: model.board.sessions, maxContent: agentsMaxContent, extras: extras ?? Self.agentsExtras(model))
+    }
+
     func size(for model: AppModel) -> CGSize {
         if model.expanded {
             if let first = model.approvals.first {
@@ -104,25 +133,10 @@ struct NotchLayout {
                               height: notch.height + Self.contentTop + OfficeView.height(for: model.board.sessions))
             }
             if model.tab == .agents && !model.board.sessions.isEmpty {
-                // Grow with the list: a header per agent group and rows of two cards, then scroll.
-                let digest = AgentsDigest(sessions: model.board.sessions)
-                var content: CGFloat
-                if digest.capped && !model.agentsShowAll {
-                    content = CGFloat(NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count,
-                                                            cacheRows: AgentBoard.cacheRows(digest.top)))
-                } else {
-                    let groups = AgentsView.groups(model.board.sessions)
-                    let tall = groups.reduce(0) { $0 + AgentBoard.cacheRows($1.sessions) }  // rows with a cache line
-                    content = CGFloat(NotchEars.agentsGrid(groupSizes: groups.map(\.sessions.count), cacheRows: tall)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
-                }
-                if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
-                if let away = model.away { content += AwayRecapBanner.height(for: away) + 6 }  // what changed while locked
-                if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
-                if !model.stuck.isEmpty { content += StuckBanner.height + 6 }  // an agent going round in circles
-                if let handoff = model.handoff { content += HandoffBanner.height(for: handoff) + 6 }  // a Claude limit running out
-                if let helpers = AgentsView.openHelpers(model) { content += HelpersList.height(for: helpers, model: model) + 6 }  // a session's subagents
-                content += MCPSection.height(model)  // the MCP line, and its server list when open
-                content += HarnessSection.height(model)  // the Harness line, and its X-ray list when open
+                // Grow with the list: a header per agent group and rows of two cards; past the room, fold whole rows.
+                let extras = Self.agentsExtras(model)
+                let digest = agentsDigest(model, extras: extras)
+                let content = CGFloat(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: model.agentsShowAll))
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
             }
             // Nothing playing: a little shorter than the other panels, it's only a message.
@@ -593,7 +607,7 @@ struct ExpandedView: View {
                         if model.showsOffice {
                             OfficeView(model: model)
                         } else {
-                            AgentsView(model: model)
+                            AgentsView(model: model, digest: layout.agentsDigest(model))
                         }
                     case .usage:
                         if model.showAccounts { AccountsView(model: model) }

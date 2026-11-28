@@ -5,6 +5,8 @@ private typealias Spec = DesignComponents
 
 struct AgentsView: View {
     let model: AppModel
+    /// From `NotchLayout.agentsDigest`, so the list folds exactly as the panel's size counts it.
+    let digest: AgentsDigest
 
     var body: some View {
         // The cards' one clock: ticks only while the list is on screen.
@@ -23,8 +25,7 @@ struct AgentsView: View {
 
     @ViewBuilder private var content: some View {
         // Worked out once per update; the list below reads them several times.
-        let digest = AgentsDigest(sessions: model.board.sessions)
-        let groups = Self.groups(model.board.sessions)
+        let groups = digest.groups
         if !model.hooksInstalled && !model.antigravityHooksInstalled && model.board.sessions.isEmpty {
             EmptyState(symbol: "link", title: "Connect your agents",
                        detail: "Adds Visor hooks so the notch can see Claude Code, Copilot CLI and Antigravity sessions, and ask you for approvals.",
@@ -33,9 +34,9 @@ struct AgentsView: View {
             EmptyState(symbol: "sparkles", title: "No agents running",
                        detail: "Start claude, copilot or agy in a terminal and it shows up here.")
         } else if digest.capped && !model.agentsShowAll {
-            ScrollView(.vertical, showsIndicators: false) { self.digest(digest) }
+            scrolling { digestList(digest) }
         } else {
-            ScrollView(.vertical, showsIndicators: false) {
+            scrolling {
                 VStack(alignment: .leading, spacing: 6) {
                     // Grouped by agent, Claude Code first; within a group, who needs you first.
                     ForEach(groups, id: \.agent) { group in
@@ -72,6 +73,23 @@ struct AgentsView: View {
         }
     }
 
+    /// The list scrolls when even its shortest fold and everything around it pass the tallest
+    /// panel; its last line is then reachable with its bottom padding (debug: `"scrollEnd":true`).
+    private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        let list = content()
+        return ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    list
+                    Color.clear.frame(height: 0).id(Self.listEnd)
+                }
+            }
+            .onChange(of: model.agentsScrollEnd) { _, _ in proxy.scrollTo(Self.listEnd, anchor: .bottom) }
+        }
+    }
+
+    private static let listEnd = "agents-list-end"
+
     /// Cards in rows of two; both cards of a row with a cache line grow with it.
     private func cards(_ sessions: [AgentSession]) -> some View {
         ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
@@ -95,7 +113,7 @@ struct AgentsView: View {
 
     /// Many sessions: whoever needs you, then the busiest, then the most recent, as
     /// cards (at most 8); the rest in one row, and idle ones folded per tool.
-    private func digest(_ digest: AgentsDigest) -> some View {
+    private func digestList(_ digest: AgentsDigest) -> some View {
         let waiting = model.board.sessions.filter { $0.state.attention != nil }.count
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
@@ -153,26 +171,6 @@ struct AgentsView: View {
     /// The warning standing for `session`, if it's going round in circles.
     static func stuck(for session: AgentSession, in stuck: [Stuck]) -> Stuck? {
         stuck.first { $0.session == session.id }
-    }
-
-    static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
-        let rank = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2]
-        return Dictionary(grouping: sessions, by: \.agent)
-            .map { ($0.key, $0.value.sorted(by: Self.order)) }
-            .sorted { (rank[$0.agent] ?? 9, $0.agent) < (rank[$1.agent] ?? 9, $1.agent) }
-    }
-
-    /// Sessions that need you first, then busy ones, then the rest by recency.
-    static func order(_ a: AgentSession, _ b: AgentSession) -> Bool {
-        func rank(_ s: AgentSession) -> Int {
-            switch s.state {
-            case .needsApproval, .asking, .needsInput: return 0
-            case .working: return 1
-            case .done: return 2
-            case .idle: return 3
-            }
-        }
-        return rank(a) != rank(b) ? rank(a) < rank(b) : a.lastEvent > b.lastEvent
     }
 }
 

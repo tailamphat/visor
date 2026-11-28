@@ -78,6 +78,13 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var cost: SessionCost?
     /// Its main transcript's last reply, for the cache clock. Optional so older saved sessions load.
     public var lastReply: TokenUsage?
+    /// Where that reply sits against the transcript's newest real prompt (`SessionCostReader.lastTurn`).
+    public var replyTurn: TurnReply?
+    /// The last reply known when the current turn's prompt was sent.
+    public var promptReply: TokenUsage?
+    /// How many prompt entries had been read when the current turn's prompt was sent; a read
+    /// vouches for this turn only once it has seen more.
+    public var promptSeen: Int?
     /// What its harness put in the context before the first prompt (Claude Code), from
     /// its first reply. Optional so older saved sessions load.
     public var xray: HarnessXRay?
@@ -99,11 +106,17 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     }
 
     /// A finished Claude Code turn whose last reply is known, priced and from this
-    /// turn: its card shows the cache line (`CacheClock`).
+    /// turn: its card shows the cache line (`CacheClock`). "From this turn" is the
+    /// transcript's order: the reply follows the newest prompt entry, and that entry is
+    /// this turn's (more entries than were read at the prompt; with none read then, an
+    /// entry stamped no earlier than a second before the prompt's whole second).
     public var showsCacheLine: Bool {
         guard agent == "Claude Code", state == .done, let lastReply,
-              Pricing.price(for: lastReply.model) != nil else { return false }
-        return lastReply.timestamp >= (turnStart ?? .distantPast)
+              Pricing.price(for: lastReply.model) != nil, lastReply != promptReply,
+              let turn = replyTurn, turn.replyAfterPrompt else { return false }
+        if let promptSeen { return turn.promptIndex > promptSeen }
+        guard let turnStart else { return true }
+        return turn.promptAt >= Date(timeIntervalSince1970: turnStart.timeIntervalSince1970.rounded(.down) - 1)
     }
 
     public var isActive: Bool {
@@ -158,6 +171,10 @@ public struct AgentBoard: Equatable, Sendable {
             // Before turnStart moves: a session's first turn starts from nothing.
             sessions[index].turnCostBase = sessions[index].turnStart == nil ? sessions[index].cost?.dollars ?? 0 : sessions[index].cost?.dollars
             sessions[index].turnStart = now
+            // The cache clock: what was read before this prompt can't vouch for this turn.
+            sessions[index].promptSeen = sessions[index].replyTurn?.promptIndex
+            sessions[index].promptReply = sessions[index].lastReply
+            sessions[index].replyTurn = nil
             sessions[index].turn = TurnStats()
             sessions[index].helpers.removeAll(where: \.done)
             // A running helper whose finished parent just went is now one the session waits on.
@@ -480,11 +497,34 @@ public struct AgentBoard: Equatable, Sendable {
         }
     }
 
-    /// A session's cost so far and its last reply, as read from its transcript.
-    public mutating func setCost(_ cost: SessionCost?, lastReply: TokenUsage? = nil, session id: String) {
+    /// A session's cost so far, its last reply and where that reply sits against the newest prompt, as read from its transcript.
+    public mutating func setCost(_ cost: SessionCost?, lastReply: TokenUsage? = nil, turn: TurnReply? = nil, session id: String) {
         guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[i].cost = cost
         if let lastReply { sessions[i].lastReply = lastReply }
+        if let turn { sessions[i].replyTurn = turn }
+    }
+
+    /// The Agents list's groups: one per agent, Claude Code first; within a group,
+    /// sessions that need you first, then busy ones, then the rest by recency.
+    public static func groups(_ sessions: [AgentSession]) -> [(agent: String, sessions: [AgentSession])] {
+        let rank = ["Claude Code": 0, "Copilot CLI": 1, "Antigravity": 2]
+        return Dictionary(grouping: sessions, by: \.agent)
+            .map { ($0.key, $0.value.sorted(by: order)) }
+            .sorted { (rank[$0.agent] ?? 9, $0.agent) < (rank[$1.agent] ?? 9, $1.agent) }
+    }
+
+    /// Sessions that need you first, then busy ones, then the rest by recency.
+    public static func order(_ a: AgentSession, _ b: AgentSession) -> Bool {
+        func rank(_ s: AgentSession) -> Int {
+            switch s.state {
+            case .needsApproval, .asking, .needsInput: return 0
+            case .working: return 1
+            case .done: return 2
+            case .idle: return 3
+            }
+        }
+        return rank(a) != rank(b) ? rank(a) < rank(b) : a.lastEvent > b.lastEvent
     }
 
     /// Rows of two cards (in this order) where a card shows the cache line.
@@ -578,7 +618,7 @@ extension AgentBoard {
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
                 || Self.helpersDiffer(a.helperList, b.helperList) || a.cost?.label != b.cost?.label || a.xray != b.xray
                 // The last reply shows only in the cache line, so mid-turn replies don't redraw.
-                || ((a.showsCacheLine || b.showsCacheLine) && a.lastReply != b.lastReply)
+                || a.showsCacheLine != b.showsCacheLine || ((a.showsCacheLine || b.showsCacheLine) && a.lastReply != b.lastReply)
         }
     }
 }

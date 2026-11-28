@@ -266,6 +266,8 @@ final class AppModel {
     var agentsNow = Date()
     /// The Agents list shows every session, past the cap of 8 cards.
     var agentsShowAll = false
+    /// Debug builds: bumped by `_show` with `"scrollEnd":true` to scroll the Agents list to its last line.
+    var agentsScrollEnd = 0
     /// The session whose helpers waterfall shows under the cards (its ⑂ button or "Waiting on N helpers ›").
     var helpersOpen: String? {
         didSet { if helpersOpen != oldValue { helperSelected = nil } }

@@ -173,6 +173,92 @@ struct SessionCostTests {
     @Test func missingTranscriptGivesNothing() {
         #expect(SessionCostReader().read(transcript: dir.appendingPathComponent("none.jsonl").path, session: "s1") == nil)
     }
+
+    // C1 I3b: the cache clock's turn comes from transcript order, never from comparing clocks.
+    private func prompt(_ text: String, at stamp: String, extra: String = "") -> String {
+        #"{"type":"user",\#(extra)"timestamp":"\#(stamp)","message":{"role":"user","content":"\#(text)"}}"#
+    }
+
+    private func reply(_ id: String, at stamp: String) -> String {
+        #"{"type":"assistant","requestId":"req_\#(id)","timestamp":"\#(stamp)","message":{"id":"msg_\#(id)","model":"claude-opus-4-5","usage":{"input_tokens":10,"output_tokens":5}}}"#
+    }
+
+    @Test func lastTurnFollowsTranscriptOrder() throws {
+        try write([prompt("one", at: "2026-11-23T10:00:00.000Z"), reply("a", at: "2026-11-23T10:00:02.000Z"),
+                   prompt("two", at: "2026-11-23T10:00:05.000Z")])
+        let reader = SessionCostReader()
+        _ = reader.read(transcript: path, session: "s1")
+        let before = try #require(reader.lastTurn(session: "s1"))
+        #expect(!before.replyAfterPrompt && before.promptIndex == 2)
+        #expect(before.promptAt == ISODate.parse("2026-11-23T10:00:05.000Z"))
+        // A reply stamped 0.9 s before the prompt but written after it belongs to it.
+        try append(reply("b", at: "2026-11-23T10:00:04.100Z") + "\n")
+        _ = reader.read(transcript: path, session: "s1")
+        let after = try #require(reader.lastTurn(session: "s1"))
+        #expect(after.replyAfterPrompt && after.promptIndex == 2)
+        // In one read the same.
+        let fresh = SessionCostReader()
+        _ = fresh.read(transcript: path, session: "s1")
+        #expect(fresh.lastTurn(session: "s1") == after)
+    }
+
+    @Test func promptEntrySkipsToolResultsMetaAndHelpers() throws {
+        try write([prompt("one", at: "2026-11-23T10:00:00.000Z"), reply("a", at: "2026-11-23T10:00:02.000Z"),
+                   #"{"type":"user","timestamp":"2026-11-23T10:00:03.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}"#,
+                   prompt("Caveat", at: "2026-11-23T10:00:04.000Z", extra: #""isMeta":true,"#),
+                   prompt("side", at: "2026-11-23T10:00:04.000Z", extra: #""isSidechain":true,"#),
+                   prompt("<command-name>/context</command-name>", at: "2026-11-23T10:00:05.000Z"),
+                   prompt("<local-command-stdout>Context 40k</local-command-stdout>", at: "2026-11-23T10:00:05.000Z"),
+                   prompt("This session is being continued", at: "2026-11-23T10:00:06.000Z", extra: #""isCompactSummary":true,"#),
+                   #"{"type":"user","timestamp":"2026-11-23T10:00:07.000Z","message":{"role":"user","content":[{"type":"image","source":{}}]}}"#])
+        let sub = dir.appendingPathComponent("s1/subagents")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try write([prompt("helper task", at: "2026-11-23T10:00:08.000Z")], to: sub.appendingPathComponent("agent-a.jsonl").path)
+        let reader = SessionCostReader()
+        _ = reader.read(transcript: path, session: "s1")
+        let turn = try #require(reader.lastTurn(session: "s1"))
+        #expect(turn.replyAfterPrompt && turn.promptIndex == 1)
+        #expect(turn.promptAt == ISODate.parse("2026-11-23T10:00:00.000Z"))
+    }
+
+    // I3 QA case 12: /context, /cost, a compact summary, a tool result, meta and sidechain lines after
+    // a finished turn leave its line (the reply still follows the real prompt).
+    @Test func qaCase12SlashCommandsKeepTheLine() throws {
+        try write([prompt("fix it", at: "2026-11-23T10:00:00.000Z"), reply("a", at: "2026-11-23T10:00:02.000Z")])
+        let reader = SessionCostReader()
+        _ = reader.read(transcript: path, session: "s1")
+        let before = try #require(reader.lastTurn(session: "s1"))
+        try append([prompt("<command-name>/context</command-name>", at: "2026-11-23T10:01:00.000Z"),
+                    prompt("<local-command-stdout>Context 40k</local-command-stdout>", at: "2026-11-23T10:01:00.000Z"),
+                    prompt("<command-name>/cost</command-name>\\n<command-message>cost</command-message>", at: "2026-11-23T10:01:05.000Z"),
+                    prompt("  <local-command-caveat>Caveat</local-command-caveat>", at: "2026-11-23T10:01:05.000Z"),
+                    prompt("Summary", at: "2026-11-23T10:02:00.000Z", extra: #""isCompactSummary":true,"#),
+                    #"{"type":"user","timestamp":"2026-11-23T10:02:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t9","content":"x"}]}}"#,
+                    prompt("meta", at: "2026-11-23T10:02:02.000Z", extra: #""isMeta":true,"#),
+                    prompt("side", at: "2026-11-23T10:02:03.000Z", extra: #""isSidechain":true,"#)].joined(separator: "\n") + "\n")
+        _ = reader.read(transcript: path, session: "s1")
+        #expect(reader.lastTurn(session: "s1") == before)
+        #expect(before.replyAfterPrompt)
+    }
+
+    // I3 QA cases 10 and 11: a reply from before the prompt (minutes, or 0.5 s for a queued prompt) is not this turn's.
+    @Test func qaCases10And11ReplyBeforePromptIsNotThisTurns() throws {
+        for (replyAt, promptAt) in [("2026-11-23T09:55:00.000Z", "2026-11-23T10:00:00.000Z"),
+                                    ("2026-11-23T10:00:00.000Z", "2026-11-23T10:00:00.500Z")] {
+            try write([prompt("one", at: "2026-11-23T09:50:00.000Z"), reply("a", at: replyAt), prompt("two", at: promptAt)])
+            let reader = SessionCostReader()
+            _ = reader.read(transcript: path, session: "s1")
+            let turn = try #require(reader.lastTurn(session: "s1"))
+            #expect(!turn.replyAfterPrompt && turn.promptIndex == 2, "reply at \(replyAt)")
+        }
+    }
+
+    @Test func noPromptEntryNoTurn() throws {
+        try write([reply("a", at: "2026-11-23T10:00:02.000Z")])
+        let reader = SessionCostReader()
+        _ = reader.read(transcript: path, session: "s1")
+        #expect(reader.lastTurn(session: "s1") == nil)
+    }
 }
 
 @Suite("Session cost last reply")

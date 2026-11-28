@@ -437,11 +437,143 @@ struct AgentCostTests {
         TokenUsage(model: model, timestamp: at, input: 10, cacheWrite5m: 1000, cacheRead: 5000)
     }
 
+    /// What the cost read says of the turn: the newest prompt entry (stamp and count) and whether the reply follows it.
+    private func turn(_ at: Date, _ index: Int, after: Bool = true) -> TurnReply {
+        TurnReply(promptAt: at, promptIndex: index, replyAfterPrompt: after)
+    }
+
+    @Test func quickTurnReplyShowsCacheLine() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0.addingTimeInterval(0.4))
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(0.9))
+        // Stamped in the same second as the prompt, before Visor got the hook.
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0), turn: turn(t0, 1), session: "s1")
+        #expect(board.sessions[0].showsCacheLine, "same second")
+        // Stamped 0.9 s before turnStart, but after the prompt in the transcript.
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(-0.5)), turn: turn(t0, 1), session: "s1")
+        #expect(board.sessions[0].showsCacheLine, "0.9 s before turnStart")
+    }
+
+    // I3 QA case 8: replies 0.5 s and 1 s after the prompt (whole-second stamps or not) show the line.
+    @Test func qaCase8RepliesHalfAndOneSecondAfterPrompt() {
+        let t0 = Date(timeIntervalSince1970: 1000.7)
+        for (delay, whole) in [(0.5, false), (1.0, false), (0.5, true), (1.0, true)] {
+            var board = AgentBoard()
+            board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0.addingTimeInterval(0.05))
+            board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(delay + 0.1))
+            var at = t0.addingTimeInterval(delay)
+            if whole { at = Date(timeIntervalSince1970: at.timeIntervalSince1970.rounded(.down)) }
+            let prompt = whole ? Date(timeIntervalSince1970: 1000) : t0
+            board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(at), turn: turn(prompt, 1), session: "s1")
+            #expect(board.sessions[0].showsCacheLine, "\(delay) s, whole seconds \(whole)")
+        }
+    }
+
+    // I3 QA case 13: no readable prompt entry (only an assistant reply in the transcript): no line.
+    @Test func qaCase13OnlyAReplyNoLine() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(2))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(1)), turn: nil, session: "s1")
+        #expect(!board.sessions[0].showsCacheLine)
+    }
+
+    @Test func lateReadOfPreviousReplyStaysHidden() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
+        #expect(board.sessions[0].promptReply == nil)
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(5))
+        // A, from before this prompt, read late: the transcript says it comes before the prompt.
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(-30)), turn: turn(t0, 3, after: false), session: "s1")
+        #expect(!board.sessions[0].showsCacheLine)
+        let b = reply(t0)
+        board.setCost(SessionCost(dollars: 2, tokens: 2), lastReply: b, turn: turn(t0, 3), session: "s1")
+        #expect(board.sessions[0].showsCacheLine && board.sessions[0].lastReply == b)
+        // Restored or started before launch: an old reply and nothing read of its prompt yet.
+        var restored = board.sessions[0]
+        restored.replyTurn = nil
+        restored.promptReply = nil
+        restored.lastReply = reply(t0.addingTimeInterval(-3600))
+        #expect(!restored.showsCacheLine)
+    }
+
+    @Test func queuedPromptPreviousReplyStaysHidden() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"one\"}"), now: t0.addingTimeInterval(-10))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(-9)), turn: turn(t0.addingTimeInterval(-10), 1), session: "s1")
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(-1))
+        // Reply A stamped t0 - 0.5 s, its read pending; the queued prompt fires at t0 + 0.2 s.
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"two\"}"), now: t0.addingTimeInterval(0.2))
+        let a = reply(t0.addingTimeInterval(-0.5))
+        board.setCost(SessionCost(dollars: 2, tokens: 2), lastReply: a, turn: turn(t0.addingTimeInterval(-10), 1), session: "s1")
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(1))
+        #expect(!board.sessions[0].showsCacheLine, "A's read saw only prompt 1")
+        board.setCost(SessionCost(dollars: 2, tokens: 2), lastReply: a, turn: turn(t0, 2, after: false), session: "s1")
+        #expect(!board.sessions[0].showsCacheLine, "A comes before prompt 2")
+        let b = reply(t0.addingTimeInterval(0.8))
+        board.setCost(SessionCost(dollars: 3, tokens: 3), lastReply: b, turn: turn(t0, 2), session: "s1")
+        #expect(board.sessions[0].showsCacheLine)
+    }
+
+    @Test func queuedPromptInsideTheClockWindowStaysHidden() {
+        // Prompt 1 stamped 0.6 s before turnStart: inside the 1 s window, so only the prompt count can tell.
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"one\"}"), now: t0.addingTimeInterval(-0.7))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(-3)), turn: turn(t0.addingTimeInterval(-5), 1, after: false), session: "s1")
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(-3)), turn: turn(t0.addingTimeInterval(-0.6), 2, after: false), session: "s1")
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"two\"}"), now: t0)
+        // A read that saw only prompt 2 (stamped t0 - 0.6 s) lands after prompt 3 was submitted.
+        board.setCost(SessionCost(dollars: 2, tokens: 2), lastReply: reply(t0.addingTimeInterval(-0.3)), turn: turn(t0.addingTimeInterval(-0.6), 2), session: "s1")
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(0.5))
+        #expect(!board.sessions[0].showsCacheLine)
+    }
+
+    @Test func noPromptEntryHidesCacheLine() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(5))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(3)), session: "s1")
+        #expect(!board.sessions[0].showsCacheLine)
+    }
+
+    @Test func turnArrivingLaterDiffersVisibly() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var a = AgentBoard()
+        a.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
+        a.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(5))
+        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(3)), session: "s1")
+        var b = a
+        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(3)), turn: turn(t0, 1), session: "s1")
+        #expect(b.differsVisibly(from: a))
+    }
+
+    @Test func savedSessionWithoutReplyTurnLoads() throws {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0), turn: turn(t0, 4), session: "s1")
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"again\"}"), now: t0.addingTimeInterval(9))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0), turn: turn(t0.addingTimeInterval(9), 5, after: false), session: "s1")
+        let kept = AgentBoard.restored(from: try board.saved()) { _ in true }
+        #expect(kept.sessions.first?.replyTurn == board.sessions[0].replyTurn && kept.sessions.first?.promptSeen == 4)
+        #expect(kept.sessions.first?.promptReply == reply(t0))
+        var object = try #require(JSONSerialization.jsonObject(with: board.saved()) as? [[String: Any]])
+        for key in ["replyTurn", "promptSeen", "promptReply"] { object[0][key] = nil }
+        let old = AgentBoard.restored(from: try JSONSerialization.data(withJSONObject: object)) { _ in true }
+        #expect(old.sessions.count == 1 && old.sessions[0].replyTurn == nil && old.sessions[0].promptSeen == nil && old.sessions[0].promptReply == nil)
+    }
+
     @Test func cacheLineShowsOnlyOnFinishedClaudeWithReply() {
         let t0 = Date(timeIntervalSince1970: 1000)
         var board = AgentBoard()
         board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: t0)
-        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(5)), session: "s1")
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(t0.addingTimeInterval(5)), turn: turn(t0, 1), session: "s1")
         #expect(!board.sessions[0].showsCacheLine, "working")
         board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(10))
         #expect(board.sessions[0].showsCacheLine, "finished with a reply")
@@ -458,8 +590,11 @@ struct AgentCostTests {
         #expect(!s.showsCacheLine, "no reply")
         s.lastReply = reply(t0.addingTimeInterval(5), model: "gpt-unknown")
         #expect(!s.showsCacheLine, "unpriced")
-        s.lastReply = reply(t0.addingTimeInterval(-60))
-        #expect(!s.showsCacheLine, "stale: older than this turn's prompt")
+        s = board.sessions[0]
+        s.replyTurn = turn(t0, 1, after: false)
+        #expect(!s.showsCacheLine, "stale: the reply comes before this turn's prompt")
+        s.replyTurn = nil
+        #expect(!s.showsCacheLine, "no prompt entry read")
     }
 
     @Test func setCostKeepsLastReply() {
@@ -475,16 +610,16 @@ struct AgentCostTests {
     @Test func lastReplyChangeDiffersVisibly() {
         var a = AgentBoard()
         a.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: Date(timeIntervalSince1970: 10))
-        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 20)), session: "s1")
+        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 20)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 10), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         var working = a
-        working.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 40)), session: "s1")
+        working.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 40)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 10), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         #expect(!working.differsVisibly(from: a), "mid-turn reply: no line shows")
         a.apply(hook("Stop", "{\(base)}"), now: Date(timeIntervalSince1970: 60))
-        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), session: "s1")
+        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 10), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         var b = a
-        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), session: "s1")
+        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 10), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         #expect(!b.differsVisibly(from: a), "same reply")
-        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 90)), session: "s1")
+        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 90)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 10), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         #expect(b.differsVisibly(from: a), "a new reply")
     }
 
@@ -492,11 +627,11 @@ struct AgentCostTests {
         // Finished, but the stored reply is from the turn before: no line yet.
         var a = AgentBoard()
         a.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"go\"}"), now: Date(timeIntervalSince1970: 100))
-        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), session: "s1")
+        a.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 50)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 100), promptIndex: 1, replyAfterPrompt: false), session: "s1")
         a.apply(hook("Stop", "{\(base)}"), now: Date(timeIntervalSince1970: 130))
         #expect(!a.sessions[0].showsCacheLine)
         var b = a
-        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 125)), session: "s1")
+        b.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: reply(Date(timeIntervalSince1970: 125)), turn: TurnReply(promptAt: Date(timeIntervalSince1970: 100), promptIndex: 1, replyAfterPrompt: true), session: "s1")
         #expect(b.sessions[0].showsCacheLine && b.differsVisibly(from: a))
     }
 
@@ -505,6 +640,7 @@ struct AgentCostTests {
         func card(_ id: String, line: Bool) -> AgentSession {
             var s = AgentSession(id: id, agent: "Claude Code", cwd: "/Users/me/\(id)", state: line ? .done : .working("x"), since: t0)
             s.lastReply = reply(t0)
+            s.replyTurn = TurnReply(promptAt: t0, promptIndex: 1, replyAfterPrompt: true)
             return s
         }
         let l = card("a", line: true), n = card("b", line: false)
@@ -529,6 +665,7 @@ struct AgentCostTests {
         let sessions = (1...9).map { n -> AgentSession in
             var s = AgentSession(id: "s\(n)", agent: "Claude Code", cwd: "/Users/me/p\(n)", state: .done, since: t0.addingTimeInterval(Double(-n)))
             s.lastReply = reply(t0.addingTimeInterval(-100))
+            s.replyTurn = TurnReply(promptAt: t0, promptIndex: 1, replyAfterPrompt: true)
             return s
         }
         let digest = AgentsDigest(sessions: sessions)
@@ -541,6 +678,85 @@ struct AgentCostTests {
         // Without cache lines the eight stay.
         let plain = sessions.map { s -> AgentSession in var s = s; s.lastReply = nil; return s }
         #expect(AgentsDigest(sessions: plain).top.count == 8)
+    }
+
+    /// Eight finished Claude Code sessions, every card with its cache line (four tall rows).
+    private func eightWithLines() -> [AgentSession] {
+        let t0 = Date()
+        return (1...8).map { n -> AgentSession in
+            var s = AgentSession(id: "s\(n)", agent: "Claude Code", cwd: "/Users/me/p\(n)", state: .done, since: t0.addingTimeInterval(Double(-n)))
+            s.lastReply = reply(t0.addingTimeInterval(-100))
+            s.replyTurn = TurnReply(promptAt: t0, promptIndex: 1, replyAfterPrompt: true)
+            return s
+        }
+    }
+
+    /// The room under a 32 pt notch: 402 - 32 - 8 - 18.
+    private let panelRoom = 344.0
+
+    // Epic QA finding 1: the away card (74 + 6) above eight cards with cache lines.
+    @Test func digestFoldsWhenRoomIsShort() {
+        let sessions = eightWithLines()
+        #expect(NotchEars.agentsList(sessions: sessions) > panelRoom - 80, "the full grid would be cut")
+        let digest = AgentsDigest(sessions: sessions, room: panelRoom - 80)
+        #expect(digest.capped && digest.top.count % 2 == 0 && digest.more >= 2)
+        #expect(digest.top.count + digest.more == 8)
+        let height = NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count,
+                                            cacheRows: AgentBoard.cacheRows(digest.top))
+        #expect(height <= panelRoom - 80)
+    }
+
+    @Test func digestTrimsWholeRowsToRoom() {
+        let sessions = eightWithLines()
+        let helpers = AgentsDigest(sessions: sessions, room: panelRoom - 150)
+        let away = AgentsDigest(sessions: sessions, room: panelRoom - 80)
+        #expect(helpers.capped && helpers.top.count < away.top.count && helpers.top.count % 2 == 0)
+        #expect(NotchEars.agentsDigest(cards: helpers.top.count, idleLines: helpers.idle.count,
+                                       cacheRows: AgentBoard.cacheRows(helpers.top)) <= panelRoom - 150)
+        // Never below one row: past that the list scrolls.
+        #expect(AgentsDigest(sessions: sessions, room: 10).top.count == 2)
+        // Seven sessions: the odd last card goes alone.
+        let seven = AgentsDigest(sessions: Array(sessions.prefix(7)), room: panelRoom - 80)
+        #expect(seven.capped && seven.top.count + seven.more == 7)
+    }
+
+    @Test func digestKeepsGridWhenItFits() {
+        let sessions = eightWithLines()
+        let open = AgentsDigest(sessions: sessions, room: panelRoom)
+        #expect(!open.capped && open.top.count == 8 && open.more == 0, "after Got it")
+        #expect(AgentsDigest(sessions: sessions) == AgentsDigest(sessions: sessions, room: .infinity), "no room: today's rule")
+        // A fold that would hide nothing is no fold.
+        let two = AgentsDigest(sessions: Array(sessions.prefix(2)), room: 10)
+        #expect(!two.capped && two.more == 0)
+    }
+
+    @Test func agentsListIsTheGroupedGrid() {
+        var sessions = eightWithLines()
+        sessions[7].agent = "Copilot CLI"
+        sessions[7].lastReply = nil
+        let groups = AgentBoard.groups(sessions)
+        #expect(groups.map(\.agent) == ["Claude Code", "Copilot CLI"])
+        let tall = groups.reduce(0) { $0 + AgentBoard.cacheRows($1.sessions) }
+        #expect(NotchEars.agentsList(sessions: sessions)
+                == NotchEars.agentsGrid(groupSizes: groups.map(\.sessions.count), cacheRows: tall))
+    }
+
+    // Epic QA case 14: a quick repeat never shows the old reply, then shows the newest once.
+    @Test func newPromptHidesLineUntilNewestReply() {
+        let t0 = Date(timeIntervalSince1970: 1000)
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"one\"}"), now: t0)
+        let a = reply(t0.addingTimeInterval(3))
+        board.setCost(SessionCost(dollars: 1, tokens: 1), lastReply: a, turn: TurnReply(promptAt: t0, promptIndex: 1, replyAfterPrompt: true), session: "s1")
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(5))
+        #expect(board.sessions[0].showsCacheLine)
+        board.apply(hook("UserPromptSubmit", "{\(base),\"prompt\":\"two\"}"), now: t0.addingTimeInterval(6))
+        #expect(!board.sessions[0].showsCacheLine, "working")
+        board.apply(hook("Stop", "{\(base)}"), now: t0.addingTimeInterval(9))
+        #expect(!board.sessions[0].showsCacheLine, "the new reply is not read yet")
+        let b = reply(t0.addingTimeInterval(8))
+        board.setCost(SessionCost(dollars: 2, tokens: 2), lastReply: b, turn: TurnReply(promptAt: t0.addingTimeInterval(6), promptIndex: 2, replyAfterPrompt: true), session: "s1")
+        #expect(board.sessions[0].showsCacheLine && board.sessions[0].lastReply == b)
     }
 
     @Test func savedSessionWithoutLastReplyLoads() throws {
@@ -556,4 +772,148 @@ struct AgentCostTests {
         #expect(old.sessions.count == 1 && old.sessions[0].lastReply == nil)
     }
 
+}
+
+@Suite("Agents panel")
+struct AgentsPanelTests {
+    /// The room under a 32 pt notch: 402 - 32 - 8 - 18.
+    let maxContent = 344.0
+
+    /// Finished Claude Code sessions with a reply each, so every card has its cache line;
+    /// `lastEvent` falls with n, so the grid shows them in order s1, s2, ...
+    func finished(_ count: Int, lines: Bool = true) -> [AgentSession] {
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        return (1...count).map { n -> AgentSession in
+            let at = t0.addingTimeInterval(Double(-n))
+            var s = AgentSession(id: "s\(n)", agent: "Claude Code", cwd: "/Users/me/p\(n)", state: .done, since: at)
+            if lines {
+                s.lastReply = TokenUsage(model: "claude-opus-4-5", timestamp: at, input: 10, cacheWrite5m: 1000, cacheRead: 5000)
+                s.replyTurn = TurnReply(promptAt: at, promptIndex: 1, replyAfterPrompt: true)
+            }
+            return s
+        }
+    }
+
+    @Test func connectButtonIsItsDrawnHeight() {
+        #expect(AgentsPanel.connectButton == 6 + 4 + 28, "spacing, top padding, PillButton")
+        #expect(AgentsPanel.showFewer == 6 + 26)
+    }
+
+    @Test func extrasCountEveryBannerOnce() {
+        let sessions = finished(2)
+        let extras = AgentsPanelExtras(banners: 80, connect: true, helpers: "s1", helpersHeight: 100)
+        let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+        #expect(!digest.capped)
+        #expect(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: false)
+                == NotchEars.agentsList(sessions: sessions) + 80 + 100 + AgentsPanel.connectButton)
+    }
+
+    // Reviewer 1: helpers opened on the last card in grid order keep their card.
+    @Test func helpersSessionStaysInTop() {
+        let sessions = finished(8)
+        let extras = AgentsPanelExtras(banners: 0, connect: false, helpers: "s8", helpersHeight: 120)
+        let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+        #expect(digest.capped && digest.top.contains { $0.id == "s8" })
+        #expect(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: false) <= maxContent)
+        // Folded by count too: the helpers' card is kept.
+        let many = AgentsPanel.digest(sessions: finished(12, lines: false), maxContent: maxContent,
+                                      extras: AgentsPanelExtras(helpers: "s12", helpersHeight: 60))
+        #expect(many.capped && many.top.contains { $0.id == "s12" })
+    }
+
+    // Reviewer 2: Connect only counts where it is drawn, at its drawn height.
+    @Test func connectCountsOnlyInTheGrid() {
+        let sessions = finished(6)
+        let grid = NotchEars.agentsList(sessions: sessions)
+        let tight = maxContent - grid - 34  // room for 32 but not 38
+        let extras = AgentsPanelExtras(banners: tight, connect: true)
+        let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+        #expect(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: false) <= maxContent)
+        // Folded by count, the Connect button isn't drawn, so it takes no room.
+        let nine = finished(9)
+        let with = AgentsPanel.digest(sessions: nine, maxContent: maxContent, extras: AgentsPanelExtras(banners: 80, connect: true))
+        let without = AgentsPanel.digest(sessions: nine, maxContent: maxContent, extras: AgentsPanelExtras(banners: 80))
+        #expect(with == without)
+    }
+
+    // Reviewer 3: a fold that isn't shorter than the grid keeps the grid.
+    @Test func digestNeverTallerThanGrid() {
+        let idle = (1...3).map { n in AgentSession(id: "i\(n)", agent: "Claude Code", cwd: "/Users/me/i\(n)", state: .idle) }
+        #expect(NotchEars.agentsList(sessions: idle) == 137)
+        let digest = AgentsPanel.digest(sessions: idle, maxContent: 136, extras: AgentsPanelExtras())
+        #expect(!digest.capped && digest.top.count == 3)
+    }
+
+    // Reviewer 4: folded by room alone, the cards keep the grid's order.
+    @Test func roomFoldKeepsGridOrder() {
+        var sessions = finished(8)
+        sessions[5].since = Date(timeIntervalSince1970: 2_000_000)  // most recent by `since`, sixth in the grid
+        let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: AgentsPanelExtras(banners: 80))
+        #expect(digest.capped && !digest.top.isEmpty)
+        let grid = AgentBoard.groups(sessions).flatMap(\.sessions)
+        #expect(digest.top.map(\.id) == Array(grid.prefix(digest.top.count)).map(\.id))
+    }
+
+    // I3 QA finding: with two things above the list, the minimum fold (one row) still can't fit.
+    // These are capacity limits, not miscounts: every height below is what the views draw
+    // (measured on the QA screenshots to within 1 pt), and the list scrolls the rest.
+    @Test func qaOverflowsAreCapacityNotMiscounts() {
+        let banner = DesignComponents.Banner.height(rows: [16, 15, 18], spacing: 3)  // away card, Stuck: 75
+        let handoff = DesignComponents.Banner.height(rows: [16, 14, 14, 18], spacing: 3)  // two targets: 91
+        let harnessLine: Double = 32  // gap and line
+        let helpers: Double = HelperWaterfall.height(rows: 4) + 6  // three helpers and the main row
+        let xrayList: Double = 156  // gap 6, padding 12, header 16, four 22 pt rows, "+6 more" 16, the key 18
+        #expect(banner == 75 && handoff == 91)
+        let sessions = finished(8)
+        let cases: [(String, AgentsPanelExtras, [AgentSession])] = [
+            ("away + Stuck", AgentsPanelExtras(banners: 2 * (banner + 6) + harnessLine), sessions),
+            ("handoff + Stuck", AgentsPanelExtras(banners: handoff + 6 + banner + 6 + harnessLine), sessions),
+            ("away + helpers", AgentsPanelExtras(banners: banner + 6 + harnessLine, helpers: "s1", helpersHeight: helpers), sessions),
+            ("X-ray, 12 sessions", AgentsPanelExtras(banners: harnessLine + xrayList), finished(12)),
+        ]
+        for (name, extras, list) in cases {
+            let digest = AgentsPanel.digest(sessions: list, maxContent: maxContent, extras: extras)
+            #expect(digest.capped && digest.top.count == 2, "\(name): folded to its one-row minimum")
+            #expect(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: false) > maxContent, "\(name): can't fit, scrolls")
+        }
+    }
+
+    // I3 QA case 6: the card with the open helpers list stays, first or last, with 8 or 12 sessions.
+    @Test func qaCase6HelpersCardKeptFirstAndLast() {
+        for count in [8, 12] {
+            let sessions = finished(count)
+            for id in ["s1", "s\(count)"] {
+                let extras = AgentsPanelExtras(banners: 80, helpers: id, helpersHeight: 100)
+                let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+                #expect(digest.top.contains { $0.id == id }, "\(count) sessions, helpers on \(id)")
+                #expect(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: false) <= maxContent)
+            }
+        }
+    }
+
+    // I3 QA case 7: a fold is never taller than the grid, and a room-only fold keeps the grid's order.
+    @Test func qaCase7FoldShorterAndInOrder() {
+        for banners in stride(from: 0.0, through: 200, by: 10) {
+            let sessions = finished(8)
+            let extras = AgentsPanelExtras(banners: banners)
+            let digest = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+            guard digest.capped else { continue }
+            #expect(NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count, cacheRows: AgentBoard.cacheRows(digest.top))
+                    < NotchEars.agentsList(sessions: sessions))
+            let grid = AgentBoard.groups(sessions).flatMap(\.sessions).map(\.id)
+            #expect(digest.top.map(\.id) == Array(grid.prefix(digest.top.count)))
+        }
+    }
+
+    // Perf: the size and the list share one digest per input.
+    @Test func memoBuildsOncePerInput() {
+        let memo = AgentsPanel.Memo()
+        let sessions = finished(8)
+        let a = memo.digest(sessions: sessions, maxContent: maxContent, extras: AgentsPanelExtras(banners: 80))
+        let b = memo.digest(sessions: sessions, maxContent: maxContent, extras: AgentsPanelExtras(banners: 80))
+        #expect(a == b && memo.builds == 1)
+        _ = memo.digest(sessions: sessions, maxContent: maxContent, extras: AgentsPanelExtras())
+        #expect(memo.builds == 2)
+        #expect(a.groups.map(\.agent) == AgentBoard.groups(sessions).map(\.agent))
+    }
 }

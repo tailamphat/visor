@@ -25,6 +25,46 @@ public struct SessionCost: Equatable, Codable, Sendable {
     }
 }
 
+/// Where the main transcript's last reply sits against its newest real prompt, for the
+/// cache clock: the transcript's own order, never two clocks compared.
+public struct TurnReply: Equatable, Codable, Sendable {
+    /// The newest real prompt entry's stamp.
+    public var promptAt: Date
+    /// How many real prompt entries the transcript holds up to it (1 for the first).
+    public var promptIndex: Int
+    /// The last reply was written after that prompt entry.
+    public var replyAfterPrompt: Bool
+
+    public init(promptAt: Date, promptIndex: Int, replyAfterPrompt: Bool) {
+        self.promptAt = promptAt
+        self.promptIndex = promptIndex
+        self.replyAfterPrompt = replyAfterPrompt
+    }
+
+    /// Lines Claude Code writes as a user entry that are not something the user typed.
+    private static let commandTags = ["<command-name>", "<command-message>", "<local-command-stdout>", "<local-command-caveat>"]
+
+    /// The stamp of a user line that is a real prompt: not a tool result, meta, a helper's
+    /// (sidechain) line, the compact summary, a local command or its output, and with text.
+    static func promptStamp(_ object: [String: Any]) -> Date? {
+        guard object["type"] as? String == "user", object["isMeta"] as? Bool != true,
+              object["isSidechain"] as? Bool != true, object["isCompactSummary"] as? Bool != true,
+              let message = object["message"] as? [String: Any],
+              let stamp = (object["timestamp"] as? String).flatMap(ISODate.parse) else { return nil }
+        let text: String?
+        if let plain = message["content"] as? String {
+            text = plain
+        } else if let blocks = message["content"] as? [[String: Any]] {
+            text = blocks.first { $0["type"] as? String == "text" }?["text"] as? String
+        } else {
+            text = nil
+        }
+        guard let text else { return nil }
+        let start = text.drop { $0.isWhitespace }
+        return commandTags.contains { start.hasPrefix($0) } ? nil : stamp
+    }
+}
+
 /// Keeps a running cost per Claude Code session from its transcript and its
 /// subagents' transcripts (`<session>/subagents/*.jsonl`). Each read parses only
 /// the bytes appended since the last one. Not thread-safe: use it from one queue.
@@ -44,6 +84,11 @@ public final class SessionCostReader: @unchecked Sendable {
         var toolsSeen = Set<Int>()
         /// The newest reply in the main transcript (not the helpers').
         var lastReply: TokenUsage?
+        /// Real prompt entries in the main transcript, the newest one's stamp, and whether
+        /// `lastReply` was written after it.
+        var prompts = 0
+        var promptAt: Date?
+        var replyAfterPrompt = false
     }
 
     private var tallies: [String: Tally] = [:]
@@ -96,6 +141,12 @@ public final class SessionCostReader: @unchecked Sendable {
         tallies[session]?.lastReply
     }
 
+    /// The main transcript's last reply against its newest real prompt; nil before any prompt is read.
+    public func lastTurn(session: String) -> TurnReply? {
+        guard let tally = tallies[session], let promptAt = tally.promptAt else { return nil }
+        return TurnReply(promptAt: promptAt, promptIndex: tally.prompts, replyAfterPrompt: tally.replyAfterPrompt)
+    }
+
     /// The session's harness X-ray, once its first reply has been read.
     public func xray(session: String) -> HarnessXRay? {
         guard let tally = tallies[session] else { return nil }
@@ -139,14 +190,25 @@ public final class SessionCostReader: @unchecked Sendable {
         guard let end = TranscriptUsage.readLines(of: file, from: start, { data in
             if tally.xrays[file]?.isDone != true { tally.xrays[file, default: XRayScanner()].ingest(data) }
             if let helperID { HelperStats.countTools(in: data, id: helperID, seen: &tally.toolsSeen, into: &tally.helpers) }
-            TranscriptUsage.forEachUsageLine(in: data) { line in
+            TranscriptUsage.forEachUsageLine(in: data, prompts: helperID == nil) { line, user in
+                // A real prompt starts a turn: the reply so far is the previous turn's.
+                if user, let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                   let stamp = TurnReply.promptStamp(object) {
+                    tally.prompts += 1
+                    tally.promptAt = stamp
+                    tally.replyAfterPrompt = false
+                    return
+                }
                 guard let (key, usage) = TranscriptUsage.parse(line: line) else { return }
                 if let helperID { tally.helpers[helperID, default: HelperStats()].context(usage) }
                 if let key, !tally.seen.insert(key.hashValue).inserted { return }
                 if let helperID { tally.helpers[helperID, default: HelperStats()].add(usage) }
                 // A "<synthetic>" reply (API error, interrupt) used no cache: the cache clock keeps the real one.
                 if helperID == nil, !HelperStats.isSynthetic(usage),
-                   usage.timestamp >= (tally.lastReply?.timestamp ?? .distantPast) { tally.lastReply = usage }
+                   usage.timestamp >= (tally.lastReply?.timestamp ?? .distantPast) {
+                    tally.lastReply = usage
+                    tally.replyAfterPrompt = true
+                }
                 tally.cost.tokens += usage.input + usage.output + usage.cacheWrite5m + usage.cacheWrite1h
                 if Pricing.price(for: usage.model) == nil {
                     tally.cost.unpriced = true

@@ -86,25 +86,42 @@ public final class TranscriptUsage: @unchecked Sendable {
 
     /// Calls `body` with each line of `data` that carries usage. Shared with `SessionCostReader`.
     static func forEachUsageLine(in data: Data, _ body: (Data) -> Void) {
+        forEachUsageLine(in: data, prompts: false) { line, _ in body(line) }
+    }
+
+    private static let userMarkers = [Array("\"type\":\"user\"".utf8), Array("\"type\": \"user\"".utf8)]
+    private static let toolResultMarker = Array("\"tool_result\"".utf8)
+
+    /// The same, in file order, and with `prompts` also the user lines that may be a prompt
+    /// (`true` in the body, which then may still be a usage line): a user line that carries no tool result. Cheap byte checks
+    /// first, so tool results (most user lines) are never parsed.
+    static func forEachUsageLine(in data: Data, prompts: Bool, _ body: (Data, Bool) -> Void) {
         // memchr and memmem: Data's own byte search went through generic collection code.
         let marker = Self.usageMarkerBytes
-        let lines: [Range<Int>] = data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> [Range<Int>] in
+        let users = Self.userMarkers, toolResult = Self.toolResultMarker
+        let lines: [(Range<Int>, Bool)] = data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> [(Range<Int>, Bool)] in
             guard let base = raw.baseAddress else { return [] }
-            var found: [Range<Int>] = []
+            var found: [(Range<Int>, Bool)] = []
             var start = 0
             while start < raw.count {
                 var end = raw.count
                 if let newline = memchr(base + start, 0x0A, raw.count - start) {
                     end = UnsafeRawPointer(newline) - base
                 }
+                let length = end - start
                 // Cheap byte search first: most lines (user turns, tool results) carry no usage.
-                if memmem(base + start, end - start, marker, marker.count) != nil { found.append(start..<end) }
+                if prompts, users.contains(where: { memmem(base + start, length, $0, $0.count) != nil }),
+                   memmem(base + start, length, toolResult, toolResult.count) == nil {
+                    found.append((start..<end, true))
+                } else if memmem(base + start, length, marker, marker.count) != nil {
+                    found.append((start..<end, false))
+                }
                 start = end + 1
             }
             return found
         }
-        for range in lines {
-            body(data[(data.startIndex + range.lowerBound)..<(data.startIndex + range.upperBound)])
+        for (range, user) in lines {
+            body(data[(data.startIndex + range.lowerBound)..<(data.startIndex + range.upperBound)], user)
         }
     }
 

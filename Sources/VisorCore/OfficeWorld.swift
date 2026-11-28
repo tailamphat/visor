@@ -65,22 +65,56 @@ public struct AgentsDigest: Equatable, Sendable {
     /// Idle and finished sessions not in `top`, per tool: folded into one line each.
     public let idle: [(agent: String, count: Int)]
 
-    public init(sessions: [AgentSession], limit: Int = 8) {
-        capped = sessions.count > limit
-        let ranked = sessions.enumerated().sorted { a, b in
-            let ra = Office.rank(a.element), rb = Office.rank(b.element)
-            if ra != rb { return ra < rb }
-            if a.element.since != b.element.since { return a.element.since > b.element.since }
-            return a.offset < b.offset
-        }.map(\.element)
-        var top = capped ? Array(ranked.prefix(limit)) : sessions
-        // Cards with the cache line are taller: keep whole rows while they fit where `limit` plain cards would.
+    /// The full list's groups (`AgentBoard.groups`), made once for the panel's size and the list.
+    public let groups: [(agent: String, sessions: [AgentSession])]
+
+    /// `room` is the content height left for the cards once everything above and below them
+    /// (banners, helpers, MCP and Harness lines) is counted, and `gridRoom` the same for the
+    /// full grid (which also draws the Connect button): a list that would pass it folds whole
+    /// rows even with `limit` sessions or fewer, but only into a list shorter than the grid.
+    /// `keep` (the session whose helpers list is open) always stays among the cards.
+    public init(sessions: [AgentSession], limit: Int = 8, room: Double = .infinity, gridRoom: Double? = nil, keep: String? = nil) {
+        groups = AgentBoard.groups(sessions)
+        let gridRoom = gridRoom ?? room
+        let byCount = sessions.count > limit
+        let gridHeight = gridRoom.isFinite || room.isFinite ? NotchEars.agentsList(groups: groups) : 0
+        var capped = byCount || (gridRoom.isFinite && gridHeight > gridRoom)
+        var top = sessions
         if capped {
-            let room = NotchEars.cardRows(cards: limit, cacheRows: 0)
-            while top.count > 2, NotchEars.cardRows(cards: top.count, cacheRows: AgentBoard.cacheRows(top)) > room {
-                top.removeLast(top.count % 2 == 0 ? 2 : 1)
+            // Folded by count: whoever needs you first. By room alone: the grid's own order, so cards don't jump.
+            let order = byCount ? sessions.enumerated().sorted { a, b in
+                let ra = Office.rank(a.element), rb = Office.rank(b.element)
+                if ra != rb { return ra < rb }
+                if a.element.since != b.element.since { return a.element.since > b.element.since }
+                return a.offset < b.offset
+            }.map(\.element) : groups.flatMap(\.sessions)
+            top = Array(order.prefix(limit))
+            let inactive = sessions.filter { !$0.isActive }
+            func idleLines(_ shown: [AgentSession]) -> Int {
+                let ids = Set(shown.map(\.id))
+                return Set(inactive.lazy.filter { !ids.contains($0.id) }.map(\.agent)).count
+            }
+            func height(_ shown: [AgentSession]) -> Double {
+                NotchEars.agentsDigest(cards: shown.count, idleLines: idleLines(shown), cacheRows: AgentBoard.cacheRows(shown))
+            }
+            let kept = keep.flatMap { id in sessions.first { $0.id == id } }
+            func pin() {
+                if let kept, !top.isEmpty, !top.contains(where: { $0.id == kept.id }) { top[top.count - 1] = kept }
+            }
+            func dropRow() { top.removeLast(top.count % 2 == 0 ? 2 : 1); pin() }
+            pin()
+            // Cards with the cache line are taller: keep whole rows while they fit where `limit` plain cards would,
+            // and within the room the panel has left (at most limit / 2 rounds).
+            let plain = NotchEars.cardRows(cards: limit, cacheRows: 0)
+            while top.count > 2, NotchEars.cardRows(cards: top.count, cacheRows: AgentBoard.cacheRows(top)) > plain { dropRow() }
+            while top.count > 2, height(top) > room { dropRow() }
+            // Folded by room alone into a list no shorter than the grid (or hiding nothing): keep the grid; it scrolls.
+            if !byCount && (top.count == sessions.count || height(top) >= gridHeight + (room - gridRoom)) {
+                capped = false
+                top = sessions
             }
         }
+        self.capped = capped
         self.top = top
         more = sessions.count - top.count
         func counts(_ list: [AgentSession]) -> [(agent: String, count: Int)] {
@@ -99,6 +133,69 @@ public struct AgentsDigest: Equatable, Sendable {
         a.capped == b.capped && a.top == b.top && a.more == b.more
             && a.byTool.map(\.agent) == b.byTool.map(\.agent) && a.byTool.map(\.count) == b.byTool.map(\.count)
             && a.idle.map(\.agent) == b.idle.map(\.agent) && a.idle.map(\.count) == b.idle.map(\.count)
+    }
+}
+
+/// What the Agents panel holds besides the cards: banners above them (away, handoff,
+/// Stuck, clash) and the MCP and Harness lines with their open lists (`banners`), the
+/// Connect button under the grid, and an open helpers list (its height with its gap).
+public struct AgentsPanelExtras: Equatable, Sendable {
+    public var banners: Double
+    public var connect: Bool
+    public var helpers: String?
+    public var helpersHeight: Double
+
+    public init(banners: Double = 0, connect: Bool = false, helpers: String? = nil, helpersHeight: Double = 0) {
+        self.banners = banners; self.connect = connect; self.helpers = helpers; self.helpersHeight = helpersHeight
+    }
+
+    var helpersRoom: Double { helpers == nil ? 0 : helpersHeight }
+}
+
+/// The Agents panel's fold and height, from one set of extras, so the list and the
+/// panel's size always agree.
+public enum AgentsPanel {
+    /// The Connect button under the grid: 6 pt spacing, 4 pt top padding and a 28 pt pill.
+    public static let connectButton = 6.0 + 4 + 28
+    /// The "Show fewer" row under the full list when it was folded.
+    public static let showFewer = 6.0 + 26
+
+    /// The digest for content at most `maxContent` tall.
+    public static func digest(sessions: [AgentSession], maxContent: Double, extras: AgentsPanelExtras) -> AgentsDigest {
+        let room = maxContent - extras.banners - extras.helpersRoom
+        return AgentsDigest(sessions: sessions, room: room, gridRoom: room - (extras.connect ? connectButton : 0), keep: extras.helpers)
+    }
+
+    /// The content height: the folded list or the full one (with "Show fewer" when unfolded
+    /// by the user, and the Connect button), plus the extras.
+    public static func contentHeight(digest: AgentsDigest, extras: AgentsPanelExtras, showAll: Bool) -> Double {
+        let list: Double
+        if digest.capped && !showAll {
+            list = NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count, cacheRows: AgentBoard.cacheRows(digest.top))
+        } else {
+            list = NotchEars.agentsList(groups: digest.groups) + (digest.capped ? showFewer : 0) + (extras.connect ? connectButton : 0)
+        }
+        return list + extras.banners + extras.helpersRoom
+    }
+
+    /// The last digest, made again only when its inputs change: the panel's size and the
+    /// list ask for it on every render.
+    public final class Memo: @unchecked Sendable {
+        private var key: (sessions: [AgentSession], maxContent: Double, extras: AgentsPanelExtras)?
+        private var value: AgentsDigest?
+        /// Digests made, for tests.
+        public private(set) var builds = 0
+
+        public init() {}
+
+        public func digest(sessions: [AgentSession], maxContent: Double, extras: AgentsPanelExtras) -> AgentsDigest {
+            if let key, let value, key.maxContent == maxContent, key.extras == extras, key.sessions == sessions { return value }
+            let made = AgentsPanel.digest(sessions: sessions, maxContent: maxContent, extras: extras)
+            key = (sessions, maxContent, extras)
+            value = made
+            builds += 1
+            return made
+        }
     }
 }
 
