@@ -820,6 +820,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Only a PostToolUseFailure can fail a helper: compare the board then (copy on write).
         let before = HelperFailure.mayFail(message) ? agents : nil
         agents.apply(message)
+        noteModePeek(message)
         mcp.record(message)
         noteEdit(message)
         dropAnsweredAdvice(message)
@@ -875,6 +876,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         publishAgents()
         for done in finished { awayWatch.noteFinished(done, at: Date()) }
         if let done = finished.last { show(.done(done), for: 5) }
+    }
+
+    /// A session first seen with permissions off: "asks nothing" for 6 s, once.
+    /// Display only: the mode never changes how an approval is routed or answered.
+    /// Runs before the rest of the event, so a done peek or an approval card on the
+    /// same event wins. Waits (not taken) while locked, open or behind a one-time peek.
+    private func noteModePeek(_ message: HookMessage) {
+        guard let id = message.sessionID,
+              ModePeekGate.shows(over: model.peek?.modeGateShowing ?? .nothing,
+                                 locked: awayWatch.isLocked, expanded: model.expanded),
+              agents.takeModePeek(id: id),
+              let agent = agents.sessions.first(where: { $0.id == id })?.agent else { return }
+        // Replacing a finished turn's peek: its summary goes with it, as when its peek ends.
+        if case .done? = model.peek { model.summary = nil }
+        show(.mode(agent: agent), for: 6)
     }
 
     /// A question answered in the terminal shows "Answered" in the closed notch.

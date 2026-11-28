@@ -336,6 +336,31 @@ struct CacheLine: View {
     }
 }
 
+/// A card's permission mode pill: violet for "no asks" (the one to watch, a tint that
+/// means no status elsewhere), the neutral badge for "auto-edit" and "plan". Nothing for
+/// the default or an unknown mode.
+struct ModeBadge: View {
+    let mode: PermissionMode
+
+    var body: some View {
+        if let label = mode.label {
+            Badge(label, mode == .bypass ? .solid(DS.Palette.violet) : .neutral)
+        }
+    }
+}
+
+private extension PermissionMode {
+    /// The card's hover line.
+    var help: String? {
+        switch self {
+        case .bypass: return "Runs with permissions off: never asks"
+        case .acceptEdits: return "Accepts edits without asking"
+        case .plan: return "Plan mode: plans before it changes anything"
+        case .standard, .unknown: return nil
+        }
+    }
+}
+
 /// One session in the Agents list: the agent's round tile inside a ring that
 /// shows how full its context is (amber from 80%, with the percent under it),
 /// then the project and time, the app, and what it's doing. Half the panel wide.
@@ -378,17 +403,36 @@ struct AgentCard: View {
                     Spacer(minLength: 4)
                     time
                 }
+                // The mode pill sits on this line in every variant (warning or not), so the
+                // project name above stays whole; the text before it truncates, never the pill.
                 if let clashWith {
-                    Text("⇄ \(clashWith) too")
-                        .font(DS.font(.sm, .medium)).foregroundStyle(Theme.clash).lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text("⇄ \(clashWith) too")
+                            .font(DS.font(.sm, .medium)).foregroundStyle(Theme.clash).lineLimit(1)
+                        modePill
+                        Spacer(minLength: 0)
+                    }
                 } else if let stuck {
-                    Text("↻ \(stuck.short)")
-                        .font(DS.font(.sm, .medium)).foregroundStyle(Theme.stuck).lineLimit(1)
-                        .frame(height: 13)
+                    HStack(spacing: 4) {
+                        Text("↻ \(stuck.short)")
+                            .font(DS.font(.sm, .medium)).foregroundStyle(Theme.stuck).lineLimit(1)
+                        modePill
+                        Spacer(minLength: 0)
+                    }
+                    .frame(height: 13)
                 } else {
                     HStack(spacing: 4) {
-                        Text([session.agent, session.host].compactMap { $0 }.joined(separator: " · "))
-                            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                        if session.mode?.label != nil {
+                            // The host goes first, then the agent's name truncates;
+                            // the pill and the cost never do.
+                            ViewThatFits(in: .horizontal) {
+                                agentLine(withHost: true).fixedSize()
+                                agentLine(withHost: false)
+                            }
+                            modePill
+                        } else {
+                            agentLine(withHost: true)
+                        }
                         Spacer(minLength: 0)
                         // On this line, not beside the clock: there it squeezed the project name.
                         if let cost = session.cost?.label {
@@ -414,6 +458,17 @@ struct AgentCard: View {
         }
     }
 
+    /// The permission mode pill, whole; nothing for the default or an unknown mode.
+    @ViewBuilder private var modePill: some View {
+        if let mode = session.mode, mode.label != nil { ModeBadge(mode: mode).fixedSize() }
+    }
+
+    /// "Claude Code · Ghostty", or just the agent.
+    private func agentLine(withHost: Bool) -> some View {
+        Text([session.agent, withHost ? session.host : nil].compactMap { $0 }.joined(separator: " · "))
+            .font(DS.font(.sm)).foregroundStyle(Theme.textMuted).lineLimit(1)
+    }
+
     private var needsYou: Bool {
         session.state.attention != nil
     }
@@ -426,6 +481,7 @@ struct AgentCard: View {
     private var help: String {
         var lines: [String] = []
         if let host = session.host { lines.append("Open \(host)") }
+        if let mode = session.mode?.help { lines.append(mode) }
         if let percent = session.contextPercent {
             lines.append("\(Int(percent))% context: \((session.contextTokens ?? 0).formatted()) of \((session.contextWindow ?? 0).formatted()) tokens"
                          + (SessionText.contextHigh(percent) ? ", compacts soon" : ""))

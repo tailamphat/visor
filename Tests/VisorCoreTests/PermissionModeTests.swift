@@ -119,4 +119,50 @@ import Testing
         let future = try JSONDecoder().decode(AgentSession.self, from: JSONSerialization.data(withJSONObject: object))
         #expect(future.mode == .unknown)
     }
+
+    // The mode peek is the least urgent news: it waits rather than cut a one-time peek
+    // short, and is not used up while it could not be seen.
+    @Test func modePeekWaitsForOneTimePeeks() {
+        #expect(ModePeekGate.shows(over: .nothing, locked: false, expanded: false))
+        #expect(ModePeekGate.shows(over: .routine, locked: false, expanded: false))
+        #expect(!ModePeekGate.shows(over: .oneTime, locked: false, expanded: false))
+    }
+
+    @Test func modePeekNotTakenWhileUnseen() {
+        #expect(!ModePeekGate.shows(over: .nothing, locked: true, expanded: false))
+        #expect(!ModePeekGate.shows(over: .nothing, locked: false, expanded: true))
+    }
+
+    @Test func blockedPeekStillComesOnALaterEvent() {
+        var board = AgentBoard()
+        board.apply(event("UserPromptSubmit", mode: "bypassPermissions"))
+        // Gate closed: takeModePeek is not called, so the session keeps its peek.
+        if ModePeekGate.shows(over: .oneTime, locked: false, expanded: false) { _ = board.takeModePeek(id: "s1") }
+        board.apply(event("PreToolUse", mode: "bypassPermissions", extra: ["tool_name": "Bash"]))
+        #expect(ModePeekGate.shows(over: .nothing, locked: false, expanded: false) && board.takeModePeek(id: "s1"))
+    }
+
+    // QA 6: the one peek is remembered across a restart (sessions.json).
+    @Test func peekNotRepeatedAfterRestore() throws {
+        var board = AgentBoard()
+        board.apply(event("UserPromptSubmit", mode: "bypassPermissions"), now: t0)
+        let first = board.takeModePeek(id: "s1")
+        #expect(first)
+        var restored = AgentBoard.restored(from: try board.saved()) { _ in true }
+        #expect(restored.sessions.first?.mode == .bypass)
+        restored.apply(event("PreToolUse", mode: "bypassPermissions"), now: t0)
+        let again = restored.takeModePeek(id: "s1")
+        #expect(!again)
+    }
+
+    // QA 11: default -> bypass -> default: the pill comes and goes with the mode.
+    @Test func pillFollowsModeBackToDefault() {
+        var board = AgentBoard()
+        board.apply(event("UserPromptSubmit", mode: "default"), now: t0)
+        #expect(board.sessions[0].mode?.label == nil)
+        board.apply(event("PreToolUse", mode: "bypassPermissions"), now: t0)
+        #expect(board.sessions[0].mode?.label == "no asks")
+        board.apply(event("PostToolUse", mode: "default"), now: t0)
+        #expect(board.sessions[0].mode?.label == nil)
+    }
 }

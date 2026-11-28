@@ -274,6 +274,8 @@ struct CollapsedView: View {
             return (agent, incident.title)
         case .away(let away):
             return (away.top?.agent ?? "", "\(away.count) " + (away.count == 1 ? "change" : "changes") + " while you were away · \(away.minutes) min")
+        case .mode(let agent):
+            return (agent, "\(agent) runs with permissions off: it asks nothing")
         case .release(let update):
             let changes = update.changes.isEmpty ? "" : ": " + update.changes.joined(separator: " · ")
             return (update.name, "\(update.name) \(update.latest) (you have \(update.installed))" + changes)
@@ -351,6 +353,19 @@ struct CollapsedView: View {
             }
             .padding(.trailing, AwayCountBadge.margin)
             .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .mode(let agent) = peek {
+            // The agent's mark with a violet "no entry" on its corner: permissions are off.
+            AgentMark(agent: agent, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "nosign")
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(DS.Palette.violet)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash(let clash) = peek {
             // Both agents' marks with an orange ⇄ between them.
             HStack(spacing: 5) {
@@ -415,6 +430,10 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .away = peek {
             Text("while you were away")
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .mode = peek {
+            Text("asks nothing")
                 .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {

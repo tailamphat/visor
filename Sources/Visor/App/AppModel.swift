@@ -512,8 +512,18 @@ enum Peek: Equatable {
     case helperFailed(HelperFailure)
     /// Back after 10+ minutes locked: the top item's mark, the count, "while you were away".
     case away(AwayDigest)
+    /// A session first seen with permissions off (Claude Code's bypassPermissions): it asks nothing.
+    case mode(agent: String)
 
     var isRelease: Bool { if case .release = self { return true } else { return false } }
+
+    /// For `ModePeekGate`: news that comes again on its own may give way to the mode peek.
+    var modeGateShowing: ModePeekGate.Showing {
+        switch self {
+        case .done, .answered, .plugin, .mode: return .routine
+        case .clash, .stuck, .status, .release, .handoff, .helperFailed, .away: return .oneTime
+        }
+    }
 }
 
 enum MusicCommand { case playPause, next, previous }
