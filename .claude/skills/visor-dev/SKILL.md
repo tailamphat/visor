@@ -1,6 +1,6 @@
 ---
 name: visor-dev
-description: Build or change a Visor feature end to end, from request to a proven local commit on main. Use for `/visor-dev <request>` or any request to add, fix or change behaviour in the Visor notch app: plans it, gets the plan approved by an approver agent, builds test first, gates it with review and perf agents, proves it in the debug app and reports. Never pushes.
+description: Build or change a Visor feature end to end, from request to a proven local commit on main. Use for `/visor-dev <request>` or any request to add, fix or change behaviour in the Visor notch app: plans it, gets the plan approved by an approver agent, builds test first, gates it with review and perf agents, proves it in the debug app, has visor-qa test it independently and reports. Never pushes.
 ---
 
 # visor-dev
@@ -11,9 +11,9 @@ Take `{request}` to a proven local commit on `main`, mostly hands-off. You, the 
 
 | Size | When | Steps | Agents |
 |---|---|---|---|
-| S | Copy fix, one-line bug | 1 (short plan, 1-3 criteria), 3, 4, 7 if visible, 8 | none |
-| M | Most changes | all | approver; gate Review + Perf (+ Security if triggered) |
-| L | New provider, tab, agent CLI | all | approver; full gate; perf before vs after |
+| S | Copy fix, one-line bug | 1 (short plan, 1-3 criteria), 3, 4, 7 and 7b if visible, 8 | QA if visible |
+| M | Most changes | all | approver; gate Review + Perf (+ Security if triggered); QA |
+| L | New provider, tab, agent CLI | all | approver; full gate; perf before vs after; QA |
 
 Security is triggered when the diff touches hooks, sockets, plugins, network, keychain or the clipboard. When unsure between two sizes, pick the larger.
 
@@ -82,6 +82,16 @@ Check each finding against the code before acting; a finding is a claim, not a f
 - Take each screenshot with `screencapture -x -R x,y,w,h` into the scratchpad and look at it.
 - Quit the debug build and relaunch the release build afterwards (`open /Applications/Visor.app` or `./scripts/bundle.sh --open`).
 
+### 7b. QA (whenever the user can see or use the change)
+
+Skipped only for a change with nothing to see or use (VisorCore logic with no app wiring yet); under /visor-pm, the epic QA covers it.
+
+Your proof checks your own plan with your own script. QA checks the request with its own cases. Spawn `visor-qa` with the QA brief (`briefs.md`): the request verbatim, the plan's Done-when table only (criterion and request phrase, never the Verify-by column or the proof script), the code path, the evidence folder (`<scratchpad>/qa/`), the mockup link, the debug messages the change adds and the touched areas. Never give it the diff or your reasoning. It builds and drives the debug build itself, so nothing else may use the screen or the debug socket while it runs.
+
+- PASS: go on to step 8.
+- FAIL: treat each finding as a claim, reproduce it, fix it (step 6), add the cases it marked "unit test" to `Tests/VisorCoreTests`, rerun `scripts/test.sh` and `scripts/check.sh`, prove again (step 7), then run QA once more.
+- A second FAIL: stop and ask the user, with both QA reports. Never loosen a criterion or drop a case to pass.
+
 ### 8. Verify, commit, report
 
 Run every Verify-by from the plan. A failure goes back to step 3: at most 2 attempts, then stop and ask the user. Never loosen a criterion to make it pass.
@@ -105,6 +115,7 @@ When `/visor-pm` runs an item, the pipeline is split between the PM (main sessio
 | 3 Build, 4 Self review | on "approved, build" | waits |
 | 5 Gate | starts the debug build when it holds the screen lock, replies with the pid | spawns reviewer, perf, security in one message |
 | 6 Fix, 7 Prove | fixes, proves, relaunches release | holds the screen lock for one builder at a time |
+| 7b QA | waits; on FAIL gets the findings, fixes, adds the "unit test" cases, proves again | spawns `visor-qa` (still holding the screen lock) with the item's Done-when, the worktree path and `.pm/<epic>/evidence/<id>/qa/`; forwards FAIL findings unchanged |
 | 8 Verify, commit | commits on its worktree branch, not `main`; Done report max 150 words | merges into `main`, runs `scripts/check.sh` |
 
 The builder never spawns agents, never merges and never pushes. Stop-list hits go to the PM, which asks the user.
@@ -123,6 +134,11 @@ Gate findings
 | Agent | Finding | Outcome |
 |---|---|---|
 | reviewer | file:line ... | fixed / skipped: reason |
+
+QA: {PASS | FAIL then PASS} ({N} cases, {M} pass, {K} not run), evidence {path}
+| QA finding | Outcome |
+|---|---|
+| 1. ... | fixed, unit test `Suite/name` added / skipped: reason |
 
 Perf: CPU avg {before}% -> {after}%, max {before}% -> {after}%, memory {before} -> {after} MB
 Mockup: {link} (picked: {option}; ask to switch)

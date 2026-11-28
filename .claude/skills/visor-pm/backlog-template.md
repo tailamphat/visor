@@ -35,7 +35,7 @@ screen: {free | item id}
 
 ## Items
 
-Status: todo, planning, approved, building, gating, proving, done, parked, blocked.
+Status: todo, planning, approved, building, gating, proving, qa, done, parked, blocked.
 
 | Id | Title | Size | Depends on | Files (expected) | Status | Branch / worktree | Evidence | Tokens |
 |---|---|---|---|---|---|---|---|---|

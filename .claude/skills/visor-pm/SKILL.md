@@ -9,7 +9,7 @@ You, the main session, are the project manager. You never read code or diffs and
 
 Reuse, do not copy: the pipeline, stop list, sizes and Done report are in `.claude/skills/visor-dev/SKILL.md` (see its "Managed mode" section); agent briefs are in `briefs.md`, the item plan template is `plan-template.md`; recipes are in `docs/architecture.md`. Templates here: `backlog-template.md`, `report-template.md`.
 
-Agents: `visor-analyst`, `visor-builder`, `visor-approver`, `visor-reviewer`, `visor-perf`, and a general agent for security. You spawn every agent yourself. No agent spawns agents.
+Agents: `visor-analyst`, `visor-builder`, `visor-approver`, `visor-reviewer`, `visor-perf`, `visor-qa`, and a general agent for security. You spawn every agent yourself. No agent spawns agents.
 
 ## Loop
 
@@ -50,7 +50,9 @@ c. **Build.** SendMessage the builder: "approved, build". It works test first, r
 
 d. **Gate (M, L).** The real screen and the debug socket are shared, and perf needs a running debug build, so the gate and the proof hold the screen lock. Take it: write `screen: <id>` in the backlog (one holder at a time; others wait in `building`). SendMessage the builder to start its debug build and reply with the pid. Status `gating`. Then in ONE message spawn `visor-reviewer`, `visor-perf` and, if hooks, sockets, plugins, network, keychain or clipboard are touched, the security agent. Give each its brief from `briefs.md` with the worktree path and file list in place of the diff (they run `git -C <worktree> diff main` themselves), the pid and the builder's baseline for perf. S items skip the gate but still take the lock to prove.
 
-e. **Fix and prove.** Forward the findings to the builder unchanged. It verifies each, fixes, reruns `scripts/check.sh`, proves on the debug socket, quits the debug build and relaunches the release app. Status `proving`. Clear the screen lock when it reports.
+e. **Fix and prove.** Forward the findings to the builder unchanged. It verifies each, fixes, reruns `scripts/check.sh`, proves on the debug socket, quits the debug build and relaunches the release app. Status `proving`. Keep the screen lock.
+
+e2. **QA (any item the user can see or use; a logic-only item is covered by the epic QA).** Spawn `visor-qa` with the QA brief from `briefs.md`: the request verbatim, the item plan's Done-when table only (criterion and request phrase; never the Verify-by column, the proof script or the diff), the worktree path, `.pm/<epic>/evidence/<id>/qa/`, the mockup link, the item's debug messages and touched areas. Status `qa`. PASS: clear the screen lock and go on. FAIL: forward the findings unchanged to the builder, which fixes them, adds the cases QA marked "unit test", proves again; then run QA once more. A second FAIL: park the item (or re-split it) and log both reports. Clear the screen lock when QA ends.
 
 f. **Commit.** The builder commits on its worktree branch and returns the Done report (at most 150 words plus evidence paths under `.pm/<epic>/evidence/<id>/`). Status `done`, record evidence and tokens.
 
@@ -58,9 +60,9 @@ f. **Commit.** The builder commits on its worktree branch and returns the Done r
 
 Merge done items into `main` one at a time in dependency order. Prefer `git rebase main <branch>` then `git merge --ff-only <branch>`; avoid merge commits. Run `scripts/check.sh main~N` (N commits just merged) after each. Conflict or failure: SendMessage that item's builder with the error to fix in its worktree, then retry. After a clean merge, remove the worktree (`git worktree remove`) and delete the branch.
 
-### 5. Accept
+### 5. Accept (epic QA)
 
-Check each epic Done-when criterion against the items' evidence. An unproven criterion becomes a new item, not a question.
+After the last merge, take the screen lock and spawn `visor-qa` with the QA brief, scope "epic": the request verbatim, the epic Done-when table, the main repo path (it builds `main`'s debug build), `.pm/<epic>/evidence/epic-qa/`, every item's debug messages and touched areas. Then check each epic Done-when criterion against QA's report and the items' evidence. A QA failure or an unproven criterion becomes a new item, not a question.
 
 ### 6. Report
 
@@ -84,9 +86,9 @@ Never send progress updates. Mockup picks follow visor-dev 1b: the approver pick
 - State lives in `backlog.md`. Re-read it rather than keeping history.
 - You never read code or diffs. Agents read them.
 - Every agent reply is capped: analyst 300 words; builder, approver and gate reports 150 words plus paths; at most 8 findings.
-- Models: analyst and perf sonnet; builder S sonnet; builder M/L, approver, reviewer inherit.
+- Models: analyst and perf sonnet; builder S sonnet; builder M/L, approver, reviewer, qa inherit.
 - Briefs are filled from files, never from the chat.
-- Budget = sum of item units: S 1, M 4, L 8 (a unit is about 50k subagent tokens). Record actual tokens per item from each task notification in the backlog. Before the total exceeds the budget by 25%, pause and ask.
+- Budget = sum of item units: S 1, M 4, L 8 (a unit is about 50k subagent tokens), plus 1 per item with QA and 1 for the epic QA. Record actual tokens per item from each task notification in the backlog. Before the total exceeds the budget by 25%, pause and ask.
 
 ## Failure handling
 

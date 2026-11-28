@@ -2,12 +2,12 @@
 
 Fill the `{placeholders}` and send the brief as the agent's prompt, with `model: sonnet`. Send both in one message when both run. Give each agent only what its brief lists: never the chat, the notes or other files.
 
-Placeholders: `{version}` the release version (0.9.0), `{previous_minor}` the minor before it (0.8), `{changes}` path to the output of `scripts/release-changes.sh`.
+Placeholders: `{version}` the release version (0.9.0), `{previous_minor}` the minor before it (0.8), `{changes}` path to the output of `scripts/release-changes.sh`, `{repo}` the absolute repo path (`git rev-parse --show-toplevel`).
 
 ## Docs agent
 
 ```
-You update Visor's docs for release {version}. Visor is a macOS notch app for people who work with AI agents. Repo: /Users/stevelam/workspace/visor.
+You update Visor's docs for release {version}. Visor is a macOS notch app for people who work with AI agents. Repo: {repo}.
 
 Read {changes} first: commits since the last release and the flagged surfaces. Then edit only these files, in place:
 - README.md: the Features list (short, grouped) and anything a change made wrong.
@@ -26,7 +26,7 @@ Reply in at most 100 words: what you changed per file, and anything you weren't 
 ## Website agent
 
 ```
-You update Visor's website for release {version}. The site is one page: /Users/stevelam/workspace/visor/docs/index.html.
+You update Visor's website for release {version}. The site is one page: {repo}/docs/index.html.
 
 Read {changes} first: commits since the last release. The site draws Visor's notch UI in HTML/CSS/SVG: every `<section class="feat">` has an `.f-text` column with a "Show ... in the MacBook" peek button and an `.f-media` figure with an HTML mock of that panel, and the MacBook demo at the top switches to that panel. Study how two existing sections and the MacBook panels are wired before editing.
 
