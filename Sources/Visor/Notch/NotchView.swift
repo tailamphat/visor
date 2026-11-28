@@ -181,6 +181,12 @@ struct NotchView: View {
             }
         }
         .frame(width: size.width, height: size.height, alignment: .top)
+        .background(alignment: .bottom) {
+            // Local builds only, open only: a faint drafting grid behind the content.
+            if model.expanded && LocalBuild.look.panelGrid {
+                BlueprintGrid().transition(.opacity)
+            }
+        }
         .background {
             // Approvals: a soft mint glow from the top-left corner, matching the buttons.
             if model.expanded && model.showsCard {
@@ -206,10 +212,6 @@ struct NotchView: View {
         }
         .background(Theme.surface)
         .animation(.easeOut(duration: 0.4), value: model.artworkBackdrop)
-        .overlay(alignment: .bottom) {
-            // Local builds only: a static orange line along the whole bottom edge.
-            if LocalBuild.isLocal { Color(nsColor: LocalBuild.orange).frame(height: 1.5).allowsHitTesting(false) }
-        }
         .clipShape(shape)
         .dsShadow(.panel, shown: model.expanded)
         .offset(x: layout.shift(model))
@@ -218,6 +220,19 @@ struct NotchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
         .environment(\.providerIncidents, model.incidents)
+    }
+}
+
+/// A local build's drafting grid: the cached tile repeated along the panel's
+/// bottom, fading out upward. Static, so it costs nothing while the panel sits open.
+struct BlueprintGrid: View {
+    var body: some View {
+        Image(nsImage: LocalBuild.gridTile)
+            .resizable(resizingMode: .tile)
+            .frame(maxWidth: .infinity)
+            .frame(height: CGFloat(DesignComponents.Blueprint.height))
+            .mask(LinearGradient(colors: [Theme.surface, .clear], startPoint: .bottom, endPoint: .top))
+            .allowsHitTesting(false)
     }
 }
 

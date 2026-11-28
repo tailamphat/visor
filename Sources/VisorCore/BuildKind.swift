@@ -10,6 +10,11 @@ public enum BuildKind {
         return false
     }
 
+    /// What a build draws beyond the release look.
+    public static func look(info: [String: Any]?) -> BuildLook {
+        isRelease(info: info) ? .release : .local
+    }
+
     /// The first menu line of a local build.
     public static func menuTitle(version: String?, commit: String?, worktree: String?) -> String {
         var parts = ["Visor (local build)", version ?? "dev"]
@@ -17,4 +22,15 @@ public enum BuildKind {
         if let worktree, !worktree.isEmpty { parts.append(worktree) }
         return parts.joined(separator: " \u{00B7} ")
     }
+}
+
+/// The local build's look (mockup E1 "Blueprint"): a faint grid behind the
+/// open panel's content and a pen line drawn once under the launch hello.
+/// The closed notch and the menu bar icon look like the release in both.
+public struct BuildLook: Equatable, Sendable {
+    public let panelGrid: Bool
+    public let helloPen: Bool
+
+    public static let local = BuildLook(panelGrid: true, helloPen: true)
+    public static let release = BuildLook(panelGrid: false, helloPen: false)
 }

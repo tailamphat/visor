@@ -19,6 +19,7 @@ struct DesignComponentTests {
         "Shadow.opacity", "Shadow.radius", "Shadow.y", "Shadow.largeRadius", "Shadow.largeY",
         "Shadow.smallRadius", "Shadow.toastOpacity", "Shadow.toastY", "Shadow.liftedOpacity",
         "IntroLight.dim", "IntroLight.halo", "IntroLight.haloWarm", "IntroLight.trailMiddle", "IntroLight.trailWarm", "IntroLight.glint", "IntroLight.glow", "IntroLight.trailRadius", "IntroLight.glowRadius", "IntroLight.sparkRadius",
+        "Blueprint.height", "Blueprint.line", "Blueprint.penWidth", "Blueprint.penSeconds", "Blueprint.penDelay",
     ]
 
     /// The pieces that moved in from private copies keep their look: the Music
@@ -65,6 +66,17 @@ struct DesignComponentTests {
         }
         #expect(!declared.isEmpty)
         #expect(declared == Set(C.measurements.map(\.name)))
+    }
+
+    /// A local build's grid and pen line, from the picked mockup (E1 Blueprint).
+    @Test func blueprintMatchesTheMockup() {
+        #expect(C.Blueprint.cell == DesignTokens.Space.lg)
+        #expect(C.Blueprint.gridOpacity == DesignTokens.Fill.medium)
+        #expect(C.Blueprint.height == 64)
+        #expect(C.Blueprint.line == 1)
+        #expect(C.Blueprint.penWidth == 1.5)
+        #expect(C.Blueprint.penSeconds == 1)
+        #expect(C.Blueprint.penDelay == 1.2)
     }
 
     @Test func cardButtonMatchesTheCardsToday() {

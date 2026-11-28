@@ -122,7 +122,7 @@ enum DS {
         static let iconLarge = CGFloat(DesignTokens.Size.iconLarge)
     }
 
-    /// Palette colours that `Theme` doesn't name (approval buttons, the intro's light).
+    /// Palette colours that `Theme` doesn't name (approval buttons, the intro's light, a local build's blueprint).
     enum Palette {
         static let mint = Color(hex: DesignTokens.Palette.mint)
         static let rose = Color(hex: DesignTokens.Palette.rose)
@@ -133,6 +133,8 @@ enum DS {
         static let introSky = Color(hex: DesignTokens.Palette.introSky)
         static let introSpark = Color(hex: DesignTokens.Palette.introSpark)
         static let violet = Color(hex: DesignTokens.Palette.violet)
+        /// A local build's grid and pen line (`DesignComponents.Blueprint`).
+        static let blueprint = Color(hex: DesignTokens.Palette.blueprint)
     }
 
     /// Drop shadows (`DesignComponents.Shadow`); draw one with `.dsShadow(_:shown:)`.

@@ -43,7 +43,7 @@
     --v-intro-sky: #8CC8FF;
     --v-intro-spark: #CFE6FF;
     --v-violet: #A78BFA;
-    --v-local-build: #FF8C1A;
+    --v-blueprint: #8CC8FF;
     --v-type-xs: 9px;
     --v-type-sm: 10px;
     --v-type-base: 11px;
@@ -152,9 +152,9 @@
     --v-on-violet: var(--v-surface);
     --v-solid-violet: var(--v-violet);
     --v-held-violet: #BDA8FB;
-    --v-on-local-build: var(--v-surface);
-    --v-solid-local-build: var(--v-local-build);
-    --v-held-local-build: #FFA953;
+    --v-on-blueprint: var(--v-surface);
+    --v-solid-blueprint: var(--v-blueprint);
+    --v-held-blueprint: #A9D6FF;
   }
   /* tokens:end */
 
@@ -263,6 +263,14 @@
     --v-c-intro-light-trail-radius: 4;
     --v-c-intro-light-glow-radius: 16;
     --v-c-intro-light-spark-radius: 2;
+    /* Blueprint */
+    --v-c-blueprint-cell: var(--v-space-lg);
+    --v-c-blueprint-grid-opacity: var(--v-fill-medium);
+    --v-c-blueprint-height: 64;
+    --v-c-blueprint-line: 1;
+    --v-c-blueprint-pen-width: 1.5;
+    --v-c-blueprint-pen-seconds: 1;
+    --v-c-blueprint-pen-delay: 1.2;
     /* PluginColor */
     --v-c-plugin-color-accent: var(--v-accent);
     --v-c-plugin-color-good: var(--v-good);
@@ -317,7 +325,6 @@
     --v-k-critical: var(--v-solid-critical) var(--v-on-critical) 4.52;
     --v-k-stuck: var(--v-solid-stuck) var(--v-on-stuck) 7.57;
     --v-k-claude: var(--v-solid-claude) var(--v-on-claude) 6.73;
-    --v-k-local-build: var(--v-solid-local-build) var(--v-on-local-build) 9.02;
     --v-k-on-pace: var(--v-solid-on-pace) var(--v-on-on-pace) 10.01;
     --v-k-violet: var(--v-solid-violet) var(--v-on-violet) 7.72;
     --v-k-mint: var(--v-solid-mint) var(--v-on-mint) 13.06;
@@ -562,7 +569,7 @@
     <!-- Tokens -->
     <section id="colour">
       <div class="group-title"><h2>Colour</h2><span>Theme.* / DS.Palette.* / var(--v-*)</span></div>
-      <p>Tuned for the notch's pure black. Views use <code>Theme</code>; the approval and intro colours that <code>Theme</code> doesn't name are on <code>DS.Palette</code>. A tag marks the names a plugin may use (<code>color =</code>, <code>tint =</code>). Click a swatch to copy its CSS variable.</p>
+      <p>Tuned for the notch's pure black. Views use <code>Theme</code>; the approval and intro colours that <code>Theme</code> doesn't name are on <code>DS.Palette</code>. <code>blueprint</code> is only for a local build: the open panel's drafting grid (<code>DesignComponents.Blueprint</code>, at <code>Fill.medium</code>) and the hello's pen line; release builds never draw it. A tag marks the names a plugin may use (<code>color =</code>, <code>tint =</code>). Click a swatch to copy its CSS variable.</p>
       <div class="swatches" id="swatches"></div>
       <div class="code" data-code="colour"></div>
     </section>

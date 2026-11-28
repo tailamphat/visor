@@ -115,7 +115,7 @@ public enum DesignContrast {
         Fill(name: "accent", hex: P.accent), Fill(name: "warning", hex: P.warning), Fill(name: "awake", hex: P.awake),
         Fill(name: "good", hex: P.good), Fill(name: "clash", hex: P.clash), Fill(name: "question", hex: P.question),
         Fill(name: "critical", hex: P.critical), Fill(name: "stuck", hex: P.stuck), Fill(name: "claude", hex: P.claude),
-        Fill(name: "localBuild", hex: P.localBuild), Fill(name: "onPace", hex: P.onPace), Fill(name: "violet", hex: P.violet),
+        Fill(name: "onPace", hex: P.onPace), Fill(name: "violet", hex: P.violet),
         Fill(name: "mint", hex: P.mint), Fill(name: "rose", hex: P.rose),
         Fill(name: "textPrimary", hex: P.textPrimary), Fill(name: "textSecondary", hex: P.textSecondary),
         Fill(name: "textMuted", hex: P.textMuted),
@@ -136,6 +136,10 @@ public enum DesignContrast {
 
     /// `Theme.accentTrack`: the accent track colour at this strength, behind Usage meters.
     public static let accentTrackOpacity: Double = 0.45
+
+    /// A local build's open panel where a grid line crosses it: the blueprint
+    /// colour at the grid's strength over the black (`DesignComponents.Blueprint`).
+    public static let blueprintGround = composite(P.blueprint, opacity: DesignComponents.Blueprint.gridOpacity, over: P.surface)
 
     /// The tracks meters fill: Usage's accent track, and plugin meters' white track.
     public static let meterTracks: [(name: String, hex: UInt32)] = [
@@ -237,7 +241,7 @@ public enum DesignContrast {
         add("ConsentButton.deny", P.denyText, composite(P.rose, opacity: T.Fill.medium, over: P.surface), use(forType: T.TypeScale.md))
 
         // Text on the panel and on raised cards.
-        for (ground, name) in [(P.surface, "surface"), (P.raised, "raised")] {
+        for (ground, name) in [(P.surface, "surface"), (P.raised, "raised"), (blueprintGround, "blueprint grid")] {
             add("textPrimary on \(name)", P.textPrimary, ground, .text)
             add("textSecondary on \(name)", P.textSecondary, ground, .text)
             add("textMuted on \(name)", P.textMuted, ground, .text)
@@ -257,6 +261,9 @@ public enum DesignContrast {
                 add("meter fill \(name) on the \(track.name)", hex, track.hex, .icon)
             }
         }
+        // A local build's hello: the pen line, blueprint fading into violet, on the black.
+        add("pen line blueprint on surface", P.blueprint, P.surface, .icon)
+        add("pen line violet on surface", P.violet, P.surface, .icon)
         return out
     }()
 }

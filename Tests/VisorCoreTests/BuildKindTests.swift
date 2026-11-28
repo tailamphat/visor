@@ -18,3 +18,28 @@ struct BuildKindTests {
             == "Visor (local build) \u{00B7} dev \u{00B7} abc1234")
     }
 }
+
+@Suite("BuildLook")
+struct BuildLookTests {
+    /// Local builds: a faint grid in the open panel and a pen line under the hello.
+    @Test func localBuildsDrawTheGridAndPen() {
+        let look = BuildKind.look(info: ["VisorRelease": "NO"])
+        #expect(look.panelGrid)
+        #expect(look.helloPen)
+        #expect(look == .local)
+    }
+
+    /// The release shows nothing extra.
+    @Test func releaseBuildsDrawNothingExtra() {
+        let look = BuildKind.look(info: ["VisorRelease": "YES"])
+        #expect(look == .release)
+        #expect(!look.panelGrid)
+        #expect(!look.helloPen)
+    }
+
+    /// A plain `swift build` run has no Info.plist: it is local.
+    @Test func unbundledRunsCountAsLocal() {
+        #expect(BuildKind.look(info: nil) == .local)
+        #expect(BuildKind.look(info: [:]) == .local)
+    }
+}

@@ -1,10 +1,12 @@
 import AppKit
+import SwiftUI
 import VisorCore
 
 /// Local builds (debug, worktree, plain bundle.sh) look different from the release.
 enum LocalBuild {
     static let isLocal = !BuildKind.isRelease(info: Bundle.main.infoDictionary)
-    static let orange = NSColor(hex: DesignTokens.Palette.localBuild)
+    /// What this build draws beyond the release look: the open panel's grid and the hello's pen line.
+    static let look = BuildKind.look(info: Bundle.main.infoDictionary)
 
     /// The first menu line. Main thread only; `start()` fills in the commit and worktree.
     private(set) static var menuTitle = BuildKind.menuTitle(version: version, commit: info?["VisorCommit"] as? String, worktree: nil)
@@ -53,18 +55,17 @@ enum LocalBuild {
         return !isDir.boolValue
     }
 
-    /// The menu bar icon in orange, with a small dot (not a template, so the colour stays).
-    static func tinted(_ icon: NSImage?) -> NSImage? {
-        guard let icon else { return nil }
-        let size = icon.size
-        let image = NSImage(size: size, flipped: false) { rect in
-            icon.draw(in: rect)
-            orange.setFill()
-            rect.fill(using: .sourceAtop)
-            NSBezierPath(ovalIn: NSRect(x: rect.maxX - 5.5, y: 0, width: 5.5, height: 5.5)).fill()
+    /// One square of the open panel's drafting grid (a line along its top and
+    /// left edge), drawn once; SwiftUI tiles it.
+    static let gridTile: NSImage = {
+        typealias B = DesignComponents.Blueprint
+        let cell = CGFloat(B.cell), line = CGFloat(B.line)
+        let colour = NSColor(DS.Palette.blueprint).withAlphaComponent(CGFloat(B.gridOpacity))
+        return NSImage(size: NSSize(width: cell, height: cell), flipped: true) { rect in
+            colour.setFill()
+            NSRect(x: 0, y: 0, width: rect.width, height: line).fill()
+            NSRect(x: 0, y: line, width: line, height: rect.height - line).fill()
             return true
         }
-        image.isTemplate = false
-        return image
-    }
+    }()
 }

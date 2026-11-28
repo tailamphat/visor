@@ -284,13 +284,14 @@ Put your own things in the notch with small Lua files.
 | Green check | An agent finished, or a question was answered. Open the notch for the [turn summary](#turn-summary) |
 | A percent | The most urgent usage limit |
 | A time ("42m") | A limit will run out within the hour |
-| Orange edge under the notch | A local build, not the release (the menu bar icon is orange with a dot, and the first menu line shows version, commit and worktree) |
 | Small cup | [Keep awake](#keep-awake) is holding sleep off |
 | Red or amber dot on a mark | A [provider incident](#provider-status) |
 | Two marks and "same file" | A [clash warning](#clash-warning) |
 | Peek, then a "Stuck?" card | An agent is [stuck](#stuck-warning) on the same call |
 | Peek with a count and "while you were away" | Things [changed while you were away](#while-you-were-away) |
 | Peek about a limit | A [limit handoff](#limit-handoff) is offered |
+
+A local build (not the release) looks like the release when closed. It shows a faint grid at the bottom of the open panel, a pen line under the launch hello, a blueprint app icon and a hatched menu bar icon; its first menu line shows version, commit and worktree.
 
 ## Menu bar settings
 

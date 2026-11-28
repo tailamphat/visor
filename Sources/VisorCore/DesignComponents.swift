@@ -66,6 +66,13 @@ public enum DesignComponents {
         Measurement(name: "IntroLight.trailRadius", value: IntroLight.trailRadius, scale: nil),
         Measurement(name: "IntroLight.glowRadius", value: IntroLight.glowRadius, scale: nil),
         Measurement(name: "IntroLight.sparkRadius", value: IntroLight.sparkRadius, scale: nil),
+        Measurement(name: "Blueprint.cell", value: Blueprint.cell, scale: DesignScale.space),
+        Measurement(name: "Blueprint.gridOpacity", value: Blueprint.gridOpacity, scale: DesignScale.fill),
+        Measurement(name: "Blueprint.height", value: Blueprint.height, scale: nil),
+        Measurement(name: "Blueprint.line", value: Blueprint.line, scale: nil),
+        Measurement(name: "Blueprint.penWidth", value: Blueprint.penWidth, scale: nil),
+        Measurement(name: "Blueprint.penSeconds", value: Blueprint.penSeconds, scale: nil),
+        Measurement(name: "Blueprint.penDelay", value: Blueprint.penDelay, scale: nil),
     ]
 
     /// A small button inside a card.
@@ -184,5 +191,24 @@ public enum DesignComponents {
         public static let trailRadius: Double = 4
         public static let glowRadius: Double = 16
         public static let sparkRadius: Double = 2
+    }
+
+    /// A local build's look (mockup E1 "Blueprint"): the drafting grid behind
+    /// the open panel's content and the pen line under the launch hello, both
+    /// in `Palette.blueprint`. Release builds draw neither (`BuildLook`).
+    public enum Blueprint {
+        /// One grid square, in points.
+        public static let cell = T.Space.lg
+        /// The grid lines' strength over the black.
+        public static let gridOpacity = T.Fill.medium
+        /// The grid rises this far from the panel's bottom edge, fading out upward.
+        public static let height: Double = 64
+        /// Grid line width in points.
+        public static let line: Double = 1
+        /// The pen line under the hello's version line.
+        public static let penWidth: Double = 1.5
+        /// The pen draws once, this long, starting this long after the hello shows.
+        public static let penSeconds: Double = 1
+        public static let penDelay: Double = 1.2
     }
 }

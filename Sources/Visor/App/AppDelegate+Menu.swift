@@ -13,7 +13,8 @@ extension AppDelegate {
             ?? NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Visor")
         icon?.isTemplate = true
         icon?.accessibilityDescription = "Visor"
-        item.button?.image = LocalBuild.isLocal ? LocalBuild.tinted(icon) : icon
+        // Local bundles carry the hatched MenuIcon (scripts/bundle.sh): a template like the release's.
+        item.button?.image = icon
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu

@@ -141,6 +141,12 @@ struct DesignTokenTests {
         }
     }
 
+    /// A local build's grid and pen line: one blueprint blue; the old orange is gone.
+    @Test func paletteHasBlueprint() {
+        #expect(DesignScale.palette.first { $0.name == "blueprint" }?.value == Double(0x8CC8FF))
+        #expect(!DesignScale.palette.contains { $0.name == "localBuild" })
+    }
+
     /// The site generator (DS3) reads `DesignTokens.swift` as text: one
     /// `static let name: Type = literal` per value, inside `enum Group`.
     @Test func sourceLinesParse() throws {

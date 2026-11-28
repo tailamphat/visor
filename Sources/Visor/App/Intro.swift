@@ -212,6 +212,12 @@ struct WelcomeView: View {
             if model.welcomeBrief {
                 Text(LocalBuild.helloLine)
                     .font(DS.font(.md)).foregroundStyle(Theme.textSecondary)
+                    .overlay(alignment: .bottom) {
+                        // Local builds only: a pen line draws once under the version.
+                        if LocalBuild.look.helloPen {
+                            PenLine().frame(height: DS.Space.xs).offset(y: DS.Space.xs).allowsHitTesting(false)
+                        }
+                    }
                     .opacity(settled ? 1 : 0)
                     .animation(.easeOut(duration: 0.6).delay(0.9), value: settled)
             } else {
@@ -240,5 +246,74 @@ struct WelcomeView: View {
             if !model.showsCard { model.expanded = false }
         }
         .onAppear { DispatchQueue.main.async { model.welcomeSettled = true } }
+    }
+}
+
+/// A local build's hello: a pen line drawn once, left to right, under the
+/// version line, blueprint fading into violet (mockup E1 "Blueprint").
+struct PenLine: NSViewRepresentable {
+    func makeNSView(context: Context) -> PenLineView { PenLineView() }
+    func updateNSView(_ nsView: PenLineView, context: Context) {}
+}
+
+/// One gradient masked by a stroked line; the line's `strokeEnd` runs from 0
+/// to 1 once (Core Animation, no repeat) and the finished line stays as the
+/// layer's own value, so nothing is left animating.
+final class PenLineView: NSView {
+    private typealias B = DesignComponents.Blueprint
+    private let gradient = CAGradientLayer()
+    private let stroke = CAShapeLayer()
+    private var drawn = false
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        gradient.colors = [NSColor(DS.Palette.blueprint).cgColor, NSColor(DS.Palette.violet).cgColor]
+        gradient.startPoint = CGPoint(x: 0, y: 0.5)
+        gradient.endPoint = CGPoint(x: 1, y: 0.5)
+        stroke.lineWidth = CGFloat(B.penWidth)
+        stroke.lineCap = .round
+        // Only the mask's alpha counts.
+        stroke.strokeColor = NSColor(Theme.textPrimary).cgColor
+        stroke.fillColor = nil
+        gradient.mask = stroke
+        layer?.addSublayer(gradient)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        // Sublayers drawn at the screen's scale, so the line stays sharp on Retina.
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        gradient.contentsScale = scale
+        stroke.contentsScale = scale
+        gradient.frame = bounds
+        stroke.frame = bounds
+        // Inset by half the width so the round caps stay inside the gradient.
+        let cap = CGFloat(B.penWidth) / 2
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: cap, y: bounds.midY))
+        path.addLine(to: CGPoint(x: max(cap, bounds.maxX - cap), y: bounds.midY))
+        stroke.path = path
+        CATransaction.commit()
+        guard !drawn, bounds.width > 0 else { return }
+        drawn = true
+        let draw = CABasicAnimation(keyPath: "strokeEnd")
+        draw.fromValue = 0
+        draw.toValue = 1
+        draw.duration = B.penSeconds
+        draw.beginTime = CACurrentMediaTime() + B.penDelay
+        draw.timingFunction = CAMediaTimingFunction(controlPoints: 0.3, 0.7, 0.2, 1)
+        // Hidden until it starts; once done the animation goes and strokeEnd's own 1 shows.
+        draw.fillMode = .backwards
+        stroke.add(draw, forKey: "draw")
     }
 }

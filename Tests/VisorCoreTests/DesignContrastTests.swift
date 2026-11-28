@@ -41,11 +41,24 @@ struct DesignContrastTests {
         #expect(C.Use.icon.minimum == 3)
     }
 
+    /// A local build's grid stays faint: visible, but far from a fill, and
+    /// every text on the panel still reads with a grid line under it.
+    @Test func blueprintGridStaysFaint() {
+        let lift = C.ratio(C.blueprintGround, P.surface)
+        #expect(lift > 1.05 && lift < 1.3, "grid line vs black \(lift)")
+        for name in ["textPrimary", "textSecondary", "textMuted", "SectionHeader", "DismissButton"] {
+            let pair = C.pairs.first { $0.name == "\(name) on blueprint grid" }
+            #expect(pair?.passes == true, "\(name) on blueprint grid")
+        }
+        #expect(C.pairs.contains { $0.name == "pen line blueprint on surface" && $0.passes })
+        #expect(C.pairs.contains { $0.name == "pen line violet on surface" && $0.passes })
+    }
+
     /// Every colour a component or a plugin can use as a solid fill has a row.
     @Test func pairingTableCoversEveryFill() {
         let names = Set(C.fills.map(\.name))
         for name in ["surface", "raised", "deemphasis", "accentTrack", "accent", "warning", "awake", "good", "clash",
-                     "question", "critical", "stuck", "claude", "localBuild", "onPace", "violet", "mint", "rose"] {
+                     "question", "critical", "stuck", "claude", "onPace", "violet", "mint", "rose"] {
             #expect(names.contains(name), "\(name) missing from DesignContrast.fills")
         }
         for colour in PluginColor.allCases {
@@ -62,7 +75,7 @@ struct DesignContrastTests {
         let white: [UInt32] = [P.accent, P.critical, P.good, P.textMuted,
                                P.surface, P.raised, P.deemphasis, P.accentTrack]
         for hex in white { #expect(C.solid(hex).on == P.textPrimary, "\(String(format: "%06X", hex))") }
-        let black: [UInt32] = [P.warning, P.awake, P.mint, P.onPace, P.stuck, P.clash, P.localBuild, P.rose,
+        let black: [UInt32] = [P.warning, P.awake, P.mint, P.onPace, P.stuck, P.clash, P.rose,
                                P.claude, P.violet, P.question,
                                P.textPrimary, P.textSecondary]
         for hex in black {
