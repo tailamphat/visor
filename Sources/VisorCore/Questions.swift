@@ -18,8 +18,10 @@ public struct AgentQuestion: Equatable, Sendable {
         label = Self.label(header: first.header, text: first.text)
     }
 
+    /// A key in either reads as its kind, before the cut.
     public static func label(header: String, text: String) -> String {
-        if !header.isEmpty { return header }
+        if !header.isEmpty { return KeyShapes.redacted(header) }
+        let text = KeyShapes.redacted(text)
         return text.count > 40 ? String(text.prefix(39)) + "…" : text
     }
 }

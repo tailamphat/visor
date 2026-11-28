@@ -237,10 +237,10 @@ public struct StuckWatch: Sendable {
         return (message.payload["toolResult"] as? [String: Any])?["textResultForLlm"] as? String
     }
 
-    /// The first non-empty line, at most 120 characters.
+    /// The first non-empty line, at most 120 characters; a key in it reads as its kind.
     static func errorLine(_ text: String?) -> String? {
         guard let text else { return nil }
-        for line in text.split(whereSeparator: \.isNewline) {
+        for line in KeyShapes.redacted(text).split(whereSeparator: \.isNewline) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if !trimmed.isEmpty { return String(trimmed.prefix(120)) }
         }
@@ -248,15 +248,17 @@ public struct StuckWatch: Sendable {
     }
 
     /// What the card names: the command's first line (at most 60 characters), or the tool and file name.
+    /// A key reads as its kind, before the cut (display only: `key` tells calls apart).
     static func label(tool: String, input: [String: Any]) -> String {
         if let command = input["command"] as? String {
-            let first = command.split(whereSeparator: \.isNewline).first.map(String.init) ?? command
+            let first = KeyShapes.redacted(command).split(whereSeparator: \.isNewline).first.map(String.init) ?? command
             let trimmed = first.trimmingCharacters(in: .whitespaces)
             return trimmed.count > 60 ? String(trimmed.prefix(59)) + "…" : trimmed
         }
         // Only the named fields: other input (a Task prompt, MCP arguments) is never shown.
         guard let subject = knownSubject(input), !subject.isEmpty else { return String(tool.prefix(60)) }
-        let name = subject.contains("/") ? (subject as NSString).lastPathComponent : subject
+        let shown = KeyShapes.redacted(subject)
+        let name = shown.contains("/") ? (shown as NSString).lastPathComponent : shown
         return String((tool + " " + name).prefix(60))
     }
 }

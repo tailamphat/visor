@@ -11,6 +11,7 @@ struct AgentsView: View {
     var body: some View {
         // The cards' one clock: ticks only while the list is on screen.
         VStack(spacing: 6) {
+            if let key = model.keyAlerts.first { KeyBanner(alert: key, model: model) }
             if let away = model.away { AwayRecapBanner(away: away, model: model) }
             if let handoff = model.handoff { HandoffBanner(handoff: handoff, model: model) }
             if let stuck = model.stuck.first {
@@ -228,17 +229,17 @@ struct ClashBanner: View {
             DismissButton(action: dismiss)
         }
         .compactBanner(tint: Theme.clash, height: Self.height)
-        .help("\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
+        .help("\(clash.agents.joined(separator: " and ")) both edited \(KeyShapes.redactedOnce(clash.path))")
     }
 
     /// The path inside the project, when the file is in one of the two sessions' folders.
     private var shortPath: String {
         for id in clash.sessions {
             if let cwd = sessions.first(where: { $0.id == id })?.cwd, !cwd.isEmpty, clash.path.hasPrefix(cwd + "/") {
-                return String(clash.path.dropFirst(cwd.count + 1))
+                return KeyShapes.redactedOnce(String(clash.path.dropFirst(cwd.count + 1)))
             }
         }
-        return (clash.path as NSString).lastPathComponent
+        return KeyShapes.redactedOnce((clash.path as NSString).lastPathComponent)
     }
 }
 
@@ -283,6 +284,61 @@ struct StuckBanner: View {
             .frame(height: 18)
         }
         .bannerCard(tint: Theme.stuck, height: Self.height)
+    }
+}
+
+/// Over the Agents list while a key spotted in a session stands: the kind,
+/// project and agent, never any of the key, with Got it and Show transcript.
+struct KeyBanner: View {
+    let alert: KeyAlert
+    let model: AppModel
+    static let spacing: CGFloat = 3
+    /// Three rows (16, 28 and 18 pt) inside the same inset on every side.
+    static let height = CGFloat(DesignComponents.Banner.height(rows: [16, 28, 18], spacing: Double(spacing)))
+
+    var body: some View {
+        let body = KeyNotice.body(alert.kinds)
+        let project = KeyNotice.project(alert)
+        VStack(alignment: .leading, spacing: Self.spacing) {
+            HStack(spacing: 6) {
+                Badge("Key spotted", .solid(Theme.critical))
+                AgentMark(agent: alert.agent, size: 13)
+                (Text(project ?? alert.agent).fontWeight(.semibold).foregroundColor(Theme.textPrimary)
+                    + Text(project == nil ? "" : " · \(alert.agent)").foregroundColor(Theme.textMuted))
+                    .font(DS.font(.base)).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 6)
+                KeyAgo(at: alert.at, model: model)
+            }
+            .frame(height: 16)
+            .help(KeyNotice.hover(alert))
+            Text(body.sentence)
+                .font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28, alignment: .topLeading)
+            HStack(spacing: 6) {
+                Text(body.advice).font(DS.font(.base)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Spacer(minLength: 6)
+                Button("Got it") { model.dismissKey?(alert) }.buttonStyle(CardButton(.secondary))
+                if model.revealableKeys.contains(alert.id) {
+                    Button("Show transcript") { model.revealKey?(alert) }.buttonStyle(CardButton(.primary))
+                        .help("Select the transcript in Finder")
+                }
+            }
+            .frame(height: 18)
+        }
+        .bannerCard(tint: Theme.critical, height: Self.height)
+    }
+}
+
+/// The key card's "2m ago" from the list's one clock: only this small view
+/// redraws each second, not the card.
+struct KeyAgo: View {
+    let at: Date
+    let model: AppModel
+
+    var body: some View {
+        Text(SessionText.ago(at, now: model.agentsNow))
+            .font(DS.font(.sm).monospacedDigit()).foregroundStyle(Theme.textMuted)
     }
 }
 

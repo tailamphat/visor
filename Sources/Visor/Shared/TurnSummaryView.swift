@@ -29,7 +29,8 @@ struct TurnSummaryView: View {
                     figure("\(stats.commands)", stats.commands == 1 ? "command" : "commands")
                     if let tests = stats.tests { testFigure(tests) }
                 }
-                let (files, more) = stats.shortFiles(in: turn.cwd, limit: 3)
+                // A key in a file or folder name shows as its kind.
+                let (files, more) = stats.shownFiles(in: turn.cwd, limit: 3)
                 if !files.isEmpty {
                     Text(files.joined(separator: " · ") + (more > 0 ? "  +\(more)" : ""))
                         .font(DS.font(.base, design: .monospaced)).foregroundStyle(Theme.textSecondary)
@@ -57,6 +58,7 @@ struct TurnSummaryView: View {
 
     @ViewBuilder private func testFigure(_ tests: TurnStats.Tests) -> some View {
         switch tests {
+        // Stored with any key as its kind (`TurnStats.record`).
         case .passed(let command): status("tests passed", command, Theme.good)
         case .failed(let command): status("tests failed", command, Theme.critical)
         case .ran(let command): status("tests ran", command, Theme.textPrimary)

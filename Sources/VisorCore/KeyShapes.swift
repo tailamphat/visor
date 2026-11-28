@@ -113,6 +113,12 @@ public enum KeyShapes {
     /// on from its next character, so it never swallows a key glued onto it.
     /// Matches start only at a prefix, so a retry costs at most one candidate.
     static func scanAll(_ text: String, _ body: (KeyKind, String) -> Void) {
+        matches(text) { kind, _, inner in body(kind, identity(kind, inner)) }
+    }
+
+    /// The one match loop: each key's kind, its whole match (UTF-16 range) and
+    /// its body. `scanAll` and `redacted` both read it.
+    static func matches(_ text: String, _ body: (KeyKind, NSRange, Substring) -> Void) {
         let length = (text as NSString).length
         var start = 0
         while start < length,
@@ -123,7 +129,7 @@ public enum KeyShapes {
                   let inner = Range(result.range(at: index + 1), in: text) else { continue }
             let rule = rules[index]
             guard holds(rule.classes, text[inner]) else { continue }
-            body(rule.kind, identity(rule.kind, text[inner]))
+            body(rule.kind, result.range, text[inner])
             start = max(start, NSMaxRange(result.range))
         }
     }

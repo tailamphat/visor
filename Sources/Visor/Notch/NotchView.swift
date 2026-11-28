@@ -43,6 +43,8 @@ struct NotchLayout {
     static let accountsSize = CGSize(width: width, height: 272)
     /// The longest the Agents list grows before it scrolls.
     static let listMaxHeight: CGFloat = 402
+    /// The Agents tab's empty message under its cards.
+    static let emptyAgentsContent: CGFloat = 110
     /// The window is a little larger than the biggest panel, room for the shadow.
     static let windowSize = CGSize(width: 620, height: 480)
 
@@ -62,6 +64,7 @@ struct NotchLayout {
     /// line in `AgentsView` is added here too.
     static func agentsExtras(_ model: AppModel) -> AgentsPanelExtras {
         var banners: CGFloat = 0
+        if !model.keyAlerts.isEmpty { banners += KeyBanner.height + 6 }  // a key spotted in a session
         if let away = model.away { banners += AwayRecapBanner.height(for: away) + 6 }  // what changed while locked
         if !model.clashes.isEmpty { banners += ClashBanner.height + 6 }  // two agents on one file
         if !model.stuck.isEmpty { banners += StuckBanner.height + 6 }  // an agent going round in circles
@@ -138,6 +141,12 @@ struct NotchLayout {
                 let digest = agentsDigest(model, extras: extras)
                 let content = CGFloat(AgentsPanel.contentHeight(digest: digest, extras: extras, showAll: model.agentsShowAll))
                 return CGSize(width: Self.expandedSize.width, height: min(Self.listMaxHeight, fitting(content)))
+            }
+            if model.tab == .agents {
+                // No sessions left: room for the cards above the empty message, so none is cut.
+                let banners = CGFloat(Self.agentsExtras(model).banners)
+                return CGSize(width: Self.expandedSize.width,
+                              height: min(Self.listMaxHeight, max(Self.expandedSize.height, fitting(banners + Self.emptyAgentsContent))))
             }
             // Nothing playing: a little shorter than the other panels, it's only a message.
             if model.tab == .music && model.nowPlaying == nil { return CGSize(width: Self.width, height: Self.nothingPlayingHeight) }
@@ -262,7 +271,7 @@ struct CollapsedView: View {
         case .plugin(_, let news):
             return ("", news.subtitle.isEmpty ? news.title : news.title + ": " + news.subtitle)
         case .clash(let clash):
-            return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(clash.path)")
+            return (clash.agents[0], "\(clash.agents.joined(separator: " and ")) both edited \(KeyShapes.redactedOnce(clash.path))")
         case .stuck(let stuck):
             return (stuck.agent, "\(stuck.agent): \(stuck.label) \(stuck.long)")
         case .helperFailed(let failure):
@@ -276,6 +285,8 @@ struct CollapsedView: View {
             return (away.top?.agent ?? "", "\(away.count) " + (away.count == 1 ? "change" : "changes") + " while you were away · \(away.minutes) min")
         case .mode(let agent):
             return (agent, "\(agent) runs with permissions off: it asks nothing")
+        case .key(let alert):
+            return (alert.agent, KeyNotice.hover(alert))
         case .release(let update):
             let changes = update.changes.isEmpty ? "" : ": " + update.changes.joined(separator: " · ")
             return (update.name, "\(update.name) \(update.latest) (you have \(update.installed))" + changes)
@@ -366,6 +377,19 @@ struct CollapsedView: View {
                 // Counts the badge reaching past the corner.
                 .padding(.trailing, 5)
                 .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .key(let alert) = peek {
+            // The agent's mark with a red "!" on its corner: a key is in the session.
+            AgentMark(agent: alert.agent, size: 16)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(DS.font(.xs, .semibold))
+                        .foregroundStyle(Theme.textPrimary, Theme.critical)
+                        .background(Circle().fill(Theme.surface).padding(-1.5))
+                        .offset(x: 5, y: 4)
+                }
+                // Counts the badge reaching past the corner.
+                .padding(.trailing, 5)
+                .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash(let clash) = peek {
             // Both agents' marks with an orange ⇄ between them.
             HStack(spacing: 5) {
@@ -434,6 +458,10 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .mode = peek {
             Text("asks nothing")
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .key(let alert) = peek {
+            Text(KeyNotice.peekWords(alert.source))
                 .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {

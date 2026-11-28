@@ -127,7 +127,15 @@ final class AppModel {
 
     // Agents
     var board = AgentBoard()
-    var approvals: [ApprovalRequest] = []
+    var approvals: [ApprovalRequest] = [] {
+        didSet {
+            // Each card's preview and Always label as shown (a key as its kind), worked out once per request.
+            var next: [UUID: ApprovalText] = [:]
+            for request in approvals { next[request.id] = approvalText[request.id] ?? ApprovalText(request) }
+            if Set(next.keys) != Set(approvalText.keys) { approvalText = next }
+        }
+    }
+    var approvalText: [UUID: ApprovalText] = [:]
     var hooksInstalled = false
     var antigravityHooksInstalled = false
     /// A few seconds of news in the closed notch: an agent finished, or a question was answered.
@@ -259,6 +267,15 @@ final class AppModel {
     var dismissAway: (() -> Void)?
     /// The card's primary button: brings the top item's app forward and drops it.
     var openAway: (() -> Void)?
+    /// Keys spotted in prompts, commands and written files (`KeyWatch`), newest
+    /// first, until Got it: kinds and where only, never any of the key. Memory only.
+    var keyAlerts: [KeyAlert] = []
+    /// Got it on a key card: it and its peek go.
+    var dismissKey: ((KeyAlert) -> Void)?
+    /// Show transcript: Finder selects the session's transcript (nil when the path isn't Claude Code's own).
+    var revealKey: ((KeyAlert) -> Void)?
+    /// Alerts whose transcript Show transcript may reveal, decided once when each came.
+    var revealableKeys: Set<Int> = []
     /// Agents on this Mac that Visor reads no limit for (Codex CLI, Gemini CLI, OpenCode).
     var unmeteredAgents: [String] = []
     /// The Agents list's one clock: every card's time reads it, and one timer
@@ -305,8 +322,8 @@ final class AppModel {
     var tokensRange: Int? = nil
     var tokensHover: String?
     /// Whether the Agents tab shows the office right now: chosen, and someone to show.
-    /// The office has no card slot, so a standing away recap shows the list.
-    var showsOffice: Bool { tab == .agents && agentsOffice && !board.sessions.isEmpty && away == nil }
+    /// The office has no card slot, so a standing away recap or key card shows the list.
+    var showsOffice: Bool { tab == .agents && agentsOffice && !board.sessions.isEmpty && away == nil && keyAlerts.isEmpty }
     /// What the last read of Claude Code's sign-in found; nil until it finishes.
     var claudeLookup: KeychainLookup?
     var claudeUsesAPIKey = false
@@ -514,16 +531,30 @@ enum Peek: Equatable {
     case away(AwayDigest)
     /// A session first seen with permissions off (Claude Code's bypassPermissions): it asks nothing.
     case mode(agent: String)
+    /// A key landed in a prompt, a command or a written file: the agent's mark, "key in a prompt".
+    case key(KeyAlert)
 
     var isRelease: Bool { if case .release = self { return true } else { return false } }
+    var isKey: Bool { if case .key = self { return true } else { return false } }
 
     /// For `ModePeekGate`: news that comes again on its own may give way to the mode peek.
     var modeGateShowing: ModePeekGate.Showing {
         switch self {
         case .done, .answered, .plugin, .mode: return .routine
-        case .clash, .stuck, .status, .release, .handoff, .helperFailed, .away: return .oneTime
+        case .clash, .stuck, .status, .release, .handoff, .helperFailed, .away, .key: return .oneTime
         }
     }
 }
 
 enum MusicCommand { case playPause, next, previous }
+
+/// An approval card's text as shown: the preview and Always label with any key as its kind.
+/// Display only: the request itself, which the reply and rules read, is unchanged.
+struct ApprovalText {
+    let preview: String
+    let always: String?
+    init(_ request: ApprovalRequest) {
+        preview = request.shownPreview
+        always = request.shownAlwaysAllowLabel
+    }
+}

@@ -17,6 +17,20 @@ public struct TurnStats: Equatable, Sendable, Codable {
 
     public init() {}
 
+    private enum CodingKeys: String, CodingKey { case files, added, removed, commands, tests }
+
+    /// Saved (sessions.json) with any key in a path as its kind; `files` in
+    /// memory stays whole, since View diff runs git on those paths. A turn
+    /// restored after a relaunch can't diff a file whose path held a key.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(files.map { KeyShapes.redacted($0) }, forKey: .files)
+        try container.encode(added, forKey: .added)
+        try container.encode(removed, forKey: .removed)
+        try container.encode(commands, forKey: .commands)
+        try container.encodeIfPresent(tests, forKey: .tests)
+    }
+
     public var isEmpty: Bool { files.isEmpty && commands == 0 }
 
     /// Counts one tool event: edits before they run, commands too; a test's
@@ -28,7 +42,8 @@ public struct TurnStats: Equatable, Sendable, Codable {
         case "PreToolUse":
             if ["bash", "shell", "run_command"].contains(name), let command = input["command"] as? String {
                 commands += 1
-                if Self.isTest(command) { tests = .ran(command) }
+                // Stored (and saved) with any key as its kind.
+                if Self.isTest(command) { tests = .ran(KeyShapes.redacted(command)) }
                 return
             }
             guard let path = (input["file_path"] ?? input["path"]) as? String else { return }
@@ -46,10 +61,11 @@ public struct TurnStats: Equatable, Sendable, Codable {
             }
         case "PostToolUse", "PostToolUseFailure":
             guard ["bash", "shell", "run_command"].contains(name), let command = input["command"] as? String, Self.isTest(command) else { return }
-            if message.event == "PostToolUseFailure" { tests = .failed(command); return }
+            let shown = KeyShapes.redacted(command)
+            if message.event == "PostToolUseFailure" { tests = .failed(shown); return }
             let response = message.payload["tool_response"] as? [String: Any] ?? [:]
             let output = [response["stdout"], response["stderr"], response["output"]].compactMap { $0 as? String }.joined(separator: "\n")
-            tests = Self.outcome(of: output).map { $0 ? .passed(command) : .failed(command) } ?? .ran(command)
+            tests = Self.outcome(of: output).map { $0 ? .passed(shown) : .failed(shown) } ?? .ran(shown)
         default: break
         }
     }

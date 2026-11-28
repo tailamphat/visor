@@ -43,6 +43,7 @@ struct ApprovalView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             let session = model.board.sessions.first { $0.id == request.sessionID }
+            let shown = model.approvalText[request.id] ?? ApprovalText(request)
             // Who is asking: agent, where it runs, which project.
             let agent = session?.agent ?? AgentBoard.agentName(request.provider)
             HStack(spacing: 7) {
@@ -66,7 +67,8 @@ struct ApprovalView: View {
                         .help(task)
                 }
             }
-            (Text(request.tool == "Bash" ? "$ " : "").foregroundColor(Theme.textMuted) + Text(request.preview))
+            // A key in the command shows as its kind; what is approved is unchanged.
+            (Text(request.tool == "Bash" ? "$ " : "").foregroundColor(Theme.textMuted) + Text(shown.preview))
                 .font(DS.font(.md, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(3)
@@ -90,7 +92,7 @@ struct ApprovalView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
             // "Always" is the choice to make deliberately: a quiet link under them, its rule in view.
-            if let always = request.alwaysAllowLabel {
+            if let always = shown.always {
                 Button { model.decide?(request, .allowAlways) } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.triangle.2.circlepath").font(DS.font(.sm, .semibold))

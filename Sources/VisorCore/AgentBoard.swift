@@ -478,9 +478,12 @@ public struct AgentBoard: Equatable, Sendable {
                             sessionID: session.id, cwd: session.cwd, stats: session.turn)
     }
 
-    /// The first line of a prompt, short enough for one row.
+    /// The first line of a prompt, short enough for one row. A key in it reads
+    /// as its kind (`KeyShapes.redacted`, before the cut), so neither the card
+    /// nor `sessions.json` holds one.
     public static func summarize(_ prompt: String) -> String? {
-        let line = prompt.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        let line = KeyShapes.redacted(prompt).split(whereSeparator: \.isNewline).first
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
         guard !line.isEmpty else { return nil }
         return line.count > 80 ? String(line.prefix(79)) + "…" : line
     }
@@ -583,7 +586,9 @@ public struct AgentBoard: Equatable, Sendable {
         default: detail = nil
         }
         guard let detail else { return tool }
-        let line = detail.split(separator: "\n").first.map(String.init) ?? detail
+        // A key in the command or query reads as its kind, before the cut.
+        let shown = KeyShapes.redacted(detail)
+        let line = shown.split(separator: "\n").first.map(String.init) ?? shown
         return "\(tool): \(line.count > 60 ? String(line.prefix(59)) + "…" : line)"
     }
 }
@@ -600,6 +605,12 @@ extension AgentBoard {
             x.stats = nil; y.stats = nil
             return shown || x != y
         }
+    }
+
+    /// A mode peek taken but replaced before it could be seen (a key peek): offer it again.
+    public mutating func rearmModePeek(id: String) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].modePeeked = false
     }
 
     /// True once per session, the first time it is seen in bypass mode; marks it taken.

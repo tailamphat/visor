@@ -137,6 +137,8 @@ public enum HandoffPlanner {
         if !listed.isEmpty {
             lines.append("Files touched:")
             for path in listed {
+                // A key in a path reads as its kind, before the cut.
+                let path = KeyShapes.redacted(path)
                 lines.append("- " + (path.count > maxPath ? "…" + String(path.suffix(maxPath - 1)) : path))
             }
         }

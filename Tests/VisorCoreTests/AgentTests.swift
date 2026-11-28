@@ -101,6 +101,83 @@ struct AgentBoardTests {
     @Test func hookPIDIsRead() {
         #expect(HookMessage.parse(Data(#"{"event":"Stop","pid":1,"hpid":77,"raw":{}}"#.utf8))?.hookPID == 77)
     }
+
+    /// Whether `shown` holds any 8-character run of `key` (built at run time).
+    static func leaks(_ shown: String, _ key: String) -> Bool {
+        let chars = Array(key)
+        guard chars.count >= 8 else { return false }
+        return (0...(chars.count - 8)).contains { shown.contains(String(chars[$0..<($0 + 8)])) }
+    }
+
+    /// The session card's task never holds a key: it reads the kind instead,
+    /// also when the key sits across the 80-character cut, and the board
+    /// (which `sessions.json` saves) never keeps it.
+    @Test func taskHidesKeys() throws {
+        let key = KeyFixture.githubClassic()
+        let plain = try #require(AgentBoard.summarize("use " + key + " for the push"))
+        expectTrue(plain.contains("[GitHub token]") && !Self.leaks(plain, key))
+        let across = try #require(AgentBoard.summarize(String(repeating: "word ", count: 14) + key + " more"))
+        expectTrue(!Self.leaks(across, key) && !across.contains("gh" + "p_"))
+        let pem = try #require(AgentBoard.summarize(KeyFixture.privateKey() + "\nthanks"))
+        expectTrue(pem.contains("[private key]") && !Self.leaks(pem, KeyFixture.privateKey()))
+        var board = AgentBoard()
+        let payload: [String: Any] = ["session_id": "s1", "cwd": "/Users/me/shop", "prompt": "deploy with " + key]
+        board.apply(HookMessage(event: "UserPromptSubmit", pid: 4242, payload: payload))
+        expectTrue(!Self.leaks(String(reflecting: board.sessions), key))
+    }
+
+    /// "Bash: <command>" never holds a key, also across the 60-character cut.
+    @Test func describeHidesKeys() {
+        let key = KeyFixture.aws()
+        let shown = AgentBoard.describe(tool: "Bash", input: ["command": "curl -H x " + key])
+        expectTrue(shown.contains("[AWS access key]") && !Self.leaks(shown, key))
+        let long = AgentBoard.describe(tool: "Bash", input: ["command": String(repeating: "a", count: 52) + " " + key])
+        expectTrue(!Self.leaks(long, key) && !long.contains("AK" + "IA"))
+        let slack = KeyFixture.slackBot()
+        let other = AgentBoard.describe(tool: "WebSearch", input: ["query": slack])
+        expectTrue(!Self.leaks(other, slack))
+    }
+
+    /// A test command carrying a token is stored (and saved) with the kind in its place.
+    @Test func testCommandNeverStoresKey() {
+        let key = KeyFixture.githubClassic(seed: 41)
+        var stats = TurnStats()
+        let input: [String: Any] = ["command": "GH_TOKEN=" + key + " npm test"]
+        stats.record(HookMessage(event: "PreToolUse", pid: 1, payload: ["session_id": "s1", "tool_name": "Bash", "tool_input": input]))
+        expectTrue(stats.tests != nil && !Self.leaks(String(reflecting: stats), key))
+        stats.record(HookMessage(event: "PostToolUseFailure", pid: 1, payload: ["session_id": "s1", "tool_name": "Bash", "tool_input": input]))
+        expectTrue(!Self.leaks(String(reflecting: stats), key))
+        if case .failed(let command)? = stats.tests { expectTrue(command.contains("[GitHub token]")) } else { expectTrue(false) }
+    }
+
+    /// A mode peek replaced before it could be seen comes back on the session's next event.
+    @Test func modePeekCanBeRearmed() {
+        var board = AgentBoard()
+        let payload: [String: Any] = ["session_id": "s1", "cwd": "/Users/me/api", "permission_mode": "bypassPermissions", "prompt": "go"]
+        board.apply(HookMessage(event: "UserPromptSubmit", pid: 4242, payload: payload))
+        expectTrue(board.takeModePeek(id: "s1"))
+        expectTrue(!board.takeModePeek(id: "s1"))
+        board.rearmModePeek(id: "s1")
+        expectTrue(board.takeModePeek(id: "s1"))
+    }
+
+    /// Redacting costs well under a millisecond on the main thread, even for a 64 KB prompt.
+    @Test func redactingIsCheap() {
+        let withKey = KeyFixture.githubClassic() + " " + String(repeating: "abc def 0123 ", count: 5_000)
+        let without = String(repeating: "abc def 0123 ", count: 5_000)
+        // The best of five rounds, so other tests running in parallel don't count.
+        var each = Double.infinity
+        for _ in 0..<5 {
+            let start = Date()
+            for _ in 0..<20 {
+                _ = AgentBoard.summarize(withKey)
+                _ = AgentBoard.summarize(without)
+                _ = AgentBoard.describe(tool: "Bash", input: ["command": withKey])
+            }
+            each = min(each, Date().timeIntervalSince(start) / 60)
+        }
+        expectTrue(each < 0.001, "took \(each) s")
+    }
 }
 
 @Suite("Copilot CLI hooks")

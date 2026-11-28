@@ -37,9 +37,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var handoffCopiedWork: DispatchWorkItem?
     /// The screen lock under way and the turns that finished during it; memory only.
     private var awayWatch = AwayWatch()
+    /// Keys in prompts, commands and written files: the watch lives on its own
+    /// queue, since a pasted file is still regex work. Memory only, nothing logged.
+    private let keyQueue = DispatchQueue(label: "visor.keys", qos: .utility)
+    private let keyWatch = KeyWatchBox()
+    /// Alerts that came while the screen was locked (ids only), peeked at unlock.
+    private var keysHeld: Set<Int> = []
+    /// Events waiting on `keyQueue`; past `maxKeysPending` new ones are not scanned (a flood guard, never reached at hook rates).
+    private var keysPending = 0
+    private static let maxKeysPending = 256
+    /// A key peek the "limit is back" card covered (or that came while it showed), shown again after it.
+    private var keyCovered: Int?
+    /// The session whose "asks nothing" peek shows, so a key peek replacing it can offer it again.
+    private var modePeekSession: String?
     #if DEBUG
     /// `_away` "backdate": how much later the next debug unlock counts, so a short test reads as a long absence.
     private var debugAwayShift: TimeInterval = 0
+    /// `_key`: ids for fake alerts, below zero so they never meet the watch's own.
+    private var debugKeyID = 0
     /// `_handoff`: a fake Claude limit and pace, and fake other quotas, used in place of the real ones.
     private var debugHandoff: (plan: PlanUsage, runsOutAt: Date, others: [NotchQuota])?
     #endif
@@ -209,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let tool = model.updatingTool, !offers.contains(where: { $0.toolID == tool && !$0.updated }) { model.updatingTool = nil }
             }
         }
-        radar.onNew = { [weak self] update in MainActor.assumeIsolated { self?.show(.release(update), for: 8) } }
+        radar.onNew = { [weak self] update in MainActor.assumeIsolated { _ = self?.show(.release(update), for: 8) } }
         model.dismissRelease = { [weak self] update in self?.radar.dismiss(update.toolID) }
         model.updateRelease = { [weak self] update in self?.runUpdate(update) }
         radar.start()
@@ -229,6 +244,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         model.copyHandoff = { [weak self] handoff in self?.copyHandoff(handoff) }
         model.dismissAway = { [weak self] in self?.dismissAway() }
+        model.dismissKey = { [weak self] alert in self?.dismissKey(alert) }
+        model.revealKey = { [weak self] alert in self?.revealKey(alert) }
         model.openAway = { [weak self] in self?.openAway() }
         // Screen lock and unlock only (not sleep and wake): the recap is about being away from the desk.
         let center = DistributedNotificationCenter.default()
@@ -300,6 +317,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let generation = self.stuckWatch.generation
                 self.stuckWatch.forget(keeping: Set(self.agents.sessions.map(\.id)))
                 if self.stuckWatch.generation != generation { self.refreshStuck() }
+                // Exited sessions' key hashes go; their cards stay until Got it (the key is still in the transcript).
+                let live = Set(self.agents.sessions.map(\.id)), keys = self.keyWatch
+                self.keyQueue.async { keys.watch.forget(keeping: live) }
                 for session in gone { self.hooks.releaseApprovals(session: session, event: "agent exited") }
             }
         }
@@ -401,6 +421,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// approval, and not while you're already using the open notch.
     private func showLimitBack(_ back: LimitReturn) {
         guard !model.expanded, !model.showsCard else { return }
+        // A key peek it covers comes back when the card goes.
+        if case .key(let shown)? = model.peek { keyCovered = shown.id }
         model.limitBack = back
         notch.expand()
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
@@ -408,6 +430,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self, self.model.limitBack == back else { return }
                 self.model.limitBack = nil
                 self.notch.collapseIfAway()
+                if let again = KeyNotice.comesBack(self.keyCovered, standing: self.model.keyAlerts), !self.model.expanded {
+                    self.show(.key(again), for: 6)
+                }
+                self.keyCovered = nil
             }
         }
     }
@@ -687,6 +713,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                       ranOutAt: Date().addingTimeInterval(-3 * 3600), nextReset: Date().addingTimeInterval(5 * 3600)))
             return
         }
+        // {"event":"_key","raw":{"kind":"github","source":"prompt|command|file"}} fakes a Key spotted alert by kind, never a
+        // key ("agent", "project" optional); "press":"gotit|show" presses the first card's buttons; "clear":true drops every card.
+        if message.event == "_key" {
+            let p = message.payload
+            if p["clear"] as? Bool == true {
+                for alert in model.keyAlerts { dismissKey(alert) }
+            } else if let press = p["press"] as? String {
+                if let first = model.keyAlerts.first { if press == "show" { revealKey(first) } else { dismissKey(first) } }
+            } else if let kind = (p["kind"] as? String).flatMap(KeyKind.init(rawValue:)) {
+                let source: KeyAlert.Source = switch p["source"] as? String {
+                case "command": .command
+                case "file": .file
+                default: .prompt
+                }
+                let session = model.board.sessions.first
+                debugKeyID -= 1
+                keySpotted(.sample(id: debugKeyID, kinds: [kind], source: source, session: session?.id ?? "debug",
+                                   agent: p["agent"] as? String ?? session?.agent ?? "Claude Code",
+                                   cwd: (p["project"] as? String).map { "/Users/me/" + $0 } ?? session?.cwd,
+                                   transcript: nil, at: Date()))
+            }
+            return
+        }
         // {"event":"_stuck","raw":{"press":"ignore|open"}} presses a button on the first Stuck? card.
         if message.event == "_stuck", let first = model.stuck.first {
             if message.payload["press"] as? String == "open" {
@@ -825,6 +874,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         noteEdit(message)
         dropAnsweredAdvice(message)
         noteStuck(message)
+        noteKeys(message)
         // After noteStuck: a helper failing is the more specific news for the same event.
         if let before { noteHelperFailure(before) }
         readContextSoon(message)
@@ -857,9 +907,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         publishAgents()
         if let done = agents.finished(message) {
             awayWatch.noteFinished(done, at: Date())
-            // Its summary waits behind the peek, unless the notch is already open for something else.
-            if !model.expanded && !done.stats.isEmpty { model.summary = done }
-            show(.done(done), for: 5)
+            // Its summary waits behind the peek, unless the notch is already open for something
+            // else, or a key peek kept the notch (then the click shows the key card).
+            let shown = show(.done(done), for: 5)
+            if KeyNotice.takesSummary(peekShown: shown, expanded: model.expanded, hasStats: !done.stats.isEmpty) { model.summary = done }
         }
     }
 
@@ -890,7 +941,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let agent = agents.sessions.first(where: { $0.id == id })?.agent else { return }
         // Replacing a finished turn's peek: its summary goes with it, as when its peek ends.
         if case .done? = model.peek { model.summary = nil }
-        show(.mode(agent: agent), for: 6)
+        if show(.mode(agent: agent), for: 6) { modePeekSession = id }
     }
 
     /// A question answered in the terminal shows "Answered" in the closed notch.
@@ -951,6 +1002,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
     }
 
+    // MARK: Key spotted
+
+    /// Prompts, Bash commands and file writes go to `KeyWatch` off the main
+    /// thread; other events never leave it. Only kinds and where come back.
+    private func noteKeys(_ message: HookMessage) {
+        guard ["UserPromptSubmit", "PreToolUse", "SessionEnd"].contains(message.event), message.sessionID != nil,
+              keysPending < Self.maxKeysPending else { return }
+        // The board names a hook session's agent from its provider, so no lookup.
+        let agent = AgentBoard.agentName(message.provider)
+        let keys = keyWatch
+        keysPending += 1
+        keyQueue.async {
+            let alert = keys.watch.record(message, agent: agent, at: Date())
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.keysPending -= 1
+                    if let alert { self?.keySpotted(alert) }
+                }
+            }
+        }
+    }
+
+    /// A card on top of the Agents tab and a 6 s peek; held while the screen is
+    /// locked. A closed notch switches to the Agents tab; it never opens for this.
+    private func keySpotted(_ alert: KeyAlert) {
+        model.keyAlerts.insert(alert, at: 0)
+        if model.keyAlerts.count > 20 { model.keyAlerts.removeLast(model.keyAlerts.count - 20) }
+        model.revealableKeys.formIntersection(model.keyAlerts.map(\.id))
+        // Decided once here (the path is resolved on disk), not on every redraw of the card.
+        if KeyNotice.revealable(alert.transcript, roots: Self.claudeProjectRoots) { model.revealableKeys.insert(alert.id) }
+        model.agentsNow = Date()
+        if !model.expanded { model.tab = .agents }
+        if awayWatch.isLocked {
+            keysHeld.insert(alert.id)
+            return
+        }
+        // The "limit is back" card has the notch: this peek shows when it goes.
+        if model.limitBack != nil { keyCovered = alert.id }
+        // Replacing a finished turn's peek: its summary goes with it.
+        if case .done? = model.peek { model.summary = nil }
+        // Replacing an "asks nothing" peek before it could be read: it comes back on the session's next event.
+        if case .mode? = model.peek, let id = modePeekSession { agents.rearmModePeek(id: id) }
+        show(.key(alert), for: 6)
+    }
+
+    /// Got it: the card and its peek go.
+    private func dismissKey(_ alert: KeyAlert) {
+        model.keyAlerts.removeAll { $0.id == alert.id }
+        model.revealableKeys.remove(alert.id)
+        keysHeld.remove(alert.id)
+        if case .key(let shown)? = model.peek, shown.id == alert.id { model.peek = nil }
+        let keys = keyWatch, id = alert.id
+        keyQueue.async { keys.watch.dismiss(id) }
+    }
+
+    /// Show transcript: Finder selects the file. Only inside Claude Code's own
+    /// transcript folders, and only a regular file (metadata); Visor never opens,
+    /// reads or writes it.
+    private func revealKey(_ alert: KeyAlert) {
+        guard KeyNotice.revealable(alert.transcript, roots: Self.claudeProjectRoots), let path = alert.transcript else { return }
+        let url = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+        guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     // MARK: While you were away
 
     /// The screen locked: start noting what finishes.
@@ -962,6 +1078,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// on top of the Agents tab and a 6 s peek. A closed notch switches to the
     /// Agents tab so opening it shows the card; it never opens by itself.
     private func unlockedScreen(at now: Date = Date()) {
+        // A key spotted while locked peeks now, after (in place of) the recap's peek.
+        defer {
+            if let held = KeyNotice.heldAtUnlock(held: keysHeld, standing: model.keyAlerts) { show(.key(held), for: 6) }
+            keysHeld = []
+        }
         let stuck = stuckWatch.active(at: Date())
         guard var digest = awayWatch.unlock(at: now, board: agents, stuck: stuck) else { return }
         // A card still up from an earlier lock keeps what is still unhandled.
@@ -1042,7 +1163,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.activate()
     }
 
-    private func show(_ peek: Peek, for seconds: TimeInterval) {
+    /// Shows a peek for a while; false when a key peek showing kept the notch.
+    @discardableResult
+    private func show(_ peek: Peek, for seconds: TimeInterval) -> Bool {
+        // A key peek is not cut short by other news, which keeps its own card (`KeyNotice.replaces`).
+        guard KeyNotice.replaces(showingKey: model.peek?.isKey == true, incomingIsKey: peek.isKey) else { return false }
         model.peek = peek
         finishedWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
@@ -1054,6 +1179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         finishedWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
+        return true
     }
 
     private func decide(_ request: ApprovalRequest, _ decision: ApprovalRequest.Decision?) {
@@ -1155,4 +1281,9 @@ extension AppDelegate {
             }
         }
     }
+}
+
+/// `KeyWatch`, touched only on `AppDelegate.keyQueue`.
+private final class KeyWatchBox: @unchecked Sendable {
+    var watch = KeyWatch()
 }
