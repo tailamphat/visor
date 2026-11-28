@@ -114,6 +114,7 @@ struct NotchLayout {
                     content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
                 }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
+                if let away = model.away { content += AwayRecapBanner.height(for: away) + 6 }  // what changed while locked
                 if !model.clashes.isEmpty { content += ClashBanner.height + 6 }  // two agents on one file
                 if !model.stuck.isEmpty { content += StuckBanner.height + 6 }  // an agent going round in circles
                 if let handoff = model.handoff { content += HandoffBanner.height(for: handoff) + 6 }  // a Claude limit running out
@@ -255,6 +256,8 @@ struct CollapsedView: View {
                     + handoff.targets.map(\.agent).joined(separator: ", ") + " can take over")
         case .status(let agent, let incident):
             return (agent, incident.title)
+        case .away(let away):
+            return (away.top?.agent ?? "", "\(away.count) " + (away.count == 1 ? "change" : "changes") + " while you were away · \(away.minutes) min")
         case .release(let update):
             let changes = update.changes.isEmpty ? "" : ": " + update.changes.joined(separator: " · ")
             return (update.name, "\(update.name) \(update.latest) (you have \(update.installed))" + changes)
@@ -322,6 +325,16 @@ struct CollapsedView: View {
                 // Counts the badge reaching past the corner.
                 .padding(.trailing, 5)
                 .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .away(let away) = peek, let top = away.top {
+            // The top item's mark with the count on its corner, tinted by what it is.
+            // Laid out beside the mark (not overlaid), so the side is measured to
+            // the badge's real edge whatever the count's width.
+            HStack(alignment: .bottom, spacing: -AwayCountBadge.overlap) {
+                AgentMark(agent: top.agent, size: 16)
+                AwayCountBadge(count: away.count, kind: top.kind).offset(y: 4)
+            }
+            .padding(.trailing, AwayCountBadge.margin)
+            .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash(let clash) = peek {
             // Both agents' marks with an orange ⇄ between them.
             HStack(spacing: 5) {
@@ -382,6 +395,10 @@ struct CollapsedView: View {
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .helperFailed(let failure) = peek {
             Text(failure.text)
+                .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
+                .help(Self.describe(peek).help)
+        } else if let peek = model.peek, case .away = peek {
+            Text("while you were away")
                 .font(DS.font(.base, .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
                 .help(Self.describe(peek).help)
         } else if let peek = model.peek, case .clash = peek {

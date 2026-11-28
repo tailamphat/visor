@@ -13,7 +13,7 @@ Every feature below uses the same labels, in the same order. A label is left out
 
 ## Contents
 
-- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Stuck warning](#stuck-warning), [Limit handoff](#limit-handoff), [Provider status](#provider-status), [MCP servers](#mcp-servers)
+- [Agents](#agents): [Sessions](#sessions), [Subagents](#subagents), [Approvals](#approvals), [Questions](#questions), [Office](#office), [Turn summary](#turn-summary), [Clash warning](#clash-warning), [Stuck warning](#stuck-warning), [While you were away](#while-you-were-away), [Limit handoff](#limit-handoff), [Provider status](#provider-status), [MCP servers](#mcp-servers)
 - [Usage](#usage): [Limits](#limits), [Pace](#pace), [Spend](#spend), [Tokens](#tokens), [Connected accounts](#connected-accounts), [Release radar](#release-radar)
 - [Everyday](#everyday): [Clipboard](#clipboard), [Music](#music), [Keep awake](#keep-awake), [Hello](#hello)
 - [Plugins](#plugins)
@@ -110,6 +110,16 @@ Catch an agent that keeps repeating the same failing call.
 - **How to use:** **Ignore** hides the card; **Open** brings the agent's app forward.
 - **Good to know:** it fires when the same call fails 3 times in a row, or runs 4 times with no edit between and no success (Antigravity: 5 runs back to back). It clears by itself on a success, a different call, an edit, a new prompt, Stop, the session ending or the agent exiting. A 15 minute timeout is only a fallback.
 - **How it works:** it counts hook tool events per session and subagent. Nothing is stored.
+
+### While you were away
+
+See what changed while you were away from the Mac.
+
+- **Works with:** every agent Visor shows. Approvals, questions and Stuck warnings come from hook agents; finished turns from all of them.
+- **What you see:** when you unlock the screen after 10 minutes or more and something changed, the closed notch peeks for 6 s with the top agent's mark, a count and "while you were away". The Agents tab shows one card, "While you were away · 42 min": who waits on you first (approvals, then questions), then Stuck warnings, then finished turns with their files and tests, each with how long ago.
+- **How to use:** **Got it** dismisses the card; **Open** brings the top item's app forward and takes it off the list.
+- **Good to know:** each row goes by itself once handled (answered, unstuck, or the agent works again). Under 10 minutes, or with nothing new, nothing shows. Only a screen lock counts, not sleep.
+- **How it works:** macOS lock and unlock notifications, and the events Visor already gets. Kept in memory only.
 
 ### Limit handoff
 
@@ -279,6 +289,7 @@ Put your own things in the notch with small Lua files.
 | Red or amber dot on a mark | A [provider incident](#provider-status) |
 | Two marks and "same file" | A [clash warning](#clash-warning) |
 | Peek, then a "Stuck?" card | An agent is [stuck](#stuck-warning) on the same call |
+| Peek with a count and "while you were away" | Things [changed while you were away](#while-you-were-away) |
 | Peek about a limit | A [limit handoff](#limit-handoff) is offered |
 
 ## Menu bar settings

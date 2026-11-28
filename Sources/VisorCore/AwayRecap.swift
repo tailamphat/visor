@@ -68,6 +68,15 @@ public struct AwayDigest: Equatable, Sendable {
         return next.items.isEmpty ? nil : next
     }
 
+    /// This recap with the items of an earlier one still on screen (pass it
+    /// already pruned), so a second lock never hides what is still unhandled.
+    /// The title stays this absence's; a session keeps only its newer row.
+    public func adding(_ earlier: AwayDigest) -> AwayDigest {
+        let sessions = Set(items.map(\.session))
+        let kept = earlier.items.filter { !sessions.contains($0.session) }
+        return AwayDigest(since: since, until: until, items: items + kept)
+    }
+
     /// Without the items that have been handled; nil once none are left.
     /// Approvals and questions go once that wait is over, Stuck once its
     /// warning clears, finished once its session works again or ends.
@@ -102,6 +111,13 @@ public struct AwayDigest: Equatable, Sendable {
         case nil: break
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// A waiting row's line. Claude Code's permission notification knows no
+    /// command ("Needs permission"), so it reads "Needs approval" once.
+    static func waitingDetail(_ session: AgentSession) -> String {
+        if case .needsApproval("Needs permission") = session.state { return "Needs approval" }
+        return SessionText.detail(session)
     }
 
     static func kind(of session: AgentSession) -> AwayItem.Kind? {
@@ -151,7 +167,7 @@ public struct AwayWatch: Sendable {
             guard let kind = AwayDigest.kind(of: session) else { continue }
             waiting.insert(session.id)
             items.append(AwayItem(kind: kind, session: session.id, agent: session.agent, project: session.project,
-                                  detail: SessionText.detail(session), at: session.since, key: session.id))
+                                  detail: AwayDigest.waitingDetail(session), at: session.since, key: session.id))
         }
         for warning in stuck where warning.last >= lockedAt {
             let project = board.sessions.first { $0.id == warning.session }?.project ?? warning.agent

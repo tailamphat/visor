@@ -295,4 +295,123 @@ struct AwayRecapTests {
         watch.lock(at: t0)
         #expect(watch.unlock(at: at(900), board: board, stuck: []) == nil)
     }
+
+    @Test func newRecapKeepsEarlierItems() throws {
+        // First lock: api asks for approval, web finishes. Neither is handled.
+        var board = AgentBoard()
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        approval(&board, "api", at: at(60))
+        let turn = finished(&board, "web", at: at(120))
+        watch.noteFinished(turn, at: at(120))
+        let firstUnlock = watch.unlock(at: at(900), board: board, stuck: [])
+        let first = try #require(firstUnlock)
+        // Second lock: docs asks a question; web finishes again.
+        watch.lock(at: at(1000))
+        question(&board, "docs", at: at(1100))
+        let again = finished(&board, "web", at: at(1200))
+        watch.noteFinished(again, at: at(1200))
+        let secondUnlock = watch.unlock(at: at(1700), board: board, stuck: [])
+        let second = try #require(secondUnlock)
+        let merged = second.adding(first)
+        #expect(merged.items.map(\.kind) == [.approval, .question, .finished])
+        #expect(merged.items.map(\.session) == ["api", "docs", "web"])
+        // The later finished row for web wins; the title is the latest absence.
+        #expect(merged.items.last?.at == at(1200))
+        #expect(merged.since == at(1000))
+        #expect(merged.title == second.title)
+    }
+
+    @Test func newRecapDropsEarlierRowOfSameSession() throws {
+        var board = AgentBoard()
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        let turn = finished(&board, "web", at: at(120))
+        watch.noteFinished(turn, at: at(120))
+        let firstUnlock = watch.unlock(at: at(900), board: board, stuck: [])
+        let first = try #require(firstUnlock)
+        watch.lock(at: at(1000))
+        approval(&board, "web", at: at(1100))
+        let secondUnlock = watch.unlock(at: at(1700), board: board, stuck: [])
+        let second = try #require(secondUnlock)
+        // web now waits on you: only that row, not the old finished one.
+        #expect(second.adding(first).items.map(\.kind) == [.approval])
+    }
+
+    // QA cases (I2 QA, cases.md).
+
+    /// QA 1: a turn finishing while locked under 10 minutes gives nothing, with or without 9 min away.
+    @Test func qaFinishWhileShortLockGivesNothing() {
+        for away: Double in [30, 540] {
+            var board = AgentBoard()
+            var watch = AwayWatch()
+            watch.lock(at: t0)
+            watch.noteFinished(finished(&board, "web", at: at(10)), at: at(10))
+            #expect(watch.unlock(at: at(away), board: board, stuck: []) == nil)
+        }
+    }
+
+    /// QA 7: A waits since before the lock; B finished, C stuck, D asks, E wants approval while locked.
+    @Test func qaOrderWithOlderWaitLeftOut() {
+        var board = AgentBoard()
+        approval(&board, "A", at: at(-120))
+        board.apply(hook("UserPromptSubmit", session: "C", extra: ["prompt": "test"]), now: at(-10))
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        watch.noteFinished(finished(&board, "B", at: at(60)), at: at(60))
+        question(&board, "D", at: at(120))
+        approval(&board, "E", at: at(180))
+        let digest = watch.unlock(at: at(42 * 60), board: board, stuck: stuck("C", last: at(90)))
+        #expect(digest?.items.map(\.session) == ["E", "D", "C", "B"])
+        #expect(digest?.items.map(\.kind) == [.approval, .question, .stuck, .finished])
+    }
+
+    /// QA 8: a finished turn that edited 2 files.
+    @Test func qaFinishedRowWithTwoFiles() {
+        var board = AgentBoard()
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        var turn = finished(&board, "web", at: at(100))
+        turn.stats = stats(files: 2, tests: nil)
+        watch.noteFinished(turn, at: at(100))
+        #expect(watch.unlock(at: at(900), board: board, stuck: [])?.top?.detail == "Finished · 2 files")
+    }
+
+    /// QA 12: an approval answered by a new prompt and a question answered drop; then the card goes.
+    @Test func qaAnsweringEachItemClearsTheRecap() {
+        var board = AgentBoard()
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        approval(&board, "api", at: at(60))
+        question(&board, "docs", at: at(70))
+        let digest = watch.unlock(at: at(900), board: board, stuck: [])
+        #expect(digest?.count == 2)
+        board.apply(hook("UserPromptSubmit", session: "api", extra: ["prompt": "go on"]), now: at(1000))
+        let one = digest?.pruned(board: board, stuck: [])
+        #expect(one?.items.map(\.session) == ["docs"])
+        board.apply(hook("PostToolUse", session: "docs", tool: AgentQuestion.tool), now: at(1010))
+        #expect(one?.pruned(board: board, stuck: []) == nil)
+    }
+
+    /// QA 14: 42 minutes away with nothing changing gives nothing.
+    @Test func qaLongLockWithNothingNewGivesNothing() {
+        var board = AgentBoard()
+        board.apply(hook("UserPromptSubmit", session: "api", extra: ["prompt": "work"]), now: at(-60))
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        #expect(watch.unlock(at: at(42 * 60), board: board, stuck: []) == nil)
+    }
+
+    /// An approval known only from Claude Code's permission notification says it once.
+    @Test func approvalFromNotificationSaysItOnce() {
+        var board = AgentBoard()
+        var watch = AwayWatch()
+        watch.lock(at: t0)
+        board.apply(hook("UserPromptSubmit", session: "docs", extra: ["prompt": "push"]), now: at(50))
+        board.apply(hook("Notification", session: "docs", extra: ["notification_type": "permission_prompt",
+                                                                   "message": "Claude needs your permission to use Bash"]), now: at(60))
+        approval(&board, "api", at: at(70))
+        let items = watch.unlock(at: at(900), board: board, stuck: [])?.items
+        #expect(items?.map(\.detail) == ["Needs approval", "Needs approval · Bash: npm install"])
+    }
 }

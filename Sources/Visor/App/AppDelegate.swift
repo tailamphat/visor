@@ -35,7 +35,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// One wake-up at the shown handoff's reset, so it clears without waiting for a reading.
     private var handoffExpiry: DispatchWorkItem?
     private var handoffCopiedWork: DispatchWorkItem?
+    /// The screen lock under way and the turns that finished during it; memory only.
+    private var awayWatch = AwayWatch()
     #if DEBUG
+    /// `_away` "backdate": how much later the next debug unlock counts, so a short test reads as a long absence.
+    private var debugAwayShift: TimeInterval = 0
     /// `_handoff`: a fake Claude limit and pace, and fake other quotas, used in place of the real ones.
     private var debugHandoff: (plan: PlanUsage, runsOutAt: Date, others: [NotchQuota])?
     #endif
@@ -73,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastPublish = Date()
         model.board = agents
+        pruneAway()
         refreshHarness()
         mcp.sessionsChanged(agents.sessions)
         saveAgentsSoon()
@@ -223,6 +228,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.refreshHandoff()
         }
         model.copyHandoff = { [weak self] handoff in self?.copyHandoff(handoff) }
+        model.dismissAway = { [weak self] in self?.dismissAway() }
+        model.openAway = { [weak self] in self?.openAway() }
+        // Screen lock and unlock only (not sleep and wake): the recap is about being away from the desk.
+        let center = DistributedNotificationCenter.default()
+        center.addObserver(forName: NSNotification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.lockedScreen() }
+        }
+        center.addObserver(forName: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.unlockedScreen() }
+        }
 
         restoreAgents()
         // Every launch: the intro, then the full welcome the first time and a short hello after.
@@ -679,6 +694,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
+        // {"event":"_away","raw":{"do":"lock|unlock"}} calls the same lockedScreen()/unlockedScreen() as the real
+        // lock notifications (never post those); "backdate":42 makes the next unlock count 42 min later;
+        // "press":"gotit|open" presses the away card's buttons.
+        if message.event == "_away" {
+            let p = message.payload
+            if let minutes = (p["backdate"] as? NSNumber)?.doubleValue { debugAwayShift = minutes * 60 }
+            switch p["do"] as? String {
+            case "lock": lockedScreen()
+            case "unlock":
+                unlockedScreen(at: Date().addingTimeInterval(debugAwayShift))
+                debugAwayShift = 0
+            default: break
+            }
+            switch p["press"] as? String {
+            case "gotit": model.dismissAway?()
+            case "open": model.openAway?()
+            default: break
+            }
+            return
+        }
         // {"event":"_handoff","raw":{"used":85,"runsOutIn":1200,"resetsIn":2400,"others":[{"agent":"Copilot CLI","left":45}]}}
         // fakes a Claude session limit running out (resetsIn below 0: it has reset); "clear":true drops the
         // fake, "press":"later|copy" presses the handoff card's buttons.
@@ -817,6 +852,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         publishAgents()
         if let done = agents.finished(message) {
+            awayWatch.noteFinished(done, at: Date())
             // Its summary waits behind the peek, unless the notch is already open for something else.
             if !model.expanded && !done.stats.isEmpty { model.summary = done }
             show(.done(done), for: 5)
@@ -834,6 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             agents.setHost(host, session: session.id)
         }
         publishAgents()
+        for done in finished { awayWatch.noteFinished(done, at: Date()) }
         if let done = finished.last { show(.done(done), for: 5) }
     }
 
@@ -885,6 +922,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let now = Date()
         let active = stuckWatch.active(at: now)
         if active != model.stuck { model.stuck = active }
+        pruneAway()
         if case .stuck(let shown)? = model.peek, !active.contains(where: { $0.id == shown.id }) { model.peek = nil }
         stuckExpiry?.cancel()
         stuckExpiry = nil
@@ -892,6 +930,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.refreshStuck() } }
         stuckExpiry = work
         DispatchQueue.main.asyncAfter(deadline: .now() + max(1, next.timeIntervalSince(now) + 0.5), execute: work)
+    }
+
+    // MARK: While you were away
+
+    /// The screen locked: start noting what finishes.
+    private func lockedScreen() {
+        awayWatch.lock(at: Date())
+    }
+
+    /// The screen unlocked: after 10+ minutes with something changed, the card
+    /// on top of the Agents tab and a 6 s peek. A closed notch switches to the
+    /// Agents tab so opening it shows the card; it never opens by itself.
+    private func unlockedScreen(at now: Date = Date()) {
+        let stuck = stuckWatch.active(at: Date())
+        guard var digest = awayWatch.unlock(at: now, board: agents, stuck: stuck) else { return }
+        // A card still up from an earlier lock keeps what is still unhandled.
+        if let earlier = model.away?.pruned(board: agents, stuck: stuck) { digest = digest.adding(earlier) }
+        model.away = digest
+        // The rows' "ago" reads the list's clock, which only ticks while the list shows.
+        model.agentsNow = Date()
+        // Closed, or open only for an approval card that arrived while locked: the
+        // Agents tab is what shows next. The notch never opens for this.
+        if !model.expanded || model.showsCard { model.tab = .agents }
+        // A turn summary from while locked belonged to its "done" peek, which this
+        // one replaces: opening during the peek shows the recap, not that summary.
+        if !model.expanded { model.summary = nil }
+        show(.away(digest), for: 6)
+    }
+
+    /// Drops the items that have been handled, from the card and the peek's
+    /// count, without restarting the peek's timer. Runs only after a change was
+    /// published (board or Stuck), and does nothing without a recap.
+    private func pruneAway() {
+        guard let away = model.away else { return }
+        let next = away.pruned(board: agents, stuck: model.stuck)
+        if next != away { model.away = next }
+        if case .away(let shown)? = model.peek, shown != next { model.peek = next.map(Peek.away) }
+    }
+
+    /// Got it: the card and its peek go.
+    private func dismissAway() {
+        model.away = nil
+        if case .away? = model.peek { model.peek = nil }
+    }
+
+    /// The card's primary button: the top item's app comes forward and the item goes.
+    private func openAway() {
+        guard let away = model.away, let top = away.top else { return }
+        if let session = agents.sessions.first(where: { $0.id == top.session }) { focus(session) }
+        model.away = away.removing(id: top.id)
+        if case .away? = model.peek { model.peek = model.away.map(Peek.away) }
     }
 
     /// A helper failed: peek for 6 s. More failing in the same session while it
