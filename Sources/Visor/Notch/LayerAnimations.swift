@@ -291,3 +291,110 @@ final class TraceBarsView: NSView {
         return bar
     }
 }
+
+/// The cache clock's bar: a track and a fill line whose `strokeEnd` one Core Animation
+/// drains from the time left to empty, ending when the cache goes cold (no timer).
+/// Restarted only when the Stop time or window changes, so the list's 1 s clock
+/// updating this view keeps it running; reopening the list starts it at the right point.
+struct CacheDrainBar: NSViewRepresentable {
+    let stop: Date
+    let window: TimeInterval
+
+    func makeNSView(context: Context) -> CacheDrainBarView {
+        let view = CacheDrainBarView()
+        view.wantsLayer = true
+        return view
+    }
+
+    func updateNSView(_ view: CacheDrainBarView, context: Context) {
+        view.drain = CacheDrainBarView.Drain(stop: stop, window: window)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: CacheDrainBarView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 0, height: DS.Size.bar)
+    }
+}
+
+final class CacheDrainBarView: NSView {
+    struct Drain: Equatable {
+        let stop: Date
+        let window: TimeInterval
+    }
+
+    var drain: Drain? { didSet { if drain != oldValue { needsLayout = true; started = nil } } }
+    /// What the running animation was built from: its drain and the width it spans.
+    private var started: (drain: Drain, width: CGFloat)?
+    private let track = CAShapeLayer()
+    private let fill = CAShapeLayer()
+    private static let trackColor = NSColor(DS.Fill.subtle).cgColor
+    private static let fillColor = NSColor(DS.Palette.mint).cgColor
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        // Core Animation's clock stops while the Mac sleeps: after a wake, rebuild from the wall clock.
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(woke),
+                                                          name: NSWorkspace.didWakeNotification, object: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    @objc private func woke() {
+        started = nil
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        apply()
+    }
+
+    /// Off screen (the list closed): drop the animation; back on screen, rebuild it from now.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        fill.removeAllAnimations()
+        started = nil
+        if window != nil { needsLayout = true }
+    }
+
+    private func apply() {
+        guard let drain, let host = layer, window != nil, bounds.width > 0 else { return }
+        if let started, started.drain == drain, started.width == bounds.width { return }
+        started = (drain, bounds.width)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if track.superlayer == nil {
+            for line in [track, fill] {
+                line.lineCap = .round
+                line.fillColor = nil
+                host.addSublayer(line)
+            }
+            track.strokeColor = Self.trackColor
+            fill.strokeColor = Self.fillColor
+        }
+        let height = bounds.height
+        let path = CGMutablePath()
+        // Round caps reach half the line's width past each end: keep them inside.
+        path.move(to: CGPoint(x: height / 2, y: height / 2))
+        path.addLine(to: CGPoint(x: max(height / 2, bounds.width - height / 2), y: height / 2))
+        for line in [track, fill] {
+            line.frame = bounds
+            line.path = path
+            line.lineWidth = height
+        }
+        let left = max(0, drain.window - Date().timeIntervalSince(drain.stop))
+        let from = drain.window > 0 ? CGFloat(min(1, left / drain.window)) : 0
+        fill.removeAllAnimations()
+        fill.strokeEnd = 0
+        if left > 0 {
+            let run = CABasicAnimation(keyPath: "strokeEnd")
+            run.fromValue = from
+            run.toValue = 0
+            run.duration = left
+            run.timingFunction = CAMediaTimingFunction(name: .linear)
+            // A few points over minutes: a frame or two a second is plenty.
+            run.preferredFrameRateRange = CAFrameRateRange(minimum: 1, maximum: 4, preferred: 2)
+            fill.add(run, forKey: "drain")
+        }
+        CATransaction.commit()
+    }
+}

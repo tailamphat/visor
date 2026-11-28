@@ -57,7 +57,7 @@ public enum Pricing {
 }
 
 /// Token counts of one assistant response, read from a Claude Code transcript.
-public struct TokenUsage: Equatable, Sendable {
+public struct TokenUsage: Equatable, Sendable, Codable {
     public var model: String
     public var timestamp: Date
     public var input = 0

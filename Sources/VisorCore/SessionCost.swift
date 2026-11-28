@@ -144,7 +144,9 @@ public final class SessionCostReader: @unchecked Sendable {
                 if let helperID { tally.helpers[helperID, default: HelperStats()].context(usage) }
                 if let key, !tally.seen.insert(key.hashValue).inserted { return }
                 if let helperID { tally.helpers[helperID, default: HelperStats()].add(usage) }
-                if helperID == nil, usage.timestamp >= (tally.lastReply?.timestamp ?? .distantPast) { tally.lastReply = usage }
+                // A "<synthetic>" reply (API error, interrupt) used no cache: the cache clock keeps the real one.
+                if helperID == nil, !HelperStats.isSynthetic(usage),
+                   usage.timestamp >= (tally.lastReply?.timestamp ?? .distantPast) { tally.lastReply = usage }
                 tally.cost.tokens += usage.input + usage.output + usage.cacheWrite5m + usage.cacheWrite1h
                 if Pricing.price(for: usage.model) == nil {
                     tally.cost.unpriced = true

@@ -108,10 +108,12 @@ struct NotchLayout {
                 let digest = AgentsDigest(sessions: model.board.sessions)
                 var content: CGFloat
                 if digest.capped && !model.agentsShowAll {
-                    content = CGFloat(NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count))
+                    content = CGFloat(NotchEars.agentsDigest(cards: digest.top.count, idleLines: digest.idle.count,
+                                                            cacheRows: AgentBoard.cacheRows(digest.top)))
                 } else {
-                    let sizes = AgentsView.groups(model.board.sessions).map(\.sessions.count)
-                    content = CGFloat(NotchEars.agentsGrid(groupSizes: sizes)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
+                    let groups = AgentsView.groups(model.board.sessions)
+                    let tall = groups.reduce(0) { $0 + AgentBoard.cacheRows($1.sessions) }  // rows with a cache line
+                    content = CGFloat(NotchEars.agentsGrid(groupSizes: groups.map(\.sessions.count), cacheRows: tall)) + (digest.capped ? 6 + 26 : 0)  // "Show fewer"
                 }
                 if !model.hooksInstalled { content += 6 + 26 }  // the Connect button under the list
                 if let away = model.away { content += AwayRecapBanner.height(for: away) + 6 }  // what changed while locked

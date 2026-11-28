@@ -510,9 +510,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Claude Code may still be writing the reply when the hook runs.
         let costReader = costReader
         contextQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            let (reading, model, cost, xray, helperStats) = autoreleasepool {
+            let (reading, model, cost, xray, helperStats, lastReply) = autoreleasepool {
                 let cost = costReader.read(transcript: path, session: session)
-                return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session), costReader.helperStats(session: session))
+                return (Self.contextReading(at: path), Self.claudeModelSetting(), cost, costReader.xray(session: session),
+                        costReader.helperStats(session: session), costReader.lastReply(session: session))
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -521,7 +522,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.costSessions.insert(session)
                     self.agents.setContext(tokens: reading.tokens, model: model, provenWindow: reading.provenWindow, session: session)
                     // A transcript missing for a moment keeps the last cost.
-                    if let cost { self.agents.setCost(cost, session: session) }
+                    // The last reply rides along for the cache clock; the board republishes when it changes.
+                    if let cost { self.agents.setCost(cost, lastReply: lastReply, session: session) }
                     if let xray { self.gotXRay(xray, session: session, path: path) }
                     self.agents.setHelperStats(helperStats, session: session)
                     self.publishAgents()

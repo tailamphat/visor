@@ -203,4 +203,17 @@ struct SessionCostLastReplyTests {
         _ = reader.read(transcript: path, session: "s1")
         #expect(reader.lastReply(session: "s1")?.cacheRead == 700)
     }
+
+    @Test func syntheticReplyIsNotTheLastReply() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("visor-synth-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let path = dir.appendingPathComponent("s1.jsonl").path
+        // An API error or interrupt: Claude Code writes a "<synthetic>" reply with no usage.
+        let synthetic = line("x", at: "2026-11-23T10:03:00Z").replacingOccurrences(of: "claude-opus-4-5", with: "<synthetic>")
+        try Data((line("1", at: "2026-11-23T10:01:00Z", read: 500) + "\n" + synthetic + "\n").utf8).write(to: URL(fileURLWithPath: path))
+        let reader = SessionCostReader()
+        _ = reader.read(transcript: path, session: "s1")
+        #expect(reader.lastReply(session: "s1")?.model == "claude-opus-4-5")
+        #expect(reader.lastReply(session: "s1")?.cacheRead == 500)
+    }
 }

@@ -52,7 +52,7 @@ struct AgentsView: View {
                         .padding(.top, 2)
                         // Two cards a row.
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                            ForEach(group.sessions) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes), stuck: Self.stuck(for: $0, in: model.stuck)) }
+                            cards(group.sessions)
                         }
                         helpers(in: group.sessions)
                     }
@@ -69,6 +69,14 @@ struct AgentsView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Cards in rows of two; both cards of a row with a cache line grow with it.
+    private func cards(_ sessions: [AgentSession]) -> some View {
+        ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+            AgentCard(session: session, focus: model.focusAgent, model: model, clashWith: Self.clash(for: session, in: model.clashes),
+                      stuck: Self.stuck(for: session, in: model.stuck), tall: AgentBoard.cacheRowTall(sessions, index: index))
         }
     }
 
@@ -99,7 +107,7 @@ struct AgentsView: View {
             .frame(height: 15)
             .padding(.top, 2)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                ForEach(digest.top) { AgentCard(session: $0, focus: model.focusAgent, model: model, clashWith: Self.clash(for: $0, in: model.clashes), stuck: Self.stuck(for: $0, in: model.stuck)) }
+                cards(digest.top)
             }
             helpers(in: digest.top)
             foldRow(HStack(spacing: 8) {
@@ -297,6 +305,39 @@ struct AgentClock: View {
     }
 }
 
+/// A finished Claude Code card's cache clock, from the list's one clock: warm in mint
+/// with a bar that drains on its own (`CacheDrainBar`), then cold in grey with what the
+/// next reply re-reads. Only this small view redraws each second; hover reads the full sentence.
+struct CacheLine: View {
+    let session: AgentSession
+    let model: AppModel
+
+    var body: some View {
+        if let last = session.lastReply,
+           let line = CacheClock.line(last: last, stoppedAt: session.since, now: model.agentsNow) {
+            HStack(spacing: DS.Space.sm) {
+                // One size for warm and cold; on a narrow card the number gives way first,
+                // then the label; the price never does.
+                HStack(spacing: DS.Space.none) {
+                    Text(line.label).lineLimit(1).layoutPriority(1)
+                    if !line.detail.isEmpty { Text(line.detail).lineLimit(1) }
+                    if !line.price.isEmpty { Text(line.price).lineLimit(1).fixedSize() }
+                }
+                .font(DS.font(.sm)).foregroundStyle(line.warm ? DS.Palette.mint : Theme.textMuted)
+                .layoutPriority(1)
+                if line.warm {
+                    CacheDrainBar(stop: session.since, window: CacheClock.window(for: last))
+                        .frame(minWidth: DS.Space.xxxl, maxWidth: .infinity)
+                } else {
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(height: 13)
+            .help(line.help)
+        }
+    }
+}
+
 /// One session in the Agents list: the agent's round tile inside a ring that
 /// shows how full its context is (amber from 80%, with the percent under it),
 /// then the project and time, the app, and what it's doing. Half the panel wide.
@@ -309,8 +350,27 @@ struct AgentCard: View {
     var clashWith: String?
     /// This session keeps failing or repeating the same call.
     var stuck: Stuck?
+    /// Its row has a cache line (here or beside it): `NotchEars.cacheLine` taller.
+    var tall = false
 
     var body: some View {
+        VStack(alignment: .leading, spacing: DS.Space.hair) {
+            top
+            if let model, session.showsCacheLine { CacheLine(session: session, model: model) }
+        }
+        .padding(.horizontal, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: NotchEars.agentCard + (tall ? NotchEars.cacheLine : 0))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+            .strokeBorder(outline.map { $0.opacity(Spec.Banner.strokeOpacity) } ?? .clear, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        .onTapGesture { focus?(session) }
+        .help(help)
+    }
+
+    /// The ring and the three lines: project and time, agent and app, what it's doing.
+    private var top: some View {
         HStack(spacing: 9) {
             ringTile
             VStack(alignment: .leading, spacing: 1) {
@@ -354,15 +414,6 @@ struct AgentCard: View {
                 }
             }
         }
-        .padding(.horizontal, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: NotchEars.agentCard)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).fill(Theme.raised))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-            .strokeBorder(outline.map { $0.opacity(Spec.Banner.strokeOpacity) } ?? .clear, lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-        .onTapGesture { focus?(session) }
-        .help(help)
     }
 
     private var needsYou: Bool {

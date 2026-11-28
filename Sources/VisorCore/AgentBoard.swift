@@ -76,6 +76,8 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
     public var contextWindow: Int?
     /// What it has cost so far, from its transcript (`SessionCostReader`).
     public var cost: SessionCost?
+    /// Its main transcript's last reply, for the cache clock. Optional so older saved sessions load.
+    public var lastReply: TokenUsage?
     /// What its harness put in the context before the first prompt (Claude Code), from
     /// its first reply. Optional so older saved sessions load.
     public var xray: HarnessXRay?
@@ -94,6 +96,14 @@ public struct AgentSession: Equatable, Sendable, Identifiable, Codable {
         let name = (cwd as NSString).lastPathComponent
         if !name.isEmpty { return name }
         return agent == "Claude Code" ? "Claude" : agent
+    }
+
+    /// A finished Claude Code turn whose last reply is known, priced and from this
+    /// turn: its card shows the cache line (`CacheClock`).
+    public var showsCacheLine: Bool {
+        guard agent == "Claude Code", state == .done, let lastReply,
+              Pricing.price(for: lastReply.model) != nil else { return false }
+        return lastReply.timestamp >= (turnStart ?? .distantPast)
     }
 
     public var isActive: Bool {
@@ -470,10 +480,23 @@ public struct AgentBoard: Equatable, Sendable {
         }
     }
 
-    /// A session's cost so far, as read from its transcript.
-    public mutating func setCost(_ cost: SessionCost?, session id: String) {
+    /// A session's cost so far and its last reply, as read from its transcript.
+    public mutating func setCost(_ cost: SessionCost?, lastReply: TokenUsage? = nil, session id: String) {
         guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[i].cost = cost
+        if let lastReply { sessions[i].lastReply = lastReply }
+    }
+
+    /// Rows of two cards (in this order) where a card shows the cache line.
+    public static func cacheRows(_ cards: [AgentSession]) -> Int {
+        stride(from: 0, to: cards.count, by: 2).filter { cacheRowTall(cards, index: $0) }.count
+    }
+
+    /// Whether the card at `index` sits in a row with a cache line, so it matches its neighbour.
+    public static func cacheRowTall(_ cards: [AgentSession], index: Int) -> Bool {
+        guard cards.indices.contains(index) else { return false }
+        let start = index - index % 2
+        return cards[start..<min(start + 2, cards.count)].contains(where: \.showsCacheLine)
     }
 
     /// Each helper's stats by agent id; a helper whose meta names its Agent call is linked
@@ -554,6 +577,8 @@ extension AgentBoard {
                 || a.agent != b.agent || a.mode != b.mode || a.host != b.host || a.task != b.task
                 || a.contextPercent.map { Int($0) } != b.contextPercent.map { Int($0) }
                 || Self.helpersDiffer(a.helperList, b.helperList) || a.cost?.label != b.cost?.label || a.xray != b.xray
+                // The last reply shows only in the cache line, so mid-turn replies don't redraw.
+                || ((a.showsCacheLine || b.showsCacheLine) && a.lastReply != b.lastReply)
         }
     }
 }

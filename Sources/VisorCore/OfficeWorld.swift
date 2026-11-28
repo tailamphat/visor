@@ -73,7 +73,15 @@ public struct AgentsDigest: Equatable, Sendable {
             if a.element.since != b.element.since { return a.element.since > b.element.since }
             return a.offset < b.offset
         }.map(\.element)
-        top = capped ? Array(ranked.prefix(limit)) : sessions
+        var top = capped ? Array(ranked.prefix(limit)) : sessions
+        // Cards with the cache line are taller: keep whole rows while they fit where `limit` plain cards would.
+        if capped {
+            let room = NotchEars.cardRows(cards: limit, cacheRows: 0)
+            while top.count > 2, NotchEars.cardRows(cards: top.count, cacheRows: AgentBoard.cacheRows(top)) > room {
+                top.removeLast(top.count % 2 == 0 ? 2 : 1)
+            }
+        }
+        self.top = top
         more = sessions.count - top.count
         func counts(_ list: [AgentSession]) -> [(agent: String, count: Int)] {
             var out: [(agent: String, count: Int)] = []
