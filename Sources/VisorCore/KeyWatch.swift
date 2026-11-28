@@ -115,7 +115,7 @@ public struct KeyWatch: Sendable {
     // MARK: Fields
 
     /// The text an event carries that the agent sends or writes: the prompt,
-    /// a Bash command, or new file text. Nothing else is read.
+    /// a subagent's prompt, a Bash command, or new file text. Nothing else is read.
     static func fields(_ message: HookMessage) -> [(String, KeyAlert.Source)] {
         switch message.event {
         case "UserPromptSubmit":
@@ -140,6 +140,9 @@ public struct KeyWatch: Sendable {
                 return edits.compactMap { $0["new_string"] as? String }.map { ($0, .file) }
             case "notebookedit":
                 return strings("new_source").map { ($0, .file) }
+            case "agent", "task":
+                // A subagent's prompt (Claude Code's Agent/Task, Copilot's task) is sent to the model too.
+                return strings("description", "prompt").map { ($0, .prompt) }
             default:
                 return []
             }

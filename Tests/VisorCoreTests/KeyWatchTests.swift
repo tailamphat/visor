@@ -143,6 +143,29 @@ struct KeyWatchTests {
         expectTrue(watch.record(early, agent: "agent", at: t0) != nil)
     }
 
+    @Test func scansSubagentPrompts() throws {
+        var watch = KeyWatch()
+        let key = F.slackBot(seed: 80)
+        let first = watch.record(tool("Agent", ["description": "check " + key, "prompt": "use " + key, "subagent_type": "general"]),
+                                 agent: "Claude Code", at: t0)
+        expectTrue(first?.source == .prompt)
+        expectTrue(first?.kinds == [.slack])
+        let described = watch.record(tool("Task", ["description": "use " + F.githubClassic(seed: 81), "prompt": "go"]),
+                                     agent: "Claude Code", at: t0)
+        expectTrue(described?.source == .prompt)
+        expectTrue(described?.kinds == [.github])
+        expectTrue(watch.record(tool("Agent", ["description": "again", "prompt": key]), agent: "Claude Code", at: t0) == nil)
+        expectTrue(watch.record(prompt(key), agent: "Claude Code", at: t0) == nil)
+
+        var copilot = KeyWatch()
+        let task = try parsed(provider: "copilot", event: "preToolUse",
+                              raw: ["sessionId": "c", "toolName": "task",
+                                    "toolArgs": ["description": "x", "prompt": "use " + F.slackBot(seed: 82), "agent_type": "explore"]])
+        let alert = copilot.record(task, agent: "Copilot CLI", at: t0)
+        expectTrue(alert?.source == .prompt)
+        expectTrue(alert?.kinds == [.slack])
+    }
+
     @Test func trailingTextIsTheSameKey() {
         var watch = KeyWatch()
         let key = F.openAILegacy(seed: 60)
